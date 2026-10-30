@@ -20,6 +20,13 @@
     balanced: { name: 'Balanced (time vs exposure)', exposureW: 1.5, skylineW: 0.4 },
     covered: { name: 'Covered (avoid enemy observation)', exposureW: 6, skylineW: 1.2 },
   };
+  /** Route mode weights, taking user configuration into account. */
+  M.routeMode = (mode) => {
+    const c = M.CFG;
+    if (mode === 'balanced') return Object.assign({}, M.ROUTE_MODES.balanced, { exposureW: c.expBalanced, skylineW: c.skyBalanced });
+    if (mode === 'covered') return Object.assign({}, M.ROUTE_MODES.covered, { exposureW: c.expCovered, skylineW: c.skyCovered });
+    return M.ROUTE_MODES.fastest;
+  };
 
   /** Max speed (m/s) a profile can reach — keeps the A* heuristic admissible. */
   const vmaxMS = (prof) => (Math.max(prof.speed, prof.road || 0) * (prof.kind === 'foot' ? Math.exp(3.5 * 0.05) : 1)) / 3.6;
@@ -45,6 +52,7 @@
     heap.push(hEst((start / w) | 0, start % w), start);
     const expW = ctx.exposureW || 0, skyW = ctx.skylineW || 0;
     let iter = 0;
+    const nMoves = M.CFG.routeNeighbours === 8 ? 8 : 16;
     while (heap.size) {
       const cur = heap.pop();
       if (closed[cur]) continue;
@@ -53,7 +61,7 @@
       if (progress && (++iter & 0x3ffff) === 0) progress(Math.min(0.95, iter / n));
       const r = (cur / w) | 0, c = cur % w;
       const zc = z[cur], gc = gS[cur];
-      for (let m = 0; m < 16; m++) {
+      for (let m = 0; m < nMoves; m++) {
         const mv = MOVES[m];
         const rr = r + mv.dr, cc = c + mv.dc;
         if (rr < 0 || cc < 0 || rr >= h || cc >= w) continue;
@@ -142,7 +150,7 @@
     const k = Math.max(1, Math.min(4, opts.alternatives || 1));
     const out = [];
     const penalty = new Float32Array(g.w * g.h).fill(1);
-    const rad = Math.max(2, Math.round((opts.separationM || 350) / g.cs));
+    const rad = Math.max(2, Math.round((opts.separationM || M.CFG.altSepM) / g.cs));
     for (let i = 0; i < k + 2 && out.length < k; i++) {
       const res = M.astar(g, Object.assign({}, ctx, { penalty: i ? penalty : null }), start, end,
         progress ? (p) => progress((out.length + p) / k) : null);

@@ -1,6 +1,5 @@
 /*
- * MtnAI ui — monoline / duotone SVG icons (24-unit grid, 1.6 stroke).
- * Paths with class "a" take the signal accent colour.
+ * MtnAI ui — monoline SVG icons (24-unit grid, 1.6 stroke, current text colour).
  * <i data-icon="name"></i> placeholders are filled by UI.applyIcons().
  */
 (function (UI) {
@@ -33,6 +32,12 @@
     target: '<circle cx="12" cy="12" r="7"/><circle class="a" cx="12" cy="12" r="2.5"/>',
     log: '<path d="M5 6h3M5 12h3M5 18h3"/><path class="a" d="M11 6h8M11 12h8M11 18h5"/>',
     copy: '<rect x="8" y="8" width="11" height="12" rx="1"/><path class="a" d="M5 15V5a1 1 0 0 1 1-1h9"/>',
+    save: '<path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
+    plus: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5M8 11h6M11 8v6"/>',
+    minus: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5M8 11h6"/>',
+    ruler: '<path d="m3.5 15.5 12-12 5 5-12 12Z"/><path d="m7 12 1.6 1.6M9.5 9.5l2.4 2.4M12 7l1.6 1.6"/>',
+    doc: '<path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4M9 12h6M9 15h6M9 18h4"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.5"/>',
     zoom: '<circle cx="10.5" cy="10.5" r="6"/><path class="a" d="m15 15 5 5"/>',
     ok: '<path class="a" d="m5 12.5 4.5 4.5L19 7.5"/>',
     err: '<path d="m6 6 12 12M18 6 6 18"/>',

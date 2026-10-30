@@ -61,7 +61,7 @@
         const grad = M.gradient(g);
         const { slope, aspect } = M.slopeAspect(g, grad);
         progress(0.35, 'Topographic position');
-        const radS = Math.max(2, Math.round(250 / g.cs)), radL = Math.max(5, Math.round(1500 / g.cs));
+        const radS = Math.max(2, Math.round(M.CFG.tpiSmallM / g.cs)), radL = Math.max(5, Math.round(M.CFG.tpiLargeM / g.cs));
         const tpiS = M.tpi(g, radS), tpiL = M.tpi(g, radL);
         const landform = M.landforms(tpiS, slope);
         progress(0.6, 'Ruggedness');
@@ -74,14 +74,21 @@
         return { z: g.z.slice(), slope: slope.slice(), aspect: aspect.slice(), landform: landform.slice(), tri: tri.slice(), tpiL: tpiL.slice(), hs, stats };
       },
 
+      /** Update analysis configuration; drops caches that depend on it. */
+      config(cfg) {
+        M.setConfig(cfg);
+        S.hostile = null; S.avCache.clear();
+        return { ok: true, cfg: M.CFG };
+      },
+
       hillshade({ azimuth, altitude, zFactor, multi }) {
         need();
         return { hs: M.hillshade(S.g, S.grad, { azimuth, altitude, zFactor, multi }) };
       },
 
-      contours({ interval }) {
+      contours({ interval, majorEvery }) {
         need();
-        return M.contours(S.g, interval);
+        return M.contours(S.g, interval, majorEvery || 5);
       },
 
       /** Update planning settings (markers, obstacles, profiles...). Invalidates caches. */
@@ -160,7 +167,7 @@
       route({ a, b, profile, mode, alternatives, cpEveryM }, progress) {
         need();
         const m = mob(profile);
-        const md = M.ROUTE_MODES[mode] || M.ROUTE_MODES.fastest;
+        const md = M.routeMode(mode);
         const t = tctx();
         const exposure = md.exposureW ? t.hostileObs() : null;
         let crest = null;

@@ -340,9 +340,13 @@
     if (src.crs.type === 'merc') return Math.abs(src.dx) * Math.cos(M.rad(ll.lat));
     return Math.abs(src.dy) * 111320;
   };
-  const sampleSrc = (src, x, y) => {
+  const sampleSrc = (src, x, y, nearest) => {
     const c = (x - src.x0) / src.dx, r = (y - src.y0) / src.dy;
     if (c < -0.5 || r < -0.5 || c > src.w - 0.5 || r > src.h - 0.5) return NaN;
+    if (nearest) {
+      const v = src.data[Math.min(src.h - 1, Math.max(0, Math.round(r))) * src.w + Math.min(src.w - 1, Math.max(0, Math.round(c)))];
+      return v !== v || (src.nodata !== null && v === src.nodata) || v < -1000 || v > 9000 ? NaN : v;
+    }
     const cc = Math.min(Math.max(c, 0), src.w - 1), rr = Math.min(Math.max(r, 0), src.h - 1);
     const c0 = Math.floor(cc), r0 = Math.floor(rr);
     const c1 = Math.min(c0 + 1, src.w - 1), r1 = Math.min(r0 + 1, src.h - 1);
@@ -383,7 +387,8 @@
   };
 
   /**
-   * Build the analysis grid. opts: {maxCells (default 1024*1024), cs (force), aoi: {E0,E1,N0,N1}, zone}
+   * Build the analysis grid. opts: {maxCells (default 1024*1024), cs (force), aoi: {E0,E1,N0,N1}, zone,
+   *   resample: 'bilinear' | 'nearest'}
    * Rows/cols that fall outside every source are trimmed.
    */
   M.buildGrid = (sources, opts = {}) => {
@@ -408,7 +413,7 @@
         const ll = M.fromUTM(p.E, p.N, g.zone, g.north);
         for (const s of sources) {
           const [x, y] = toSrc(s, ll.lat, ll.lon, p.E, p.N, g.zone);
-          const v = sampleSrc(s, x, y);
+          const v = sampleSrc(s, x, y, opts.resample === 'nearest');
           if (v === v) { z[r * w + c] = v; break; }
         }
       }

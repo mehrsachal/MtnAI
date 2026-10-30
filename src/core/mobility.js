@@ -90,8 +90,9 @@
       const base = onTrack ? prof.road : prof.speed;
       v = base * Math.exp(-3.5 * Math.abs(grade + 0.05)) / Math.exp(-3.5 * 0.05);
       if (!onTrack && cls === 1) v *= 0.7;
-      // reduced work capacity at altitude (~8 % per 1000 m above 2500 m, floor 55 %)
-      if (z > 2500) v *= Math.max(0.55, 1 - 0.08 * ((z - 2500) / 1000));
+      // reduced work capacity at altitude (default ~8 % per 1000 m above 2500 m, floor 55 %)
+      const cfg = M.CFG;
+      if (z > cfg.altStart) v *= Math.max(cfg.altFloor, 1 - cfg.altRate * ((z - cfg.altStart) / 1000));
     } else {
       const lim = prof.slow + 5;
       const gDeg = Math.atan(Math.abs(grade)) * 57.2958;

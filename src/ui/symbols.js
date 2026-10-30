@@ -12,7 +12,13 @@
 (function (UI) {
   'use strict';
 
-  const FILL = { F: '#80E0FF', H: '#FF8080', N: '#AAFFAA', U: '#FFFF80' };
+  // APP-6D / 2525D affiliation fill colours per colour mode
+  const FILLS = {
+    light: { F: '#80E0FF', H: '#FF8080', N: '#AAFFAA', U: '#FFFF80' },
+    medium: { F: '#00A8DC', H: '#FF3031', N: '#00E200', U: '#FFFF00' },
+    dark: { F: '#006B8C', H: '#C80000', N: '#00A000', U: '#E1DC00' },
+  };
+  const opt = (k, d) => (UI.cfg ? UI.cfg(k) : d);
   const CM_COLOR = { F: '#000000', H: '#FF0000', N: '#00A000', U: '#C0A000' };
 
   const FRAMES = {
@@ -115,8 +121,11 @@
       }
       if (spec.text) labels.push({ x: 100, y: 108, text: spec.text, size: 42 });
     }
-    const color = spec.set === 'cm' ? CM_COLOR[affil] : '#000';
-    const dash = spec.planned ? 'stroke-dasharray="10,8"' : '';
+    const filled = !spec.unfilled && opt('sym.filled', true);
+    const FILL = FILLS[opt('sym.colorMode', 'light')] || FILLS.light;
+    // unfilled frames carry the affiliation colour on frame and icon
+    const color = spec.set === 'cm' ? CM_COLOR[affil] : filled ? '#000' : FILLS.medium[affil];
+    const dash = spec.planned && opt('sym.planned', true) ? 'stroke-dasharray="10,8"' : '';
     let body = '';
     // halo (outline) for legibility on any background
     if (frame) body += frame.circle
@@ -125,10 +134,11 @@
     for (const pt of parts) if (!frame || pt.echelon || spec.set === 'cm') body += partSVG(pt, halo, hw, halo);
     // frame fill + outline
     if (frame) {
-      const fill = spec.unfilled ? 'none' : FILL[affil];
+      const fill = filled ? FILL[affil] : 'none';
+      const fs = filled ? '#000' : color;
       body += frame.circle
-        ? `<circle cx="100" cy="100" r="60" fill="${fill}" stroke="#000" stroke-width="${sw}" ${dash}/>`
-        : `<path d="${frame.d}" fill="${fill}" stroke="#000" stroke-width="${sw}" stroke-linejoin="round" ${dash}/>`;
+        ? `<circle cx="100" cy="100" r="60" fill="${fill}" stroke="${fs}" stroke-width="${sw}" ${dash}/>`
+        : `<path d="${frame.d}" fill="${fill}" stroke="${fs}" stroke-width="${sw}" stroke-linejoin="round" ${dash}/>`;
     }
     for (const pt of parts) {
       if (pt.noStroke) body += `<path d="${pt.d}" fill="${color}" stroke="none"/>`;
@@ -155,6 +165,8 @@
   // ---- raster cache for the map renderers
   const cache = new Map();
   let onReady = null;
+  /** Drop rasterised symbols after a symbology setting changed. */
+  UI.symbolCacheClear = () => cache.clear();
   UI.onSymbolReady = (fn) => { onReady = fn; };
 
   /**
@@ -162,7 +174,7 @@
    * or null while the image is still decoding (a redraw is requested once ready).
    */
   UI.symbolImage = (spec, px = 32) => {
-    const key = JSON.stringify(spec) + '|' + px;
+    const key = JSON.stringify(spec) + '|' + px + '|' + opt('sym.colorMode', 'light') + opt('sym.filled', true) + opt('sym.planned', true);
     let e = cache.get(key);
     if (!e) {
       const s = UI.symbolSVG(spec);

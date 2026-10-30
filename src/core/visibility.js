@@ -1,6 +1,6 @@
 /*
  * MtnAI core — intervisibility: viewshed, line of sight and terrain profiles.
- * Earth curvature and standard atmospheric refraction (k = 0.13) are applied.
+ * Earth curvature and atmospheric refraction (default k = 0.13, see M.CFG) are applied.
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function visibility(M) {
   'use strict';
@@ -10,7 +10,7 @@
   /**
    * Radial-sweep viewshed (rays to every perimeter cell of the bounding square,
    * terrain linearly interpolated across the minor axis).
-   * opts: {obsH=2, tgtH=0, radiusM, k=0.13, out?: Uint8Array to OR into, value=1}
+   * opts: {obsH=2, tgtH=0, radiusM, k (refraction, default M.CFG), out?: Uint8Array to OR into, value=1}
    * Returns {mask, visible (cells), r0, c0, R}. mask: 0 = not seen, `value` = seen.
    */
   M.viewshed = (g, r0, c0, opts = {}) => {
@@ -19,7 +19,7 @@
     const obsH = opts.obsH ?? 2, tgtH = opts.tgtH ?? 0;
     const radiusM = opts.radiusM || Math.max(w, h) * cs;
     const R = Math.max(1, Math.ceil(radiusM / cs));
-    const curvK = (1 - (opts.k ?? 0.13)) / (2 * R_EARTH);
+    const curvK = M.CFG.curvature ? (1 - (opts.k ?? M.CFG.refraction)) / (2 * R_EARTH) : 0;
     const mask = opts.out || new Uint8Array(w * h);
     const value = opts.value || 1;
     const zObs = z[r0 * w + c0] + obsH;
@@ -106,7 +106,7 @@
     const obsH = opts.obsH ?? 2, tgtH = opts.tgtH ?? 2;
     const prof = M.terrainProfile(g, [[a.c, a.r], [b.c, b.r]]);
     const D = prof[prof.length - 1].d || 1;
-    const curvK = (1 - (opts.k ?? 0.13)) / (2 * R_EARTH);
+    const curvK = M.CFG.curvature ? (1 - (opts.k ?? M.CFG.refraction)) / (2 * R_EARTH) : 0;
     const zA = prof[0].z + obsH, zB = prof[prof.length - 1].z + tgtH;
     let blockIndex = -1, clearance = Infinity;
     for (let i = 1; i < prof.length - 1; i++) {

@@ -60,7 +60,7 @@
     draw() {
       const ctx = this.ctx, S = this.app.S, g = S.grid;
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      ctx.fillStyle = '#0f111a';
+      ctx.fillStyle = UI.cfg('map.background');
       ctx.fillRect(0, 0, this.W, this.H);
       if (!g || !S.baseCanvas) return;
       const P = { xy: (c, r) => this.toScreen(c, r), ppc: this.view.scale, lw: 1, cs: g.cs };
@@ -70,43 +70,73 @@
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(S.baseCanvas, x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       // frame
-      ctx.strokeStyle = 'rgba(46,230,214,0.35)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(128,128,128,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       const [c0, r0] = this.toCell(0, 0), [c1, r1] = this.toCell(this.W, this.H);
-      if (S.show.grid) UI.drawGridLines(ctx, g, P, [c0, r0, c1, r1], true);
+      UI.drawGrids(ctx, g, P, [c0, r0, c1, r1], { labels: true, viewW: this.W, viewH: this.H });
       UI.drawFeatures(ctx, S, P);
       UI.drawDraft(ctx, S, P);
       if (S.show.symbols) {
         UI.drawSymbols(ctx, UI.symbolItems(S), (c, r) => { const [x, y] = this.toScreen(c, r); return { x, y }; },
-          { size: S.symbolSize, labels: S.show.labels });
+          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels') });
       }
       this._hud(ctx, g);
+      if (this.onRender) this.onRender();
+    }
+
+    /** Representative scale denominator at 0.28 mm / pixel (OGC standard rendering pixel). */
+    scaleDenominator() {
+      const g = this.app.S.grid;
+      return g ? (g.cs / this.view.scale) / 0.00028 : 0;
     }
 
     _hud(ctx, g) {
-      // scale bar
-      const mPerPx = g.cs / this.view.scale;
-      const target = mPerPx * 140;
-      const nice = [50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 50000];
-      let len = nice[0];
-      for (const n of nice) if (n <= target) len = n;
-      const px = len / mPerPx;
-      const x = 16, y = this.H - 18;
+      const F = UI.F;
       ctx.save();
-      ctx.fillStyle = 'rgba(15,17,26,0.78)'; ctx.fillRect(x - 6, y - 22, px + 70, 30);
-      ctx.fillStyle = '#fff'; ctx.fillRect(x, y - 4, px, 4);
-      ctx.fillStyle = '#000'; ctx.fillRect(x + px / 2, y - 4, px / 2, 4);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x, y - 4, px, 4);
-      UI.haloText(ctx, len >= 1000 ? `${len / 1000} km` : `${len} m`, x + px + 6, y - 2, { font: '11px "Segoe UI", Arial' });
-      UI.haloText(ctx, `1:${Math.round((mPerPx / 0.000265) / 1000) * 1000}`.replace(/\B(?=(\d{3})+(?!\d))/g, ','), x, y - 14, { font: '10px "Segoe UI", Arial', color: '#c8d2c8' });
-      // north arrow (grid north)
-      const nx = this.W - 30, ny = this.H - 40;
-      ctx.translate(nx, ny);
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(7, 8); ctx.lineTo(0, 3); ctx.lineTo(-7, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
-      UI.haloText(ctx, 'GN', 0, 18, { align: 'center', font: '700 10px "Segoe UI", Arial' });
+      if (UI.cfg('map.scaleBar')) {
+        const mPerPx = g.cs / this.view.scale;
+        const target = mPerPx * 140;
+        const nice = [50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 50000];
+        let len = nice[0];
+        for (const n of nice) if (n <= target) len = n;
+        const px = len / mPerPx;
+        const x = 14, y = this.H - 16;
+        ctx.fillStyle = 'rgba(20,22,26,0.78)'; ctx.fillRect(x - 6, y - 22, px + 74, 30);
+        for (let k = 0; k < 4; k++) { ctx.fillStyle = k % 2 ? '#000' : '#fff'; ctx.fillRect(x + (k * px) / 4, y - 4, px / 4, 4); }
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(x, y - 4, px, 4);
+        UI.haloText(ctx, F.dist(len), x + px + 6, y - 2, { font: '11px Segoe UI, Arial' });
+        UI.haloText(ctx, `1:${Math.round(this.scaleDenominator() / 100) * 100}`.replace(/\B(?=(\d{3})+(?!\d))/g, ','), x, y - 14, { font: '10px Segoe UI, Arial', color: '#d0d4da' });
+      }
+      // north arrow / declination diagram (GN · TN · MN)
+      const cx = this.W - 46, cy = this.H - 22, L = 44;
+      const c = this.view.cx, r = this.view.cy;
+      const conv = F.convergence(r, c), decl = F.declination();
+      const line = (gridDeg, label, style) => {
+        const a = (gridDeg * Math.PI) / 180;
+        const x2 = cx + Math.sin(a) * L, y2 = cy - Math.cos(a) * L;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.setLineDash(style === 'dash' ? [4, 3] : []);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+        const side = gridDeg === 0 ? 0 : Math.sign(gridDeg);
+        UI.haloText(ctx, label, x2 + Math.sin(a) * 9 + side * 8, y2 - Math.cos(a) * 9, { align: side < 0 ? 'right' : side > 0 ? 'left' : 'center', font: '700 10px Segoe UI, Arial' });
+      };
+      if (UI.cfg('north.diagram')) {
+        // small angles are exaggerated for legibility (values are printed)
+        const vis = (d) => (Math.abs(d) < 0.01 ? 0 : Math.sign(d) * Math.min(40, 8 + Math.abs(d) * 3.5));
+        line(0, 'GN');
+        line(vis(-conv), 'TN', 'dash');
+        if (Math.abs(+UI.cfg('north.declination')) > 0 || Math.abs(+UI.cfg('north.annual')) > 0) line(vis(decl - conv), 'MN', 'dash');
+        ctx.fillStyle = 'rgba(20,22,26,0.78)';
+        const txt = [`γ ${conv >= 0 ? '+' : ''}${conv.toFixed(2)}°`, `δ ${decl >= 0 ? '+' : ''}${decl.toFixed(2)}°`, `GMA ${F.angle(decl - conv)}`];
+        ctx.fillRect(cx - 132, cy - 46, 74, 46);
+        txt.forEach((t, k) => UI.haloText(ctx, t, cx - 128, cy - 38 + k * 14, { font: '10px Consolas, monospace', color: '#d0d4da' }));
+      } else {
+        ctx.translate(cx, cy - 18);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(7, 8); ctx.lineTo(0, 3); ctx.lineTo(-7, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+        UI.haloText(ctx, 'GN', 0, 18, { align: 'center', font: '700 10px Segoe UI, Arial' });
+      }
       ctx.restore();
-      // legend for the moving area hidden on the map edge is provided by #legend
     }
 
     _bind() {

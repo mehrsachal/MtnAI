@@ -29,10 +29,17 @@
   UI.SLOPE_COLORS = ['#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#fee08b', '#fdae61', '#f46d43', '#a50026'];
   UI.ASPECT_COLORS = ['#e8423f', '#f39a2e', '#f2e33a', '#7ccf4a', '#3cc7c2', '#3c8fe0', '#5a52d6', '#c64fc4', '#9a9a9a'];
   UI.LANDFORM_COLORS = ['#2c7fb8', '#7fcdbb', '#c7e9b4', '#fdd49e', '#fc8d59', '#b30000'];
-  UI.MOB_COLORS = [[46, 160, 67, 0.32], [232, 170, 40, 0.55], [217, 58, 50, 0.62]];
+  UI.hexRGB = hex;
+  /** GO / SLOW-GO / NO-GO palette [[r, g, b, a], ...] from the overlay settings. */
+  UI.mobPalette = () => [
+    [...hex(UI.cfg('ovl.goColor')), +UI.cfg('ovl.goAlpha')],
+    [...hex(UI.cfg('ovl.slowColor')), +UI.cfg('ovl.restrictedAlpha')],
+    [...hex(UI.cfg('ovl.nogoColor')), Math.min(1, +UI.cfg('ovl.restrictedAlpha') + 0.05)],
+  ];
   const SLOPE_RGB = UI.SLOPE_COLORS.map(hex), ASPECT_RGB = UI.ASPECT_COLORS.map(hex), LF_RGB = UI.LANDFORM_COLORS.map(hex);
 
-  const shadeK = (hs, i, blend) => (blend && hs ? 0.42 + 0.58 * (hs[i] / 255) : 1);
+  /** blend: hillshade weight 0..1 under colour layers. */
+  const shadeK = (hs, i, blend) => (blend > 0 && hs ? 1 - blend + blend * (hs[i] / 255) : 1);
 
   /** Base layer RGBA. L: {z, slope, aspect, landform, tri, hs}, stats: {elevMin, elevMax}. */
   UI.colorBase = (kind, L, stats, blend) => {
@@ -130,6 +137,7 @@
   const ramp = (stops) => `linear-gradient(90deg, ${stops.map(([t, c]) => `${c} ${Math.round(t * 100)}%`).join(', ')})`;
   const sw = (items) => `<div class="sw">${items.map(([c, t]) => `<i style="background:${c}"></i><span>${t}</span>`).join('')}</div>`;
   const rgba = (p) => `rgba(${p[0]},${p[1]},${p[2]},${Math.min(1, p[3] + 0.25)})`;
+  const col = (k, a) => { const c = hex(UI.cfg(k)); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
 
   UI.legendHTML = (kind, info = {}) => {
     switch (kind) {
@@ -142,13 +150,13 @@
       case 'aspect': return `<h4>Aspect (downslope facing)</h4>` + sw(UI.ASPECT_COLORS.map((c, k) => [c, k < 8 ? UI.M.ASPECT_NAMES[k] : 'Flat']));
       case 'landform': return `<h4>Landforms (TPI)</h4>` + sw(UI.LANDFORM_COLORS.map((c, k) => [c, UI.M.LANDFORMS[k].name]));
       case 'tri': return `<h4>Ruggedness (TRI, m)</h4><div class="ramp" style="background:${ramp(PAL.tri)}"></div><div class="ends"><span>smooth</span><span>${Math.round(info.max || 0)}+</span></div>`;
-      case 'mobility': return `<h4>Mobility — ${info.name || ''}</h4>` + sw([[rgba(UI.MOB_COLORS[0]), `GO ≤ ${info.go}°`], [rgba(UI.MOB_COLORS[1]), `SLOW-GO ≤ ${info.slow}°`], [rgba(UI.MOB_COLORS[2]), 'NO-GO']]);
-      case 'viewshed': return `<h4>Viewshed</h4>` + sw([['rgba(255,226,70,.75)', 'Visible from observer']]);
+      case 'mobility': { const p = UI.mobPalette(); return `<h4>Mobility — ${info.name || ''}</h4>` + sw([[rgba(p[0]), `GO ≤ ${info.go}°`], [rgba(p[1]), `SLOW-GO ≤ ${info.slow}°`], [rgba(p[2]), 'NO-GO']]); }
+      case 'viewshed': return `<h4>Viewshed</h4>` + sw([[col('ovl.viewshedColor', 0.75), 'Visible from observer']]);
       case 'cover': return `<h4>Observation coverage</h4>` + sw([['rgba(150,230,140,.7)', 'seen by 1 post'], ['rgba(60,190,90,.75)', '2 posts'], ['rgba(20,130,60,.8)', '3+ posts']]);
-      case 'dead': return `<h4>Dead ground</h4>` + sw([['rgba(220,60,220,.75)', 'In range, unobserved movement ground']]);
-      case 'wcover': return `<h4>Fields of fire</h4>` + sw([['rgba(255,150,40,.7)', 'Covered by suggested weapons']]);
-      case 'hostile': return `<h4>Enemy observation</h4>` + sw([['rgba(255,70,70,.7)', 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
-      case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([['rgba(255,60,40,.75)', 'Least-time approach corridors']]);
+      case 'dead': return `<h4>Dead ground</h4>` + sw([[col('ovl.deadColor', 0.75), 'In range, unobserved movement ground']]);
+      case 'wcover': return `<h4>Fields of fire</h4>` + sw([[col('ovl.fireColor', 0.7), 'Covered by suggested weapons']]);
+      case 'hostile': return `<h4>Enemy observation</h4>` + sw([[col('ovl.hostileColor', 0.7), 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
+      case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([[col('sym.avenueColor', 0.75), 'Least-time approach corridors']]);
       default: return '';
     }
   };

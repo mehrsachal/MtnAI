@@ -38,7 +38,7 @@
     const Y = (z) => padT + (1 - (z - zMin) / (zMax - zMin)) * (H - padT - padB);
     // grid & axes
     ctx.font = '10.5px ui-monospace, Consolas, monospace';
-    ctx.fillStyle = '#858da0'; ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#858da0'; ctx.strokeStyle = (getComputedStyle(document.body).getPropertyValue('--line') || '#333').trim(); ctx.lineWidth = 1;
     const zs = niceStep(zMax - zMin, 4);
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (let z = Math.ceil(zMin / zs) * zs; z <= zMax; z += zs) {
@@ -101,7 +101,7 @@
       ctx.fillText(m.label, X(m.d), padT + 10);
     }
     ctx.setLineDash([]);
-    if (data.note) { ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillStyle = '#dfe6df'; ctx.font = '11px "Segoe UI", Arial'; ctx.fillText(data.note, W - padR, 2); }
+    if (data.note) { ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillStyle = (getComputedStyle(document.body).getPropertyValue('--text') || '#ddd').trim(); ctx.font = '11px "Segoe UI", Arial'; ctx.fillText(data.note, W - padR, 2); }
   };
 
   /** Vertical bar chart. bars: [{v (0..1), color, label}] */
@@ -130,7 +130,7 @@
     ctx.fillText('ASPECT ROSE', 6, 5);
     const cx = W / 2, cy = H / 2 + 8, R = Math.min(W, H) / 2 - 22;
     const max = Math.max(...fr.slice(0, 8)) || 1;
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.strokeStyle = (getComputedStyle(document.body).getPropertyValue('--line') || '#333').trim();
     for (const k of [0.33, 0.66, 1]) { ctx.beginPath(); ctx.arc(cx, cy, R * k, 0, Math.PI * 2); ctx.stroke(); }
     for (let i = 0; i < 8; i++) {
       const a0 = ((i * 45 - 22.5 - 90) * Math.PI) / 180, a1 = ((i * 45 + 22.5 - 90) * Math.PI) / 180;

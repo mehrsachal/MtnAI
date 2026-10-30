@@ -25,22 +25,23 @@ const { chromium } = require('playwright');
     await p.waitForTimeout(200);
   };
 
+  const tab = async (t) => { if (!(await p.locator(`#rail button[data-tab=${t}].on`).count())) await p.click(`#rail button[data-tab=${t}]`); };
   await p.goto('file://' + page + '#demo');
   await p.waitForFunction(() => window.MTN_UI && MTN_UI.S.grid && MTN_UI.jobSeq >= 1, null, { timeout: 120000 });
   await p.waitForTimeout(500);
   const mode = await p.evaluate(() => MTN_UI.app.engine.mode);
-  await p.click('#tabs button[data-tab=terrain]'); await job('#btnKey');
-  await p.click('#tabs button[data-tab=mobility]'); await job('#btnMob');
+  await tab('terrain'); await job('.panel [data-cmd=key]');
+  await tab('mobility'); await job('.panel [data-cmd=mobility]');
   await shot('mobility');
-  await p.click('#tabs button[data-tab=tactical]');
-  await job('#btnHostile'); await job('#btnAvenues'); await job('#btnPosts');
+  await tab('tactical');
+  await job('.panel [data-cmd=hostile]'); await job('.panel [data-cmd=avenues]'); await job('.panel [data-cmd=posts]');
   await shot('posts');
-  for (const w of ['mg3', 'baktar', 'mor81']) { await p.selectOption('#wpnSelect', w); await job('#btnWeapons'); }
-  await job('#btnMfd');
+  for (const w of ['mg3', 'baktar', 'mor81']) { await p.selectOption('#wpnSelect', w); await job('.panel [data-cmd=weapons]'); }
+  await job('.panel [data-cmd=mfd]');
   await p.click('.item[data-kind=weapon]');
   await shot('tactical');
-  await p.click('#tabs button[data-tab=routes]');
-  await job('#btnRoute'); await job('#btnPicquets');
+  await tab('routes');
+  await job('.panel [data-cmd=route]'); await job('.panel [data-cmd=picquets]');
   await shot('routes');
   await p.click('#btn3d'); await p.waitForTimeout(1500);
   await shot('3d');

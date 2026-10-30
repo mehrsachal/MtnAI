@@ -10,7 +10,22 @@
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function util(M) {
   'use strict';
 
-  M.VERSION = '1.0.0';
+  M.VERSION = '1.1.0';
+
+  /**
+   * Analysis configuration (user settings). The worker receives updates through
+   * the `config` job; every core function reads its defaults from here.
+   */
+  M.CFG = {
+    curvature: true, refraction: 0.13,          // intervisibility
+    altStart: 2500, altRate: 0.08, altFloor: 0.55, // altitude penalty for foot / animal movement
+    routeNeighbours: 16, altSepM: 350,           // routing
+    expBalanced: 1.5, expCovered: 6, skyBalanced: 0.4, skyCovered: 1.2,
+    hostileCount: 5, hostileSearchM: 3000, hostileRangeM: 8000, hostileObsH: 3, // enemy observation
+    tpiSmallM: 250, tpiLargeM: 1500,             // landform scales
+    mfdTieM: 30,                                 // minefield tie-in to No-Go ground
+  };
+  M.setConfig = (c) => Object.assign(M.CFG, c || {});
 
   M.clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   M.lerp = (a, b, t) => a + (b - a) * t;

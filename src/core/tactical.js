@@ -45,7 +45,7 @@
 
   /** Hostile observation: union viewshed of likely enemy OPs on high ground near the threat. */
   M.hostileObservation = (g, L, threat, opts = {}) => {
-    const rad = (opts.searchRadiusM || 3000) / g.cs;
+    const rad = (opts.searchRadiusM || M.CFG.hostileSearchM) / g.cs;
     const items = [];
     const st = stride(g);
     for (let r = Math.max(0, Math.floor(threat.r - rad)); r < Math.min(g.h, threat.r + rad); r += st)
@@ -54,9 +54,9 @@
         const i = r * g.w + c;
         items.push({ r, c, score: L.tpiL[i] / L.sdL + L.tpiS[i] / L.sdS });
       }
-    const obs = M.nms(items, Math.max(3, 600 / g.cs), opts.count || 5);
+    const obs = M.nms(items, Math.max(3, 600 / g.cs), opts.count || M.CFG.hostileCount);
     obs.push({ r: Math.round(threat.r), c: Math.round(threat.c), score: 0, isThreat: true });
-    const count = M.viewshedCount(g, obs, { obsH: opts.obsH ?? 3, tgtH: opts.tgtH ?? 1.5, radiusM: opts.rangeM || 8000 });
+    const count = M.viewshedCount(g, obs, { obsH: opts.obsH ?? M.CFG.hostileObsH, tgtH: opts.tgtH ?? 1.5, radiusM: opts.rangeM || M.CFG.hostileRangeM });
     return { count, observers: obs.map((o) => ({ r: o.r, c: o.c, z: g.z[o.r * g.w + o.c], isThreat: !!o.isThreat })) };
   };
 
@@ -466,7 +466,7 @@
     const cls = mob.cls;
     const maxGap = (opts.maxGapM || (type === 'AT' ? 600 : 300)) / g.cs;
     const depth = (opts.depthM || (type === 'AT' ? 100 : 40)) / g.cs;
-    const tie = Math.max(1, 30 / g.cs);
+    const tie = Math.max(1, M.CFG.mfdTieM / g.cs);
     const minSep = Math.max(3, (opts.minSepM || 400) / g.cs);
     if (!T.threat || !T.own) throw new Error('Place own and enemy positions first — minefields are sited on enemy avenues of approach.');
     progress && progress(0.1, 'Avenues of approach');

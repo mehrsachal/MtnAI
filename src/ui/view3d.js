@@ -74,16 +74,16 @@
   const FS = `#version 300 es
   precision highp float;
   in vec3 vN; in vec2 vUV; in vec3 vW;
-  uniform sampler2D uTex; uniform vec3 uSun; uniform float uSide; uniform vec3 uEye; uniform float uFog;
+  uniform sampler2D uTex; uniform vec3 uSun; uniform float uSide; uniform vec3 uEye; uniform float uFog; uniform float uLight; uniform float uHaze; uniform vec3 uSky;
   out vec4 outColor;
   void main() {
     vec3 n = normalize(vN);
     float l = max(dot(n, uSun), 0.0);
     vec3 base = uSide > 0.5 ? vec3(0.27, 0.23, 0.18) : texture(uTex, vUV).rgb;
-    vec3 col = base * (0.72 + 0.42 * l);
+    vec3 col = base * (1.0 - uLight * 0.7 + uLight * l);
     float d = length(vW - uEye);
     float f = clamp((d - uFog * 0.35) / (uFog * 1.6), 0.0, 0.55);
-    col = mix(col, vec3(0.42, 0.47, 0.56), f);
+    col = mix(col, mix(uSky, vec3(0.60, 0.65, 0.72), 0.6), f * uHaze / 0.55);
     outColor = vec4(col, 1.0);
   }`;
 
@@ -118,7 +118,7 @@
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
       this.prog = p;
       this.u = {};
-      for (const n of ['uMVP', 'uVex', 'uZ0', 'uTex', 'uSun', 'uSide', 'uEye', 'uFog']) this.u[n] = gl.getUniformLocation(p, n);
+      for (const n of ['uMVP', 'uVex', 'uZ0', 'uTex', 'uSun', 'uSide', 'uEye', 'uFog', 'uLight', 'uHaze', 'uSky']) this.u[n] = gl.getUniformLocation(p, n);
       this.tex = gl.createTexture();
       this.aniso = gl.getExtension('EXT_texture_filter_anisotropic');
       gl.enable(gl.DEPTH_TEST);
@@ -139,7 +139,7 @@
       this.g = g; this.z = z;
       const { min, max } = UI.M.minMax(z);
       this.zMin = min; this.zMax = max; this.z0 = (min + max) / 2;
-      const step = Math.max(1, Math.ceil(Math.max(g.w, g.h) / 512));
+      const step = Math.max(1, Math.ceil(Math.max(g.w, g.h) / (+UI.cfg('v3.mesh') || 512)));
       const cols = [], rows = [];
       for (let c = 0; c < g.w; c += step) cols.push(c);
       if (cols[cols.length - 1] !== g.w - 1) cols.push(g.w - 1);
@@ -275,7 +275,7 @@
       const ext = Math.max(this.g.w, this.g.h) * this.g.cs;
       const eye = this.cam.eyeOverride || this.eye();
       const tgt = this.cam.targetOverride || this.cam.target;
-      const proj = m4.persp((45 * Math.PI) / 180, this.W / this.H, Math.max(5, this.cam.dist * 0.01), ext * 6);
+      const proj = m4.persp((+UI.cfg('v3.fov') * Math.PI) / 180, this.W / this.H, Math.max(5, this.cam.dist * 0.01), ext * 6);
       const view = m4.lookAt(eye, tgt, [0, 1, 0]);
       this.vp = m4.mul(proj, view);
       this.ivp = m4.inv(this.vp);
@@ -292,6 +292,8 @@
     draw() {
       const gl = this.gl;
       gl.viewport(0, 0, this.cv.width, this.cv.height);
+      const bg = UI.hexRGB(UI.cfg('v3.sky')).map((v) => v / 255);
+      gl.clearColor(bg[0], bg[1], bg[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       const oc = this.octx;
       oc.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -309,7 +311,11 @@
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.tex);
       gl.uniform1i(this.u.uTex, 0);
-      for (const [m, side] of [[this.mesh, 0], [this.skirt, 1]]) {
+      const sky = UI.hexRGB(UI.cfg('v3.sky')).map((v) => v / 255);
+      gl.uniform1f(this.u.uLight, +UI.cfg('v3.light'));
+      gl.uniform1f(this.u.uHaze, +UI.cfg('v3.haze'));
+      gl.uniform3f(this.u.uSky, sky[0], sky[1], sky[2]);
+      for (const [m, side] of UI.cfg('v3.skirts') ? [[this.mesh, 0], [this.skirt, 1]] : [[this.mesh, 0]]) {
         gl.uniform1f(this.u.uSide, side);
         gl.bindVertexArray(m.vao);
         gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0);
@@ -340,6 +346,9 @@
 
     _overlay(ctx) {
       const S = this.app.S;
+      if (S.draft) {
+        UI.drawDraft(ctx, S, { xy: (c, r) => { const p = this.project([this.wx(c), this.hAt(c, r) + 3, this.wz(r)]); return p ? [p.x, p.y] : null; }, lw: 1 });
+      }
       if (!S.show.symbols) return;
       const items = UI.symbolItems(S);
       UI.drawSymbols(ctx, items, (c, r) => {
@@ -348,7 +357,7 @@
         if (!p || p.x < -50 || p.y < -50 || p.x > this.W + 50 || p.y > this.H + 50) return null;
         p.hidden = this._occluded(w);
         return p;
-      }, { size: S.symbolSize * 0.9, labels: S.show.labels, lift: 26 });
+      }, { size: +UI.cfg('sym.size') * 0.9, labels: S.show.labels && UI.cfg('sym.labels'), lift: +UI.cfg('v3.lift') });
       // compass
       const yaw = this.cam.yaw;
       ctx.save();
@@ -394,7 +403,7 @@
         for (let s = 0; s < n; s++) pts.push([c0 + ((c1 - c0) * s) / n, r0 + ((r1 - r0) * s) / n]);
       }
       pts.push(line[line.length - 1]);
-      const speed = 260; // m per second of animation
+      const speed = +UI.cfg('v3.flySpeed'); // m per second of animation
       const total = pts.length * g.cs;
       const t0 = performance.now();
       const at = (d) => {
@@ -406,7 +415,7 @@
         const d = ((now - t0) / 1000) * speed;
         if (d > total || !this._flying) { this.stopFly(); onEnd && onEnd(); return; }
         const [c, r] = at(d), [ca, ra] = at(d + 450), [cb, rb] = at(Math.max(0, d - 350));
-        const eyeH = Math.max(this.hAt(cb, rb), this.hAt(c, r)) + 140 * this.vex;
+        const eyeH = Math.max(this.hAt(cb, rb), this.hAt(c, r)) + +UI.cfg('v3.flyHeight') * this.vex;
         this.cam.eyeOverride = [this.wx(cb), eyeH, this.wz(rb)];
         this.cam.targetOverride = [this.wx(ca), this.hAt(ca, ra) + 20, this.wz(ra)];
         this.draw();
