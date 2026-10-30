@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MtnAI — Mountain Terrain Analysis</title>
+<meta name="description" content="Offline GIS decision aid for mountain warfare: terrain analysis, Go/No-Go mobility, post / weapon / minefield siting and route planning in 2D and 3D.">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m9 7 1.8 3.2H7.2Z" class="a" fill="currentColor"/></svg>
+    <span class="name">Mtn<b>AI</b></span>
+    <span class="tag">terrain analysis</span>
+  </div>
+  <div id="demName" class="dem-chip">no elevation model</div>
+  <button id="btnPalette" class="cmd" title="Command palette (Ctrl+K)"><i data-icon="command"></i><span>Run a command…</span><kbd>Ctrl K</kbd></button>
+  <div class="top-actions">
+    <div class="seg" role="group" aria-label="View">
+      <button id="btn2d" class="on" title="2D map (key 2)">2D</button><button id="btn3d" title="3D terrain (key 3)">3D</button>
+    </div>
+    <div class="menu">
+      <button id="btnExport" class="ibtn" title="Export"><i data-icon="download"></i><span>Export</span></button>
+      <div class="menu-list" id="exportMenu">
+        <button data-export="geojson">Features → GeoJSON <small>APP-6D SIDCs</small></button>
+        <button data-export="asc">Current raster → ASCII grid <small>.asc + .prj</small></button>
+        <button data-export="png">Current view → PNG</button>
+        <button data-export="plan">Save plan <small>.json</small></button>
+        <label class="menu-file">Load plan <small>.json</small><input type="file" id="planFile" accept=".json"></label>
+        <button data-export="report">Terrain assessment report <small>print / PDF</small></button>
+      </div>
+    </div>
+    <button id="btnRight" class="ibtn icon-only on" title="Toggle output pane"><i data-icon="panel"></i></button>
+    <button id="btnHelp" class="ibtn icon-only" title="Help (?)"><i data-icon="help"></i></button>
+  </div>
+</header>
+
+<main id="app">
+  <!-- ============================== LEFT: controls -->
+  <aside id="side">
+    <nav id="tabs" role="tablist">
+      <button data-tab="data" class="on"><i data-icon="data"></i><span>Data</span></button>
+      <button data-tab="terrain"><i data-icon="terrain"></i><span>Terrain</span></button>
+      <button data-tab="mobility"><i data-icon="mobility"></i><span>Mobility</span></button>
+      <button data-tab="tactical"><i data-icon="tactical"></i><span>Tactical</span></button>
+      <button data-tab="routes"><i data-icon="route"></i><span>Routes</span></button>
+      <button data-tab="tools"><i data-icon="tools"></i><span>Tools</span></button>
+      <button data-tab="layers"><i data-icon="layers"></i><span>Layers</span></button>
+    </nav>
+    <div id="panels">
+
+      <section class="panel on" data-panel="data">
+        <h3>Elevation model</h3>
+        <div class="row">
+          <label class="btn primary file"><i data-icon="open"></i>Open DEM<input type="file" id="demFiles" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
+          <button id="btnDemo" class="btn"><i data-icon="terrain"></i>Demo terrain</button>
+        </div>
+        <p class="hint">SRTM <code>.hgt</code> · GeoTIFF (EPSG:4326 / WGS84-UTM / 3857) · ESRI <code>.asc</code> · <code>.zip</code>. Tiles are mosaicked; drag &amp; drop works. Nothing leaves this computer.</p>
+        <div class="grid2">
+          <label>Max grid<select id="optMaxCells">
+            <option value="262144">512 × 512</option><option value="589824">768 × 768</option>
+            <option value="1048576" selected>1024 × 1024</option><option value="2359296">1536 × 1536</option></select></label>
+          <label>UTM zone (projected .asc)<input id="optAscZone" value="43N" size="4"></label>
+        </div>
+        <div class="row"><button id="btnAOI" class="btn" disabled><i data-icon="crop"></i>Crop to AOI</button><button id="btnAOIReset" class="btn ghost" disabled>Full extent</button></div>
+        <div id="demInfo" class="kv"></div>
+        <div id="demCharts" class="charts"></div>
+      </section>
+
+      <section class="panel" data-panel="terrain">
+        <h3>Base layer</h3>
+        <div class="radio-list" id="baseLayers">
+          <label><input type="radio" name="base" value="relief" checked> Shaded relief</label>
+          <label><input type="radio" name="base" value="elevation"> Elevation (hypsometric)</label>
+          <label><input type="radio" name="base" value="slope"> Slope</label>
+          <label><input type="radio" name="base" value="aspect"> Aspect</label>
+          <label><input type="radio" name="base" value="landform"> Landforms (TPI slope position)</label>
+          <label><input type="radio" name="base" value="tri"> Ruggedness (TRI)</label>
+        </div>
+        <label class="check"><input type="checkbox" id="optBlend" checked> Blend hillshade under colour layers</label>
+        <div class="grid2">
+          <label>Sun azimuth <output id="azOut">315°</output><input type="range" id="optAz" min="0" max="359" value="315"></label>
+          <label>Sun altitude <output id="altOut">45°</output><input type="range" id="optAlt" min="10" max="80" value="45"></label>
+        </div>
+        <label>Vertical exaggeration (3D) <output id="vexOut">1.5×</output><input type="range" id="optVex" min="1" max="4" step="0.1" value="1.5"></label>
+        <h3>Contours &amp; grid</h3>
+        <div class="grid2">
+          <label class="check"><input type="checkbox" id="optContours" checked> Contours</label>
+          <label>Interval<select id="optInterval"><option value="0">auto</option><option>10</option><option>20</option><option>25</option><option>50</option><option>100</option><option>200</option></select></label>
+          <label class="check"><input type="checkbox" id="optGrid" checked> MGRS 1 km grid</label>
+          <label class="check"><input type="checkbox" id="optSpot" checked> Spot heights &amp; cols</label>
+        </div>
+        <h3>Key terrain</h3>
+        <p class="hint">Dominating heights (summits with high topographic position) and passes / cols (saddles).</p>
+        <button class="btn primary" id="btnKey" disabled><i data-icon="peak"></i>Detect heights &amp; passes</button>
+        <div id="keyList" class="list"></div>
+      </section>
+
+      <section class="panel" data-panel="mobility">
+        <h3>Cross-country movement</h3>
+        <label>Movement class<select id="mobProfile"></select></label>
+        <div class="grid2">
+          <label>GO ≤ (deg)<input type="number" id="mobGo" min="1" max="60" step="1"></label>
+          <label>SLOW-GO ≤ (deg)<input type="number" id="mobSlow" min="2" max="70" step="1"></label>
+          <label>Snow line (m, 0 = off)<input type="number" id="mobSnow" value="0" step="100" min="0"></label>
+          <label>Style<select id="mobStyle"><option value="fill">Colour fill</option><option value="hatch">Doctrinal hatching</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="mobGeneral"> Generalise (3×3 majority)</label>
+        <button class="btn primary" id="btnMob" disabled><i data-icon="mobility"></i>Compute Go / No-Go</button>
+        <div id="mobStats"></div>
+        <h3>Obstacles &amp; tracks</h3>
+        <p class="hint">Digitise what the DEM cannot show: rivers, glaciers, cliffs, built-up areas (No-Go) and jeep / mule tracks (always GO, faster). Click vertices, double-click to finish, Esc cancels.</p>
+        <div class="row">
+          <button class="btn" id="btnObstacle" disabled><i data-icon="nogo"></i>No-Go area</button>
+          <button class="btn" id="btnTrack" disabled><i data-icon="track"></i>Track / road</button>
+          <button class="btn ghost" id="btnClearObs" disabled>Clear</button>
+        </div>
+        <div id="obsInfo" class="hint"></div>
+      </section>
+
+      <section class="panel" data-panel="tactical">
+        <h3>Situation</h3>
+        <div class="row markers">
+          <button class="btn mk" id="btnOwn" disabled><span class="sym" id="symOwn"></span>Own</button>
+          <button class="btn mk" id="btnThreat" disabled><span class="sym" id="symThreat"></span>Enemy</button>
+          <button class="btn mk" id="btnTarget" disabled><span class="sym" id="symTarget"></span>Target</button>
+        </div>
+        <div class="grid2">
+          <label>Enemy threat<select id="threatType"><option value="foot">Infantry (dismounted)</option><option value="jeep">Wheeled / mechanised</option><option value="tracked">Armour (tracked)</option></select></label>
+          <label>Own echelon<select id="ownEchelon"><option value="company">Company</option><option value="battalion" selected>Battalion</option><option value="brigade">Brigade</option></select></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnHostile" disabled><i data-icon="eye"></i>Enemy observation</button>
+          <button class="btn" id="btnAvenues" disabled><i data-icon="axis"></i>Avenues of approach</button>
+        </div>
+        <div id="sitInfo" class="hint"></div>
+
+        <details open><summary>Posts / OPs</summary>
+          <div class="grid2">
+            <label>Number<input type="number" id="postCount" value="5" min="1" max="20"></label>
+            <label>Type<select id="postType"><option value="post">Defended post</option><option value="op">Observation post</option></select></label>
+            <label>Strength<select id="postEchelon"><option value="section">Section</option><option value="platoon" selected>Platoon</option><option value="company">Company</option></select></label>
+            <label>Observation range (m)<input type="number" id="postRange" value="3000" step="250" min="500"></label>
+            <label>Min separation (m)<input type="number" id="postSep" value="600" step="50" min="100"></label>
+            <label>Max from own (m)<input type="number" id="postMaxOwn" value="7000" step="500" min="500"></label>
+          </div>
+          <button class="btn primary" id="btnPosts" disabled><i data-icon="post"></i>Suggest posts</button>
+          <div id="postList" class="list"></div>
+        </details>
+
+        <details open><summary>Weapon sites</summary>
+          <label>Weapon<select id="wpnSelect"></select></label>
+          <div class="grid2" id="wpnParams"></div>
+          <div class="grid2">
+            <label>Number<input type="number" id="wpnCount" value="3" min="1" max="12"></label>
+            <label>Defended area radius (m)<input type="number" id="wpnRadius" value="3000" step="250" min="250"></label>
+          </div>
+          <div class="row"><button class="btn primary" id="btnWeapons" disabled><i data-icon="tactical"></i>Suggest sites</button><button class="btn ghost" id="btnClearWeapons" disabled>Clear</button></div>
+          <div id="wpnList" class="list"></div>
+        </details>
+
+        <details open><summary>Minefields (Mfd)</summary>
+          <div class="grid2">
+            <label>Type<select id="mfdType"><option value="AT">Anti-tank (AT)</option><option value="AP">Anti-personnel (AP)</option></select></label>
+            <label>Number<input type="number" id="mfdCount" value="4" min="1" max="12"></label>
+            <label>Max gap width (m)<input type="number" id="mfdGap" value="600" step="50" min="50"></label>
+            <label>Depth (m)<input type="number" id="mfdDepth" value="100" step="10" min="10"></label>
+            <label>Density (mines / m)<input type="number" id="mfdDensity" value="1" step="0.25" min="0.1"></label>
+            <label>Max from own (m)<input type="number" id="mfdMaxOwn" value="3000" step="250" min="250"></label>
+          </div>
+          <button class="btn primary" id="btnMfd" disabled><i data-icon="mine"></i>Suggest minefields</button>
+          <div id="mfdList" class="list"></div>
+        </details>
+      </section>
+
+      <section class="panel" data-panel="routes">
+        <h3>Route A → B</h3>
+        <div class="row markers">
+          <button class="btn mk" id="btnA" disabled><span class="sym" id="symA"></span>Start A</button>
+          <button class="btn mk" id="btnB" disabled><span class="sym" id="symB"></span>End B</button>
+          <button class="btn ghost" id="btnSwapAB" disabled title="Swap A and B">⇄</button>
+        </div>
+        <div class="grid2">
+          <label>Movement class<select id="routeProfile"></select></label>
+          <label>Mode<select id="routeMode"><option value="fastest">Fastest</option><option value="balanced">Balanced</option><option value="covered">Covered (avoid enemy obs)</option></select></label>
+          <label>Alternatives<select id="routeAlt"><option>1</option><option selected>2</option><option>3</option></select></label>
+          <label>Checkpoint every (m)<input type="number" id="routeCP" value="1000" step="250" min="0"></label>
+        </div>
+        <button class="btn primary" id="btnRoute" disabled><i data-icon="route"></i>Find route</button>
+        <div id="routeList" class="list"></div>
+        <h3>Route protection</h3>
+        <p class="hint">Picquets on the heights dominating the selected route — "crowning the heights".</p>
+        <div class="grid2">
+          <label>Picquet obs range (m)<input type="number" id="pqRange" value="1500" step="100" min="300"></label>
+          <label>Number (0 = auto)<input type="number" id="pqCount" value="0" min="0" max="30"></label>
+        </div>
+        <div class="row"><button class="btn" id="btnPicquets" disabled><i data-icon="post"></i>Suggest picquets</button><button class="btn" id="btnFly" disabled><i data-icon="fly"></i>Fly route (3D)</button></div>
+        <div id="pqList" class="list"></div>
+      </section>
+
+      <section class="panel" data-panel="tools">
+        <h3>Line of sight</h3>
+        <div class="grid2">
+          <label>Observer height (m)<input type="number" id="losObs" value="2" step="0.5"></label>
+          <label>Target height (m)<input type="number" id="losTgt" value="2" step="0.5"></label>
+        </div>
+        <button class="btn" id="btnLOS" disabled><i data-icon="los"></i>Pick observer → target</button>
+        <div id="losInfo" class="hint"></div>
+        <h3>Viewshed</h3>
+        <div class="grid2">
+          <label>Observer height (m)<input type="number" id="vsObs" value="2" step="0.5"></label>
+          <label>Target height (m)<input type="number" id="vsTgt" value="1.5" step="0.5"></label>
+          <label>Radius (m)<input type="number" id="vsRadius" value="5000" step="500"></label>
+        </div>
+        <button class="btn" id="btnVS" disabled><i data-icon="eye"></i>Pick observer point</button>
+        <div id="vsInfo" class="hint"></div>
+        <h3>Measure</h3>
+        <button class="btn" id="btnMeasure" disabled><i data-icon="tools"></i>Distance &amp; bearing</button>
+        <div id="measureInfo" class="hint"></div>
+        <h3>Go to grid reference</h3>
+        <div class="row"><input id="gotoMGRS" placeholder="43S DV 1950 5100" class="grow mono"><button class="btn" id="btnGoto" disabled>Go</button></div>
+      </section>
+
+      <section class="panel" data-panel="layers">
+        <h3>Raster overlays</h3>
+        <div id="overlayList" class="layer-list"></div>
+        <h3>Features</h3>
+        <div id="featureList" class="layer-list"></div>
+        <label>Symbol size <output id="symOut">30 px</output><input type="range" id="optSymSize" min="18" max="56" value="30"></label>
+        <label class="check"><input type="checkbox" id="optLabels" checked> Labels</label>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ============================== CENTER: map / 3D -->
+  <div id="stage">
+    <canvas id="map2d"></canvas>
+    <canvas id="gl3d" hidden></canvas>
+    <canvas id="ovl3d" hidden></canvas>
+    <div id="welcome">
+      <div class="wl-mark"><svg viewBox="0 0 24 24" width="44" height="44"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="m9 7 1.8 3.2H7.2Z" fill="currentColor"/></svg></div>
+      <h1>Mountain terrain analysis</h1>
+      <p>Load an elevation model or start with the synthetic training area. Runs fully offline.</p>
+      <div class="row center"><label class="btn primary file"><i data-icon="open"></i>Open DEM<input type="file" id="demFiles2" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label><button class="btn" id="btnDemo2"><i data-icon="terrain"></i>Demo terrain</button></div>
+      <p class="kbd-hint">Press <kbd>Ctrl</kbd> <kbd>K</kbd> for commands</p>
+    </div>
+    <div id="busy" hidden><div class="track"><i id="busyBar"></i></div><div class="chip"><span class="pulse"></span><span id="busyMsg">Working…</span></div></div>
+    <div id="toolHint" hidden></div>
+    <div id="mapCtl">
+      <button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zoomFit" title="Fit (F)"><i data-icon="fit"></i></button>
+    </div>
+    <div id="toast" hidden></div>
+    <div id="drawer" hidden>
+      <div class="drawer-head"><span id="drawerTitle">Profile</span><button id="drawerClose" title="Close">×</button></div>
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ============================== RIGHT: output / metadata -->
+  <aside id="right">
+    <section class="rsec" data-open="1">
+      <header><i data-icon="target"></i>Selection</header>
+      <div class="rbody" id="selBody"><p class="hint">Click a symbol on the map or an item in a list.</p></div>
+    </section>
+    <section class="rsec" data-open="1">
+      <header><i data-icon="layers"></i>Legend</header>
+      <div class="rbody" id="legend"><p class="hint">No active layer.</p></div>
+    </section>
+    <section class="rsec grow" data-open="1">
+      <header><i data-icon="log"></i>Analysis log<button id="logClear" class="link" title="Clear log">clear</button></header>
+      <div class="rbody" id="log"></div>
+    </section>
+  </aside>
+</main>
+
+<footer id="status">
+  <span><b>MGRS</b> <i id="stMGRS">—</i></span>
+  <span><b>LAT/LON</b> <i id="stLL">—</i></span>
+  <span><b>ELEV</b> <i id="stZ">—</i></span>
+  <span><b>SLOPE</b> <i id="stSlope">—</i></span>
+  <span><b>ASPECT</b> <i id="stAspect">—</i></span>
+  <span><b>LANDFORM</b> <i id="stLF">—</i></span>
+  <span><b>MOBILITY</b> <i id="stMob">—</i></span>
+  <span class="right" id="stInfo"><span class="dot"></span>offline · local processing</span>
+</footer>
+
+<dialog id="help">
+  <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+  <div id="helpBody"></div>
+</dialog>
+
+<div id="palette" hidden>
+  <div class="pal-box">
+    <div class="pal-in"><i data-icon="command"></i><input id="palInput" placeholder="Type a command — e.g. route, posts, mobility, export" autocomplete="off" spellcheck="false"></div>
+    <div id="palList"></div>
+  </div>
+</div>
+
+<!-- core analysis library (also serialised into the Web Worker) -->
+<script src="src/core/util.js"></script>
+<script src="src/core/geo.js"></script>
+<script src="src/core/grid.js"></script>
+<script src="src/core/terrain.js"></script>
+<script src="src/core/mobility.js"></script>
+<script src="src/core/visibility.js"></script>
+<script src="src/core/routing.js"></script>
+<script src="src/core/weapons.js"></script>
+<script src="src/core/tactical.js"></script>
+<script src="src/core/synthetic.js"></script>
+<script src="src/core/jobs.js"></script>
+<script src="src/io/dem-io.js"></script>
+<!-- user interface -->
+<script src="src/ui/icons.js"></script>
+<script src="src/ui/symbols.js"></script>
+<script src="src/ui/engine.js"></script>
+<script src="src/ui/colormaps.js"></script>
+<script src="src/ui/overlay.js"></script>
+<script src="src/ui/map2d.js"></script>
+<script src="src/ui/view3d.js"></script>
+<script src="src/ui/chart.js"></script>
+<script src="src/ui/export.js"></script>
+<script src="src/ui/help.js"></script>
+<script src="src/ui/app.js"></script>
+</body>
+</html>

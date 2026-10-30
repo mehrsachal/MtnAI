@@ -1,0 +1,15 @@
+{
+  "name": "mtnai",
+  "version": "1.0.0",
+  "description": "Offline GIS decision aid for mountain warfare: terrain analysis, Go/No-Go mobility, post / weapon / minefield siting and route planning in 2D and 3D with NATO APP-6D symbology.",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "build": "node tools/build.mjs",
+    "e2e": "node tools/e2e-smoke.cjs",
+    "start": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
