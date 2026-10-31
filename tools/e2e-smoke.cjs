@@ -25,25 +25,44 @@ const { chromium } = require('playwright');
     await p.waitForTimeout(200);
   };
 
-  const tab = async (t) => { if (!(await p.locator(`#rail button[data-tab=${t}].on`).count())) await p.click(`#rail button[data-tab=${t}]`); };
+  // Run a geoprocessing tool from the ribbon: open its pane, optionally set parameters, press Run.
+  const rbTab = async (t) => { if (!(await p.locator(`#rbTabs [data-rbtab=${t}].on`).count())) await p.click(`#rbTabs [data-rbtab=${t}]`); };
+  const gp = async (tabName, tool, setup) => {
+    await rbTab(tabName);
+    await p.click(`#rbBody [data-cmd="gp:${tool}"]`);
+    if (setup) await setup();
+    await job('#gpPane [data-run]');
+    const msg = await p.textContent('#gpPane .gp-msg');
+    if (/Failed/.test(msg)) throw new Error(`${tool}: ${msg}`);
+  };
   await p.goto('file://' + page + '#demo');
   await p.waitForFunction(() => window.MTN_UI && MTN_UI.S.grid && MTN_UI.jobSeq >= 1, null, { timeout: 120000 });
   await p.waitForTimeout(500);
   const mode = await p.evaluate(() => MTN_UI.app.engine.mode);
-  await tab('terrain'); await job('.panel [data-cmd=key]');
-  await tab('mobility'); await job('.panel [data-cmd=mobility]');
+  await gp('analysis', 'keyTerrain');
+  await gp('analysis', 'mobility');
   await shot('mobility');
-  await tab('tactical');
-  await job('.panel [data-cmd=hostile]'); await job('.panel [data-cmd=avenues]'); await job('.panel [data-cmd=posts]');
+  await gp('analysis', 'hostile');
+  await gp('analysis', 'avenues');
+  await gp('analysis', 'posts', async () => {
+    await p.click('#gpPane [data-sec="posts:Site constraints"]');
+    await p.fill('#gpPane [data-k=maxSlope]', '32'); await p.press('#gpPane [data-k=maxSlope]', 'Tab');
+  });
   await shot('posts');
-  for (const w of ['mg3', 'baktar', 'mor81']) { await p.selectOption('#wpnSelect', w); await job('.panel [data-cmd=weapons]'); }
-  await job('.panel [data-cmd=mfd]');
-  await p.click('.item[data-kind=weapon]');
+  for (const w of ['mg3', 'baktar', 'mor81']) await gp('analysis', 'weapons', () => p.selectOption('#gpPane [data-k=weaponId]', w));
+  await gp('analysis', 'mfd');
+  await rbTab('map'); await p.click('#rbBody [data-cmd=attrTable]');
+  await p.click('#attrTable tbody tr:nth-child(3)');
   await shot('tactical');
-  await tab('routes');
-  await job('.panel [data-cmd=route]'); await job('.panel [data-cmd=picquets]');
+  await gp('analysis', 'route');
+  await gp('analysis', 'picquets');
   await shot('routes');
-  await p.click('#btn3d'); await p.waitForTimeout(1500);
+  // Contents pane: toggle a layer, open its properties
+  await p.click('#toc [data-layer="dem"]', { clickCount: 2 });
+  await p.waitForTimeout(300);
+  await shot('props');
+  await p.click('#props [data-close]');
+  await p.click('#vtScene'); await p.waitForTimeout(1500);
   await shot('3d');
 
   const res = await p.evaluate(() => {
@@ -54,12 +73,13 @@ const { chromium } = require('playwright');
       minefields: S.mfd ? S.mfd.fields.length : 0,
       routes: S.routes ? S.routes.routes.length : 0,
       picquets: S.picquets ? S.picquets.picquets.length : 0,
-      failedJobs: document.querySelectorAll('.log-e.err').length,
+      failedJobs: document.querySelectorAll('#log td.err').length,
+      tocLayers: document.querySelectorAll('#toc [data-layer]').length,
     };
   });
   await browser.close();
   console.log(`engine: ${mode}`, JSON.stringify(res));
-  const ok = !errors.length && !res.failedJobs && res.posts && res.weapons.every(Boolean) && res.minefields && res.routes && res.picquets;
+  const ok = !errors.length && !res.failedJobs && res.posts && res.weapons.every(Boolean) && res.minefields && res.routes && res.picquets && res.tocLayers > 8;
   if (!ok) { console.error('SMOKE TEST FAILED', errors); process.exit(1); }
   console.log('smoke test passed');
 })();

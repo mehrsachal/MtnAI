@@ -33,11 +33,12 @@
     const tctx = () => ({
       g: S.g, L: S.L, mob, own: S.settings.own || null, threat: S.settings.threat || null, target: S.settings.target || null,
       threatProfile: S.settings.threatProfile || 'foot',
-      avenues: (id) => {
-        const key = id + JSON.stringify([S.settings.own, S.settings.threat]);
+      avenues: (id, o) => {
+        const ao = Object.assign({}, S.settings.avenueOpts || {}, o || {});
+        const key = id + JSON.stringify([S.settings.own, S.settings.threat, ao]);
         if (!S.avCache.has(key)) {
           if (!S.settings.own || !S.settings.threat) return null;
-          S.avCache.set(key, M.avenuesOfApproach(S.g, mob(id), S.settings.threat, S.settings.own, { slope: S.L.slope, k: 3 }));
+          S.avCache.set(key, M.avenuesOfApproach(S.g, mob(id), S.settings.threat, S.settings.own, Object.assign({ slope: S.L.slope }, ao)));
         }
         return S.avCache.get(key);
       },
@@ -140,10 +141,11 @@
         return { count: S.hostile.count.slice(), observers: S.hostile.observers };
       },
 
-      avenues({ profile }, progress) {
+      avenues({ profile, k, separationM, bufferM }, progress) {
         need();
         if (!S.settings.own || !S.settings.threat) throw new Error('Place both own and enemy positions first.');
         progress(0.2, 'Least-time enemy approaches');
+        S.settings.avenueOpts = { k, separationM, bufferM };
         const av = tctx().avenues(profile || S.settings.threatProfile || 'foot');
         return { routes: av.routes.map((r) => ({ line: r.line, lengthM: r.lengthM, timeH: r.timeH, slowFrac: r.slowFrac })), density: av.density.slice() };
       },
@@ -164,19 +166,20 @@
         return M.siteMinefields(tctx(), opts, progress);
       },
 
-      route({ a, b, profile, mode, alternatives, cpEveryM }, progress) {
+      route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM }, progress) {
         need();
         const m = mob(profile);
-        const md = M.routeMode(mode);
+        const md = mode === 'custom' ? { exposureW: exposureW || 0, skylineW: skylineW || 0 } : M.routeMode(mode);
         const t = tctx();
-        const exposure = md.exposureW ? t.hostileObs() : null;
+        // Exposure is always assessed when the enemy is known (route statistics), and only penalised when weighted.
+        const exposure = S.settings.threat ? t.hostileObs() : null;
         let crest = null;
         if (md.skylineW) { crest = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < crest.length; i++) crest[i] = S.L.landform[i] === 5 ? 1 : 0; }
         const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW };
         const sa = cellIdx(a), sb = cellIdx(b);
         if (m.cls[sa] === 2) throw new Error('Start point is in No-Go terrain for this movement class.');
         if (m.cls[sb] === 2) throw new Error('End point is in No-Go terrain for this movement class.');
-        const routes = M.findRoutes(S.g, ctx, sa, sb, { alternatives, cpEveryM, separationM: 350 }, (p) => progress(p, 'Searching'));
+        const routes = M.findRoutes(S.g, ctx, sa, sb, { alternatives, cpEveryM, separationM: separationM || M.CFG.altSepM }, (p) => progress(p, 'Searching'));
         if (!routes.length) throw new Error('No route found — A and B are not connected for this movement class.');
         return {
           routes: routes.map((r) => Object.assign({}, r, { path: r.path, profile: M.terrainProfile(S.g, r.line, S.g.cs) })),
@@ -184,9 +187,9 @@
         };
       },
 
-      picquets({ path, rangeM, minSepM, count }, progress) {
+      picquets(opts, progress) {
         need();
-        return M.sitePicquets(tctx(), Int32Array.from(path), { rangeM, minSepM, count }, progress);
+        return M.sitePicquets(tctx(), Int32Array.from(opts.path), Object.assign({}, opts, { path: undefined }), progress);
       },
 
       crestClearance({ site, target, weaponId, weaponOverrides }) {

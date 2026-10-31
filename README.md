@@ -6,10 +6,15 @@ mobility, and then suggests **posts / OPs, weapon sites, minefields (Mfd) and ro
 the terrain. It shows the results on a 2D map and on a 3D terrain model using **NATO APP-6(D) /
 MIL-STD-2525D** symbology, with Pakistan Army weapon data built in.
 
-There is no installation, no server and no network access. Everything runs in the browser on the
-user's own machine.
+The interface follows **ArcGIS Pro** conventions — ribbon, Contents pane with legends, Geoprocessing
+pane with tool parameter forms, Attributes pane, attribute table and Map / Scene views — so a GIS
+user is at home immediately.
 
-![Tactical siting on the 2D map](docs/screenshots/tactical.jpg)
+There is no installation and no server. All analysis runs in the browser on the user's own machine;
+the only network feature is the optional **Download DEM** tool.
+
+![Geoprocessing pane, Contents pane and suggested posts](docs/screenshots/posts.jpg)
+![Tactical siting with attribute table and Attributes pane](docs/screenshots/tactical.jpg)
 ![3D terrain with route, picquets and symbols](docs/screenshots/3d.jpg)
 
 ## Features
@@ -25,25 +30,55 @@ user's own machine.
 
 Also included:
 
-- Enemy observation (defilade) analysis.
-- Enemy avenues of approach.
-- Line of sight with terrain profile.
-- Viewsheds.
-- Distance and bearing in mils.
-- Go-to MGRS.
-- Command palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>) and an analysis log.
-- Exports:
-  - GeoJSON with 2525D SIDCs, for other GIS / C2 tools.
-  - ESRI ASCII grid + `.prj`.
-  - PNG.
-  - Plan save / load.
-  - Printable terrain-assessment report.
+- Enemy observation (defilade) analysis, enemy avenues of approach, viewsheds and line of sight with terrain profile.
+- Measure (grid / true / magnetic bearing, slope distance), Go To XY and Convert Coordinates in any format.
+- **Coordinate systems:** WGS 84 / UTM analysis grid (automatic or forced zone), secondary CRS such as
+  Kalianpur 1962 / India zone I or IIa (LCC on Everest 1830), Kalianpur UTM or a custom TM / LCC definition.
+- **Grid references:** MGRS (2–10 figure), UTM, lat/lon DD / DM / DMS, GARS, GEOREF and secondary-CRS
+  easting / northing; grid, true or magnetic north; mils (6400 / 6000), degrees or gradians.
+- Map grids: MGRS / UTM with 100 km square IDs, graticule and the secondary-CRS grid.
+- Command search (<kbd>Ctrl</kbd>+<kbd>K</kbd>) and geoprocessing history.
+- Exports: GeoJSON with 2525D SIDCs, CSV, **GeoTIFF** or ESRI ASCII grid + `.prj` for any raster,
+  PNG, plan save / load and a printable terrain-assessment report.
+
+## Interface
+
+| ArcGIS Pro element | In MtnAI |
+|---|---|
+| Ribbon | **Map** (navigate, Add Data, Download DEM, basemap, inquiry, situation), **Analysis** (geoprocessing tools), **Edit** (No-Go areas, tracks, units, crop to AOI), **View** (Map / Scene, panes, grids, theme), **Share** (plan, exports, report), **Settings**, **Help**. Double-click a tab to collapse it. |
+| Contents pane | Feature layers, analysis rasters, map grids and the elevation layer, each with a visibility check box and legend. Right-click: Zoom To Layer, Attribute Table, Transparency, Remove, Symbology, Properties. Double-click: Layer Properties (dataset, spatial reference, extent, statistics, histograms, parameters used). |
+| Geoprocessing pane | Toolboxes (Data Management, Terrain Analysis, Visibility, Tactical Siting, Routing, Conversion) with searchable tools. Each tool has a parameter form with collapsible sections, help text, map picking for points, remembered values, *Reset parameters*, *Environments…*, Run and result messages. |
+| Attributes pane | All properties of the selected feature, its position in every reference system, and actions (copy reference, zoom, viewshed from here). |
+| Attribute table | Sortable, filterable, per-layer table; click a row to select and zoom; CSV export. |
+| Map / Scene views | 2D map and WebGL2 3D scene with fly-through. |
+
+## Geoprocessing tools and their parameters
+
+Every algorithm is configurable from its tool form. Highlights:
+
+| Tool | Parameters |
+|---|---|
+| Download DEM | Source (AWS Terrain Tiles — no key; OpenTopography COP30 / SRTM / NASADEM / AW3D30 — free key), resolution, extent (centre + size, bounding box, current view, DEM extent), save GeoTIFF copy. |
+| Export Raster | Elevation, slope, aspect, landforms, TRI, hillshade or any analysis raster → GeoTIFF (Float32, georeferenced) or ASCII grid + `.prj`. |
+| Key Terrain | Number of heights / passes, summit radius, minimum dominance, saddle test radius and relief. |
+| Go / No-Go | Movement class, GO / SLOW-GO slope limits, speeds, snow line, generalisation. |
+| Viewshed / Line of Sight | Observer and target points and heights, radius. |
+| Enemy Observation | Number of likely enemy OPs, search radius, separation, range, heights. |
+| Avenues of Approach | Enemy movement class, number of avenues, separation, corridor width. |
+| Suggest Posts / OPs | Number, range, heights, separation; max slope, allowed landforms, distance from own / enemy, access class and time; candidates, overlap credit, range decay, prescore weights, dead-ground threshold, intervisibility range; full target-value model (value of GO / SLOW-GO / NO-GO ground for dismounted and vehicle movement, avenue bonus, corridor width, value behind own position). |
+| Suggest Weapon Sites | Weapon (16 Pak Army systems) with editable range band, site slope, sight / target height and access class; defended-area radius, separation, access; enfilade preference; landform preference weights; AD air-corridor weights; for indirect fire: defilade requirement, forward limit, min / max / preferred range, crest-clearance fan and margin, and scoring weights. |
+| Suggest Minefields | AT / AP, number, enemy movement class, max gap, depth, density, tie-in; distance band from own position, separation, avenues considered, block every avenue, require observation; orientations tested and scoring factors. |
+| Least-Time Route | Movement class, fastest / balanced / covered / custom exposure and skyline penalties, alternatives and their separation, checkpoint interval. |
+| Route Picquets | Range, explicit or automatic count, max distance from route, lowest landform, max slope, max climb time, candidates, overlap, heights. |
+
+Analysis-wide options (earth curvature, refraction, TPI scales, altitude penalty, route neighbourhood,
+movement classes, weapon data) live in **Settings** (the *Environments…* link in every tool).
 
 ## Running it (offline)
 
 Choose one of these:
 
-1. **Single file:** copy `dist/MtnAI.html` (~340 KB) to any computer and double-click it.
+1. **Single file:** copy `dist/MtnAI.html` (~0.5 MB) to any computer and double-click it.
 2. **From the folder:** open `index.html` directly from disk (`file://`).
 3. **Optional local server:** `npm start` (Python `http.server`), then browse to http://localhost:8080.
 
@@ -52,7 +87,7 @@ Worker, so the interface stays responsive.
 
 Click **Demo terrain** to load the synthetic training area. It is fictional Karakoram-style
 terrain with own / enemy positions, a target area on a pass, and valley and mule tracks already
-placed. Then work through the tabs.
+placed. Then run the tools on the **Analysis** tab.
 
 ## Elevation data
 
@@ -60,11 +95,17 @@ placed. Then work through the tabs.
 |---|---|
 | SRTM `.hgt` (1″ or 3″) | Tile origin comes from the file name (`N35E074.hgt`). Load several tiles at once to mosaic them. Voids are filled. |
 | GeoTIFF `.tif` | Uncompressed, LZW, Deflate or PackBits; predictors 1/2/3; strips or tiles; EPSG:4326, WGS 84 / UTM (326xx/327xx) or EPSG:3857. Covers e.g. Copernicus GLO-30, ALOS AW3D30, ASTER GDEM. |
-| ESRI ASCII `.asc` | Geographic, or projected UTM (set the zone in the Data tab). |
+| ESRI ASCII `.asc` | Geographic, or projected UTM (set the zone in Settings ▸ Data). |
 | `.zip` | Any of the above inside a ZIP archive. |
 
-Download the tiles for your area once (for example SRTM / Copernicus DEM from USGS EarthExplorer
-or OpenTopography) and keep them on the laptop. If your DEM uses another projection, convert it
+**Download DEM** (Map tab) fetches elevation for any area while a network is available:
+
+- **AWS Terrain Tiles** (Terrarium PNG, global, no key) at ≈ 120 / 60 / 30 / 15 m tile levels.
+- **OpenTopography Global DEM API** (Copernicus GLO-30 / 90, SRTM GL1 / GL3, NASADEM, ALOS AW3D30)
+  with a free API key.
+
+Keep the GeoTIFF copy it saves and add it with **Add Data** later — everything else works offline.
+You can also download tiles yourself (USGS EarthExplorer, OpenTopography) and keep them on the laptop. If your DEM uses another projection, convert it
 first, for example `gdalwarp -t_srs EPSG:4326 in.tif out.tif`.
 
 Data is resampled into one square-cell **UTM** grid (up to 1536² cells). Use **Crop to AOI** to
@@ -132,11 +173,13 @@ GeoJSON exports carry the matching 20-digit SIDC for each feature.
 
 ```
 index.html            app shell (opens directly from disk)
-css/app.css           "Nautilus Dark" theme
+css/app.css           themes (dark, light, high contrast, night red) and layout
 src/core/             analysis library — runs in the Web Worker, main thread and Node
-  geo.js grid.js terrain.js mobility.js visibility.js routing.js weapons.js tactical.js synthetic.js jobs.js
+  util geo crs grid terrain mobility visibility routing weapons tactical synthetic jobs
 src/io/dem-io.js      HGT / GeoTIFF / ASC / ZIP readers and UTM resampling
-src/ui/               2D map, WebGL2 3D view, NATO symbols, charts, export, app controller
+src/io/dem-download.js  DEM download (Terrain Tiles / OpenTopography) and GeoTIFF writer
+src/ui/               settings, formats, 2D map, WebGL2 3D view, NATO symbols, charts, export,
+                      geoprocessing pane (gp.js) and the ribbon / Contents controller (app.js)
 tools/build.mjs       single-file offline build → dist/MtnAI.html
 tools/e2e-smoke.cjs   browser smoke test (Playwright)
 test/                 unit tests (node:test)
@@ -148,7 +191,7 @@ also works from `file://`.
 ## Development
 
 ```
-npm test            # unit tests: geodesy/MGRS, terrain, viewshed, routing, crest clearance, importers, tactics
+npm test            # unit tests: geodesy/MGRS, CRS, terrain, viewshed, routing, crest clearance, importers, download, tactics, tool parameters
 npm run build       # regenerate dist/MtnAI.html
 npm run e2e         # browser smoke test (needs Playwright + Chromium)
 ```

@@ -7,9 +7,9 @@
     const sym = (s) => UI.symbolHTML(s, 22);
     if (section === 'keys') {
       const keys = [
-        ['Ctrl+O', 'Open elevation model'], ['Ctrl+S', 'Save plan'], ['Ctrl+P', 'Terrain assessment report'], ['Ctrl+,', 'Settings'],
-        ['Ctrl+K or /', 'Command palette'], ['Ctrl+G', 'Go to coordinate'], ['Ctrl+B', 'Toggle side panel'], ['Ctrl+J', 'Toggle attribute table / profile dock'],
-        ['2 / 3', '2D map / 3D terrain'], ['F', 'Zoom to full extent'], ['+ / −', 'Zoom in / out'], ['M', 'Measure'], ['L', 'Line of sight'], ['V', 'Viewshed'],
+        ['Ctrl+O', 'Add Data (open elevation model)'], ['Ctrl+S', 'Save plan'], ['Ctrl+P', 'Terrain assessment report'], ['Ctrl+,', 'Settings'],
+        ['Ctrl+K or /', 'Command search'], ['Ctrl+G', 'Go To XY'], ['Ctrl+B', 'Contents pane'], ['Ctrl+T', 'Attribute table'], ['Ctrl+J', 'Toggle attribute table / profile dock'],
+        ['2 / 3', 'Map view / Scene view'], ['F', 'Zoom to full extent'], ['+ / −', 'Zoom in / out'], ['M', 'Measure'], ['L', 'Line of sight'], ['V', 'Viewshed'],
         ['Esc', 'Cancel tool, drawing or fly-through'], ['F1', 'User guide'],
       ];
       return { title: 'Keyboard shortcuts', html: `<table>${keys.map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>
@@ -35,14 +35,24 @@
 <p>Load a digital elevation model, derive slope, aspect, landforms and mobility, and site posts, weapons, minefields and routes from the terrain.
 Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) and the properties pane.</p>
 
+<h3>Workspace (ArcGIS Pro conventions)</h3>
+<ul>
+<li><b>Ribbon</b> — Map (navigate, add data, basemap, inquiry, situation), Analysis (geoprocessing tools), Edit (digitise obstacles, place units, crop), View, Share (plan, exports, report), Settings, Help. Double-click a tab to collapse the ribbon.</li>
+<li><b>Contents pane</b> — every layer with visibility check box and legend. Right-click a layer for Zoom To Layer, Attribute Table, Remove, Symbology and Properties; double-click opens Layer Properties (dataset, spatial reference, statistics, transparency).</li>
+<li><b>Geoprocessing pane</b> — toolboxes with parameter forms. Every tool remembers its parameters; <i>Reset parameters</i> restores defaults; <i>Environments…</i> opens the analysis settings. Messages show the result after Run; the History tab logs every run.</li>
+<li><b>Attributes pane</b> — properties of the selected feature or inspected point in every reference system. <b>Attribute table</b> (bottom dock, Ctrl+T) lists features by layer; click a row to zoom.</li>
+<li><b>Map / Scene</b> view tabs switch between the 2D map and the 3D scene.</li>
+</ul>
+
 <h3>Workflow</h3>
 <ol>
-<li><b>File ▸ Open</b> SRTM .hgt, GeoTIFF or ASCII grid (or the demo). Data is resampled into one WGS 84 / UTM grid.</li>
-<li><b>Settings ▸ Coordinate systems / Grid references / North reference</b> — choose how positions, bearings and grids are shown.</li>
-<li><b>Terrain</b> and <b>Mobility</b> panels — base layer, key terrain and GO / SLOW-GO / NO-GO; digitise rivers, glaciers and tracks.</li>
-<li><b>Tactical</b> — place own and enemy positions (toolbar symbols), then run enemy observation, avenues, posts, weapon sites and minefields.</li>
-<li><b>Routes</b> — place A and B, find routes (fastest / balanced / covered) and picquets.</li>
-<li><b>File ▸ Export</b> — GeoJSON, CSV, ASCII grid, PNG, plan file, printable report.</li>
+<li><b>Map ▸ Add Data</b> (SRTM .hgt, GeoTIFF, ASCII grid, .zip), <b>Map ▸ Download DEM</b> (AWS Terrain Tiles or OpenTopography — the only network feature; save the GeoTIFF copy to work offline afterwards) or the demo terrain. Data is resampled into one WGS 84 / UTM analysis grid.</li>
+<li><b>Settings ▸ Coordinate Systems / Grid Refs</b> — analysis zone, secondary CRS (e.g. Kalianpur 1962 / India zone I), reference format and north reference.</li>
+<li><b>Map ▸ Situation</b> — place own position, enemy, target area and route start / end. <b>Edit ▸ Create</b> — digitise No-Go areas (rivers, glaciers, cliffs) and tracks.</li>
+<li><b>Analysis ▸ Terrain</b> — Key Terrain and Go / No-Go per movement class (slope limits, snow line, generalisation).</li>
+<li><b>Analysis ▸ Visibility / Tactical Siting</b> — Enemy Observation, Avenues, Posts / OPs, Weapon Sites and Minefields. Each tool exposes its full set of constraints and scoring weights.</li>
+<li><b>Analysis ▸ Routing</b> — Least-Time Route (fastest / balanced / covered / custom weights), Route Picquets, Fly Route.</li>
+<li><b>Share</b> — plan file, GeoJSON, CSV, GeoTIFF / ASCII rasters, PNG and the printable terrain assessment report.</li>
 </ol>
 
 <h3>Coordinate systems & grid references</h3>
@@ -50,7 +60,7 @@ Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) 
 <li><b>Analysis CRS</b> — WGS 84 / UTM, automatic zone or forced (Settings ▸ Coordinate systems). Square cells in metres; MGRS grid lines are straight.</li>
 <li><b>Secondary CRS</b> — e.g. Kalianpur 1962 / India zone I or IIa (Lambert Conformal Conic on the Everest 1830 ellipsoid, 3-parameter shift to WGS 84), Kalianpur UTM, or a fully custom TM / LCC definition. Shown in the status bar, properties, attribute table, reports and as an optional map grid.</li>
 <li><b>Reference formats</b> — MGRS (2- to 10-figure), UTM, lat/lon DD / DM / DMS, GARS, GEOREF, secondary-CRS E/N or truncated grid references.</li>
-<li><b>Go-to box / Convert</b> — accepts any of these formats and the secondary CRS easting / northing.</li>
+<li><b>Go To XY / Convert Coordinates</b> — accept any of these formats and the secondary CRS easting / northing.</li>
 <li><b>North reference</b> — grid, true or magnetic. Grid convergence is computed; magnetic declination and annual change are entered from the map margin. The declination diagram shows GN, TN, MN and the grid-magnetic angle.</li>
 <li><b>Units</b> — mils (6400 or 6000), degrees or gradians; metric, yards, imperial or nautical distances; metres or feet with an optional geoid / MSL offset.</li>
 </ul>

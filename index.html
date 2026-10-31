@@ -9,244 +9,45 @@
 </head>
 <body data-theme="dark" data-density="compact">
 <header id="titlebar">
-  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnAI</b><span>Terrain Analysis</span></div>
-  <nav id="menubar" role="menubar"></nav>
-  <div class="title-right"><span id="demName">No elevation model</span><button id="crsBadge" class="badge" title="Coordinate systems (settings)">WGS 84 / UTM</button></div>
+  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnAI</b></div>
+  <div class="qat">
+    <label class="qb file" title="Add data — open elevation model (Ctrl+O)"><i data-icon="open"></i><input type="file" id="demFiles" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
+    <button class="qb" data-cmd="savePlan" title="Save plan (Ctrl+S)" data-need><i data-icon="save"></i></button>
+    <button class="qb" data-cmd="settings" title="Settings (Ctrl+,)"><i data-icon="gear"></i></button>
+  </div>
+  <div class="title-center"><span id="demName">Untitled — no elevation model</span></div>
+  <button id="cmdSearch" class="cmd-search" data-cmd="palette" title="Command search (Ctrl+K)"><i data-icon="zoom"></i><span>Command search</span><kbd>Ctrl K</kbd></button>
 </header>
 
-<div id="toolbar" role="toolbar">
-  <div class="tb-group">
-    <label class="tb file" title="Open elevation model (Ctrl+O)"><i data-icon="open"></i><input type="file" id="demFiles" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
-    <button class="tb" data-cmd="demo" title="Load demo terrain"><i data-icon="terrain"></i></button>
-    <button class="tb" data-cmd="savePlan" title="Save plan (Ctrl+S)" data-need><i data-icon="save"></i></button>
-  </div>
-  <div class="tb-group">
-    <button class="tb" data-cmd="zoomIn" title="Zoom in (+)" data-need><i data-icon="plus"></i></button>
-    <button class="tb" data-cmd="zoomOut" title="Zoom out (−)" data-need><i data-icon="minus"></i></button>
-    <button class="tb" data-cmd="fit" title="Zoom to full extent (F)" data-need><i data-icon="fit"></i></button>
-    <div class="seg"><button id="btn2d" class="on" data-cmd="view2d" title="2D map (2)">2D</button><button id="btn3d" data-cmd="view3d" title="3D terrain (3)">3D</button></div>
-  </div>
-  <div class="tb-group">
-    <button class="tb mk" data-cmd="tool:own" title="Place own position" data-need><span class="sym" id="tbOwn"></span></button>
-    <button class="tb mk" data-cmd="tool:threat" title="Place enemy position" data-need><span class="sym" id="tbThreat"></span></button>
-    <button class="tb mk" data-cmd="tool:target" title="Place target area" data-need><span class="sym" id="tbTarget"></span></button>
-    <button class="tb mk" data-cmd="tool:a" title="Place route start (A)" data-need><span class="sym" id="tbA"></span></button>
-    <button class="tb mk" data-cmd="tool:b" title="Place route end (B)" data-need><span class="sym" id="tbB"></span></button>
-  </div>
-  <div class="tb-group">
-    <button class="tb" data-cmd="tool:measure" title="Measure distance &amp; bearing (M)" data-need><i data-icon="ruler"></i></button>
-    <button class="tb" data-cmd="tool:los" title="Line of sight (L)" data-need><i data-icon="los"></i></button>
-    <button class="tb" data-cmd="tool:vs" title="Viewshed (V)" data-need><i data-icon="eye"></i></button>
-    <button class="tb" data-cmd="tool:poly" title="Digitise No-Go area" data-need><i data-icon="nogo"></i></button>
-    <button class="tb" data-cmd="tool:line" title="Digitise track / road" data-need><i data-icon="track"></i></button>
-    <button class="tb" data-cmd="tool:aoi" title="Crop to area of interest" data-need><i data-icon="crop"></i></button>
-  </div>
-  <div class="tb-goto">
-    <i data-icon="target"></i>
-    <input id="gotoBox" placeholder="Go to MGRS · UTM · lat/lon · GARS · GEOREF · E/N" spellcheck="false" autocomplete="off" disabled>
-  </div>
-  <div class="tb-group right">
-    <button class="tb" data-cmd="geojson" title="Export features to GeoJSON" data-need><i data-icon="download"></i></button>
-    <button class="tb" data-cmd="report" title="Terrain assessment report (Ctrl+P)" data-need><i data-icon="doc"></i></button>
-    <button class="tb" data-cmd="settings" title="Settings (Ctrl+,)"><i data-icon="gear"></i></button>
-  </div>
-</div>
+<nav id="ribbon">
+  <div class="rb-tabs" id="rbTabs"></div>
+  <div class="rb-body" id="rbBody"></div>
+</nav>
 
 <main id="app">
-  <nav id="rail" role="tablist">
-    <button data-tab="data" class="on" title="Data"><i data-icon="data" data-size="18"></i><span>Data</span></button>
-    <button data-tab="terrain" title="Terrain"><i data-icon="terrain" data-size="18"></i><span>Terrain</span></button>
-    <button data-tab="mobility" title="Mobility"><i data-icon="mobility" data-size="18"></i><span>Mobility</span></button>
-    <button data-tab="tactical" title="Tactical"><i data-icon="tactical" data-size="18"></i><span>Tactical</span></button>
-    <button data-tab="routes" title="Routes"><i data-icon="route" data-size="18"></i><span>Routes</span></button>
-    <button data-tab="tools" title="Tools"><i data-icon="tools" data-size="18"></i><span>Tools</span></button>
-    <button data-tab="layers" title="Layers"><i data-icon="layers" data-size="18"></i><span>Layers</span></button>
-  </nav>
-
-  <aside id="side">
-    <div class="pane-head"><span id="sideTitle">Data</span><button id="sideCollapse" class="ghost-ic" title="Collapse panel">‹</button></div>
-    <div id="panels">
-
-      <section class="panel on" data-panel="data">
-        <div class="field-group">
-          <div class="row"><label class="btn primary file"><i data-icon="open"></i>Open DEM…<input type="file" id="demFiles2" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label><button class="btn" data-cmd="demo">Demo terrain</button></div>
-          <p class="hint">SRTM .hgt · GeoTIFF (EPSG:4326 / WGS 84 UTM / 3857) · ESRI .asc · .zip. Several tiles are mosaicked. Drag &amp; drop onto the map.</p>
-          <div class="row"><button class="btn" data-cmd="tool:aoi" data-need>Crop to AOI</button><button class="btn" id="btnAOIReset" data-cmd="fullExtent" disabled>Full extent</button><button class="btn link" data-cmd="settings:data">Import settings…</button></div>
-        </div>
-        <h3>Dataset</h3>
-        <table class="pgrid" id="demInfo"><tr><td colspan="2" class="empty">No dataset loaded.</td></tr></table>
-        <h3>Statistics</h3>
-        <div id="demCharts" class="charts"></div>
-      </section>
-
-      <section class="panel" data-panel="terrain">
-        <h3>Base layer</h3>
-        <div class="radio-list" id="baseLayers">
-          <label><input type="radio" name="base" value="relief"> Shaded relief</label>
-          <label><input type="radio" name="base" value="elevation"> Elevation (hypsometric)</label>
-          <label><input type="radio" name="base" value="slope"> Slope</label>
-          <label><input type="radio" name="base" value="aspect"> Aspect</label>
-          <label><input type="radio" name="base" value="landform"> Landforms (TPI slope position)</label>
-          <label><input type="radio" name="base" value="tri"> Ruggedness (TRI)</label>
-        </div>
-        <h3>Display</h3>
-        <div class="form">
-          <label>Sun azimuth<input type="number" data-setting="map.hsAzimuth" step="5"></label>
-          <label>Sun altitude<input type="number" data-setting="map.hsAltitude" step="5"></label>
-          <label>Vertical exaggeration (3D)<input type="number" data-setting="v3.vex" step="0.1"></label>
-          <label>Contour interval<select data-setting="map.contourInterval"></select></label>
-        </div>
-        <div class="checks">
-          <label><input type="checkbox" data-setting="map.contours"> Contours</label>
-          <label><input type="checkbox" data-setting="grid.mgrs"> MGRS / UTM grid</label>
-          <label><input type="checkbox" data-setting="grid.graticule"> Graticule</label>
-          <label><input type="checkbox" data-setting="grid.secondary"> Secondary CRS grid</label>
-          <label><input type="checkbox" data-setting="map.spotHeights"> Spot heights &amp; cols</label>
-        </div>
-        <h3>Key terrain</h3>
-        <p class="hint">Dominating heights (summits with high topographic position) and passes / cols (saddles).</p>
-        <button class="btn primary" data-cmd="key" data-need>Detect heights &amp; passes</button>
-        <div id="keyList" class="list"></div>
-      </section>
-
-      <section class="panel" data-panel="mobility">
-        <h3>Cross-country movement</h3>
-        <div class="form">
-          <label class="wide">Movement class<select id="mobProfile"></select></label>
-          <label>GO ≤ (°)<input type="number" id="mobGo" min="1" max="60" step="1"></label>
-          <label>SLOW-GO ≤ (°)<input type="number" id="mobSlow" min="2" max="70" step="1"></label>
-          <label>Snow line (m, 0 = off)<input type="number" id="mobSnow" value="0" step="100" min="0"></label>
-          <label>Style<select data-setting="ovl.mobStyle"></select></label>
-        </div>
-        <div class="checks"><label><input type="checkbox" id="mobGeneral"> Generalise (3×3 majority filter)</label></div>
-        <button class="btn primary" data-cmd="mobility" data-need>Compute Go / No-Go</button>
-        <div id="mobStats"></div>
-        <h3>Obstacles &amp; tracks</h3>
-        <p class="hint">Digitise features the DEM cannot show: rivers, glaciers, cliffs, built-up areas (No-Go) and jeep / mule tracks (always GO). Click vertices, double-click to finish, Esc to cancel.</p>
-        <div class="row">
-          <button class="btn" data-cmd="tool:poly" data-need>No-Go area</button>
-          <button class="btn" data-cmd="tool:line" data-need>Track / road</button>
-          <button class="btn" data-cmd="clearObstacles" data-need>Clear</button>
-        </div>
-        <div id="obsInfo" class="hint"></div>
-      </section>
-
-      <section class="panel" data-panel="tactical">
-        <h3>Situation</h3>
-        <table class="pgrid" id="sitTable"></table>
-        <div class="form">
-          <label>Enemy threat<select id="threatType"><option value="foot">Infantry (dismounted)</option><option value="jeep">Wheeled / mechanised</option><option value="tracked">Armour (tracked)</option></select></label>
-          <label>Own echelon<select id="ownEchelon"><option value="company">Company</option><option value="battalion" selected>Battalion</option><option value="brigade">Brigade</option></select></label>
-        </div>
-        <div class="row">
-          <button class="btn" data-cmd="hostile" data-need>Enemy observation</button>
-          <button class="btn" data-cmd="avenues" data-need>Avenues of approach</button>
-        </div>
-        <div id="sitInfo" class="hint"></div>
-
-        <details open><summary>Posts / OPs</summary>
-          <div class="form">
-            <label>Number<input type="number" id="postCount" value="5" min="1" max="20"></label>
-            <label>Type<select id="postType"><option value="post">Defended post</option><option value="op">Observation post</option></select></label>
-            <label>Strength<select id="postEchelon"><option value="section">Section</option><option value="platoon" selected>Platoon</option><option value="company">Company</option></select></label>
-            <label>Observation range (m)<input type="number" id="postRange" value="3000" step="250" min="500"></label>
-            <label>Min separation (m)<input type="number" id="postSep" value="600" step="50" min="100"></label>
-            <label>Max from own (m)<input type="number" id="postMaxOwn" value="7000" step="500" min="500"></label>
-          </div>
-          <button class="btn primary" data-cmd="posts" data-need>Suggest posts</button>
-          <div id="postList" class="list"></div>
-        </details>
-
-        <details open><summary>Weapon sites</summary>
-          <div class="form">
-            <label class="wide">Weapon<select id="wpnSelect"></select></label>
-            <label>Number<input type="number" id="wpnCount" value="3" min="1" max="12"></label>
-            <label>Defended area radius (m)<input type="number" id="wpnRadius" value="3000" step="250" min="250"></label>
-          </div>
-          <div id="wpnParams" class="hint"></div>
-          <div class="row"><button class="btn primary" data-cmd="weapons" data-need>Suggest sites</button><button class="btn" data-cmd="clearWeapons" data-need>Clear</button><button class="btn link" data-cmd="settings:wpn">Weapon data…</button></div>
-          <div id="wpnList" class="list"></div>
-        </details>
-
-        <details open><summary>Minefields (Mfd)</summary>
-          <div class="form">
-            <label>Type<select id="mfdType"><option value="AT">Anti-tank (AT)</option><option value="AP">Anti-personnel (AP)</option></select></label>
-            <label>Number<input type="number" id="mfdCount" value="4" min="1" max="12"></label>
-            <label>Max gap width (m)<input type="number" id="mfdGap" value="600" step="50" min="50"></label>
-            <label>Depth (m)<input type="number" id="mfdDepth" value="100" step="10" min="10"></label>
-            <label>Density (mines / m)<input type="number" id="mfdDensity" value="1" step="0.25" min="0.1"></label>
-            <label>Max from own (m)<input type="number" id="mfdMaxOwn" value="3000" step="250" min="250"></label>
-          </div>
-          <button class="btn primary" data-cmd="mfd" data-need>Suggest minefields</button>
-          <div id="mfdList" class="list"></div>
-        </details>
-      </section>
-
-      <section class="panel" data-panel="routes">
-        <h3>Route A → B</h3>
-        <table class="pgrid" id="routeEnds"></table>
-        <div class="row"><button class="btn" data-cmd="tool:a" data-need>Set start A</button><button class="btn" data-cmd="tool:b" data-need>Set end B</button><button class="btn" data-cmd="swapAB" data-need title="Swap A and B">Swap</button></div>
-        <div class="form">
-          <label>Movement class<select id="routeProfile"></select></label>
-          <label>Mode<select id="routeMode"><option value="fastest">Fastest</option><option value="balanced">Balanced</option><option value="covered">Covered (avoid enemy obs)</option></select></label>
-          <label>Alternatives<select id="routeAlt"><option>1</option><option selected>2</option><option>3</option></select></label>
-          <label>Checkpoint every (m)<input type="number" id="routeCP" value="1000" step="250" min="0"></label>
-        </div>
-        <button class="btn primary" data-cmd="route" data-need>Find route</button>
-        <div id="routeList" class="list"></div>
-        <h3>Route protection</h3>
-        <p class="hint">Picquets on the heights dominating the selected route ("crowning the heights").</p>
-        <div class="form">
-          <label>Picquet obs range (m)<input type="number" id="pqRange" value="1500" step="100" min="300"></label>
-          <label>Number (0 = auto)<input type="number" id="pqCount" value="0" min="0" max="30"></label>
-        </div>
-        <div class="row"><button class="btn" data-cmd="picquets" data-need>Suggest picquets</button><button class="btn" data-cmd="fly" data-need>Fly route (3D)</button></div>
-        <div id="pqList" class="list"></div>
-      </section>
-
-      <section class="panel" data-panel="tools">
-        <h3>Line of sight</h3>
-        <div class="form">
-          <label>Observer height (m)<input type="number" id="losObs" step="0.5"></label>
-          <label>Target height (m)<input type="number" id="losTgt" step="0.5"></label>
-        </div>
-        <button class="btn" data-cmd="tool:los" data-need>Pick observer → target</button>
-        <div id="losInfo" class="hint"></div>
-        <h3>Viewshed</h3>
-        <div class="form">
-          <label>Observer height (m)<input type="number" id="vsObs" step="0.5"></label>
-          <label>Target height (m)<input type="number" id="vsTgt" step="0.5"></label>
-          <label>Radius (m)<input type="number" id="vsRadius" value="5000" step="500"></label>
-        </div>
-        <button class="btn" data-cmd="tool:vs" data-need>Pick observer point</button>
-        <div id="vsInfo" class="hint"></div>
-        <h3>Measure</h3>
-        <button class="btn" data-cmd="tool:measure" data-need>Distance &amp; bearing</button>
-        <table class="pgrid" id="measureInfo"></table>
-        <h3>Coordinate conversion</h3>
-        <div class="row"><input id="convIn" class="grow" placeholder="Any reference — MGRS, UTM, lat/lon, GARS, GEOREF, E/N" spellcheck="false"><button class="btn" data-cmd="convert">Convert</button></div>
-        <table class="pgrid" id="convOut"></table>
-      </section>
-
-      <section class="panel" data-panel="layers">
-        <h3>Raster overlays</h3>
-        <div id="overlayList" class="layer-list"></div>
-        <h3>Features</h3>
-        <div id="featureList" class="layer-list"></div>
-      </section>
-    </div>
+  <!-- ============================== CONTENTS -->
+  <aside id="contents" class="pane">
+    <div class="pane-head"><span>Contents</span><button class="ghost-ic" data-cmd="toggleLeft" title="Close pane">×</button></div>
+    <div class="pane-tools"><input id="tocFilter" placeholder="Search layers" spellcheck="false"></div>
+    <div id="toc" class="pane-body"><p class="hint pad">Add an elevation model to start: Map ▸ Add Data, or the demo terrain.</p></div>
   </aside>
   <div class="splitter v" data-split="left"></div>
 
+  <!-- ============================== VIEWS -->
   <section id="center">
+    <div class="view-tabs"><button id="vtMap" class="on" data-cmd="view2d"><i data-icon="data"></i>Map</button><button id="vtScene" data-cmd="view3d" data-need><i data-icon="terrain"></i>Scene</button><span class="vt-crs" id="vtCRS"></span></div>
     <div id="stage">
       <canvas id="map2d"></canvas>
       <canvas id="gl3d" hidden></canvas>
       <canvas id="ovl3d" hidden></canvas>
       <div id="welcome">
         <h1>MtnAI — Mountain Terrain Analysis</h1>
-        <p>Open an elevation model (SRTM, GeoTIFF, ASCII grid) or load the synthetic training area. All processing is local.</p>
-        <div class="row center"><label class="btn primary file"><i data-icon="open"></i>Open DEM…<input type="file" id="demFiles3" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label><button class="btn" data-cmd="demo">Demo terrain</button><button class="btn" data-cmd="settings">Settings…</button></div>
+        <p>Add an elevation model from disk, download one for an area, or load the synthetic training area. All analysis is local.</p>
+        <div class="row center">
+          <label class="btn primary file"><i data-icon="open"></i>Add Data…<input type="file" id="demFiles3" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
+          <button class="btn" data-cmd="gp:downloadDEM"><i data-icon="download"></i>Download DEM…</button>
+          <button class="btn" data-cmd="demo">Demo terrain</button>
+        </div>
       </div>
       <div id="stageBar" hidden><i id="stageBarFill"></i></div>
       <div id="toolHint" hidden></div>
@@ -256,8 +57,8 @@
     <div id="dock">
       <div class="dock-head">
         <div class="dock-tabs"><button data-dock="table" class="on">Attribute table <i id="attrCount"></i></button><button data-dock="profile">Elevation profile</button></div>
-        <div class="dock-tools" data-dockpanel-tools="table"><input id="attrFilter" placeholder="Filter…" spellcheck="false"><button class="btn sm" data-cmd="csv" data-need>Export CSV</button></div>
-        <button id="dockToggle" class="ghost-ic" title="Collapse / expand dock">▾</button>
+        <div class="dock-tools" data-dockpanel-tools="table"><select id="attrLayer"><option value="">All layers</option></select><input id="attrFilter" placeholder="Filter…" spellcheck="false"><button class="btn sm" data-cmd="csv" data-need>Export CSV</button></div>
+        <button id="dockToggle" class="ghost-ic" title="Collapse / expand">▾</button>
       </div>
       <div class="dock-body" data-dockpanel="table"><table id="attrTable" class="grid-table"></table></div>
       <div class="dock-body" data-dockpanel="profile" hidden><div id="profileTitle" class="hint"></div><canvas id="chart"></canvas></div>
@@ -265,10 +66,12 @@
   </section>
   <div class="splitter v" data-split="right"></div>
 
-  <aside id="right">
-    <section class="rsec" data-open="1"><header>Properties</header><div class="rbody" id="selBody"></div></section>
-    <section class="rsec" data-open="1"><header>Legend</header><div class="rbody" id="legend"></div></section>
-    <section class="rsec grow" data-open="1"><header>Activity <button id="logClear" class="link">Clear</button></header><div class="rbody"><table class="grid-table" id="log"><thead><tr><th>Time</th><th>Task</th><th>Dur.</th><th></th></tr></thead><tbody></tbody></table></div></section>
+  <!-- ============================== RIGHT PANES -->
+  <aside id="right" class="pane">
+    <div class="pane-tabs"><button data-rtab="gp" class="on">Geoprocessing</button><button data-rtab="attr">Attributes</button><button data-rtab="hist">History</button><button class="ghost-ic" data-cmd="toggleRight" title="Close pane">×</button></div>
+    <div class="pane-body" data-rpanel="gp" id="gpPane"></div>
+    <div class="pane-body" data-rpanel="attr" id="selBody" hidden></div>
+    <div class="pane-body" data-rpanel="hist" hidden><div class="pane-tools"><span class="hint">Geoprocessing history</span><button id="logClear" class="link">Clear</button></div><table class="grid-table" id="log"><thead><tr><th>Time</th><th>Tool</th><th>Dur.</th><th></th></tr></thead><tbody></tbody></table></div>
   </aside>
 </main>
 
@@ -289,13 +92,19 @@
   <div class="dlg-foot"><label class="btn file">Import…<input type="file" id="setImport" accept=".json"></label><button class="btn" id="setExport">Export…</button><button class="btn" id="setResetAll">Restore all defaults</button><span class="grow"></span><button class="btn primary" data-close>Close</button></div>
 </dialog>
 
+<dialog id="props" class="dlg">
+  <div class="dlg-head"><span id="propsTitle">Layer Properties</span><button class="ghost-ic" data-close title="Close">×</button></div>
+  <div id="propsBody"></div>
+  <div class="dlg-foot"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>
+</dialog>
+
 <dialog id="help" class="dlg">
   <div class="dlg-head"><span id="helpTitle">Help</span><button class="ghost-ic" data-close title="Close">×</button></div>
   <div id="helpBody"></div>
 </dialog>
 
 <div id="palette" hidden>
-  <div class="pal-box"><input id="palInput" placeholder="Type a command" autocomplete="off" spellcheck="false"><div id="palList"></div></div>
+  <div class="pal-box"><input id="palInput" placeholder="Search commands and tools" autocomplete="off" spellcheck="false"><div id="palList"></div></div>
 </div>
 <div id="menuLayer"></div>
 
@@ -313,6 +122,7 @@
 <script src="src/core/synthetic.js"></script>
 <script src="src/core/jobs.js"></script>
 <script src="src/io/dem-io.js"></script>
+<script src="src/io/dem-download.js"></script>
 <!-- user interface -->
 <script src="src/ui/engine.js"></script>
 <script src="src/ui/settings.js"></script>
@@ -326,6 +136,7 @@
 <script src="src/ui/chart.js"></script>
 <script src="src/ui/export.js"></script>
 <script src="src/ui/help.js"></script>
+<script src="src/ui/gp.js"></script>
 <script src="src/ui/app.js"></script>
 </body>
 </html>

@@ -227,7 +227,7 @@
         const i = r * w + c, v = z[i];
         if (v < z[i - 1] || v < z[i + 1] || v < z[i - w] || v < z[i + w] ||
             v < z[i - w - 1] || v < z[i - w + 1] || v < z[i + w - 1] || v < z[i + w + 1]) continue;
-        if (tpiL[i] < 0.5 * sdL) continue;
+        if (tpiL[i] < (opts.minDominance ?? 0.5) * sdL) continue;
         cands.push(i);
       }
     const peaks = [];

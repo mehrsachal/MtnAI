@@ -217,14 +217,14 @@
     const F = UI.F;
     const routeC = cfg('sym.routeColor'), avC = cfg('sym.avenueColor'), secC = cfg('sym.sectorColor'), selC = accent();
     const lblFont = (px, wgt = 600) => `${wgt} ${Math.round(px * lw)}px ${FONT}`;
-    for (const poly of S.obstacles) {
+    if (sh.obstacles !== false) for (const poly of S.obstacles) {
       ctx.save();
       path(ctx, poly, P, true);
       ctx.fillStyle = 'rgba(217,58,50,0.28)'; ctx.fill();
       ctx.strokeStyle = '#ff5b4f'; ctx.lineWidth = 2 * lw; ctx.setLineDash([6 * lw, 4 * lw]); ctx.stroke();
       ctx.restore();
     }
-    for (const ln of S.tracks) cased(ctx, ln, P, '#c8955c', 2.2, [7, 4]);
+    if (sh.obstacles !== false) for (const ln of S.tracks) cased(ctx, ln, P, '#c8955c', 2.2, [7, 4]);
 
     if (sh.avenues && S.avenues) {
       S.avenues.routes.forEach((rt) => {
@@ -265,6 +265,7 @@
 
     if (sh.weapons && S.weapons.length) {
       S.weapons.forEach((res, wi) => {
+        if (res.hidden) return;
         res.sites.forEach((s, k) => {
           const sel = S.sel && S.sel.kind === 'weapon' && S.sel.idx === wi && S.sel.sub === k;
           if (s.cat !== 'indirect' && s.sector) {
@@ -465,13 +466,14 @@
     const F = UI.F;
     const isSel = (kind, idx, sub) => !!S.sel && S.sel.kind === kind && S.sel.idx === idx && (sub === undefined || S.sel.sub === sub);
     if (sh.posts && S.posts) S.posts.posts.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), label: p.id, sub: F.elev(p.z), ref: { kind: 'post', idx: k }, sel: isSel('post', k) }));
-    if (sh.weapons) S.weapons.forEach((res, wi) => res.sites.forEach((s, k) => items.push({ c: s.c, r: s.r, spec: UI.SYM.weapon(res.weapon), label: s.id, ref: { kind: 'weapon', idx: wi, sub: k }, sel: isSel('weapon', wi, k) })));
+    if (sh.weapons) S.weapons.forEach((res, wi) => !res.hidden && res.sites.forEach((s, k) => items.push({ c: s.c, r: s.r, spec: UI.SYM.weapon(res.weapon), label: s.id, ref: { kind: 'weapon', idx: wi, sub: k }, sel: isSel('weapon', wi, k) })));
     if (sh.picquets && S.picquets) S.picquets.picquets.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: UI.SYM.picquet(), label: p.id, ref: { kind: 'picquet', idx: k }, sel: isSel('picquet', k) }));
     if (sh.hostileOps && S.hostile) S.hostile.observers.filter((o) => !o.isThreat).forEach((o) => items.push({ c: o.c, r: o.r, spec: UI.SYM.hostileOP(), small: true }));
     if (sh.routes && S.routes) {
       const rt = S.routes.routes[S.routes.sel || 0];
       if (rt) rt.checkpoints.forEach((cp, k) => items.push({ c: cp.c, r: cp.r, spec: UI.SYM.cp(k + 1), small: true }));
     }
+    if (sh.markers === false) return items;
     if (mk.target) items.push({ c: mk.target.c, r: mk.target.r, spec: UI.SYM.target(), label: 'TGT', ref: { kind: 'marker', idx: 'target' }, sel: isSel('marker', 'target') });
     if (mk.threat) items.push({ c: mk.threat.c, r: mk.threat.r, spec: UI.SYM.threat(S.threatType), label: 'ENY', ref: { kind: 'marker', idx: 'threat' }, sel: isSel('marker', 'threat') });
     if (mk.own) items.push({ c: mk.own.c, r: mk.own.r, spec: UI.SYM.own(S.ownEchelon), label: 'OWN', ref: { kind: 'marker', idx: 'own' }, sel: isSel('marker', 'own') });
