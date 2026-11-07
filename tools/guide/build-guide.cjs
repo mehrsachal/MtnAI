@@ -6,13 +6,18 @@
  *   node tools/doc-shots.cjs docs/guide/img
  *   python3 tools/guide/prepare_images.py docs/guide/img
  *   node tools/guide/build-guide.cjs
+ * Two passes: the first is rendered to PDF (LibreOffice) to find the page of every
+ * heading and index term; the second fills the Contents page and the Index with them.
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, BorderStyle,
   AlignmentType, HeadingLevel, LevelFormat, PageBreak, Footer, PageNumber, TableLayoutType,
+  Bookmark, InternalHyperlink, Tab, TabStopType, LeaderType,
 } = require('docx');
+const { execFileSync } = require('node:child_process');
+const os = require('node:os');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const IMG = path.join(ROOT, 'docs/guide/img');
@@ -25,8 +30,16 @@ const run = (t, o = {}) => new TextRun({ text: t, font: FONT, size: SIZE, color:
 /** Inline **bold** markup. */
 const runs = (s) => s.split(/(\*\*[^*]+\*\*)/).filter(Boolean).map((x) => (x.startsWith('**') ? run(x.slice(2, -2), { bold: true }) : run(x)));
 const para = (s, o = {}) => new Paragraph({ children: runs(s), spacing: { after: 120 }, ...o });
-const h1 = (s) => new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run(s.toUpperCase(), { bold: true })], pageBreakBefore: true });
-const h2 = (s) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run(s, { bold: true })] });
+/** Headings are bookmarked and registered for the Contents page. */
+const HEAD = [];
+const heading = (level, s) => {
+  const id = `h${HEAD.length + 1}`, shown = level === 1 ? s.toUpperCase() : s;
+  HEAD.push({ id, level, text: s, match: shown });
+  return new Paragraph({ heading: level === 1 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2, pageBreakBefore: level === 1,
+    children: [new Bookmark({ id, children: [run(shown, { bold: true })] })] });
+};
+const h1 = (s) => heading(1, s);
+const h2 = (s) => heading(2, s);
 const h3 = (s) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [run(s, { bold: true, italics: true })] });
 const bullet = (s, level = 0) => new Paragraph({ children: runs(s), numbering: { reference: 'bullets', level }, spacing: { after: 60 } });
 let listNo = 0;
@@ -73,6 +86,34 @@ const doctrine = (id) => (P[id].gsp ? [para(`**Doctrine.** ${P[id].gsp}`)] : [])
 const C = [];
 const add = (...xs) => xs.flat().forEach((x) => C.push(x));
 
+/** Leader-dot line: text ........ right-aligned value. */
+const leaderLine = (children, value, o = {}) => new Paragraph({ ...o, tabStops: [{ type: TabStopType.RIGHT, position: TEXT_W, leader: LeaderType.DOT }],
+  children: [...children, new TextRun({ font: FONT, size: SIZE, color: COLOR, bold: o.bold, children: [new Tab(), String(value)] })] });
+
+/** Index terms: label and the words to look for in the rendered pages. */
+const INDEX_TERMS = [
+  ['Add Data', ['Add Data']], ['Air defence', ['air defence', 'Anza']], ['Animal transport (mule)', ['mule']], ['Attribute table', ['Attribute table']],
+  ['Attributes pane', ['Attributes pane']], ['Avenues of approach', ['avenue']], ['Basemap', ['base map', 'basemap']], ['Command search', ['Command search']],
+  ['Contents pane', ['Contents pane']], ['Coordinate systems', ['coordinate system']], ['Crest clearance', ['clear the crests', 'crest clearance']],
+  ['Crop to AOI', ['Crop to AOI']], ['Dead ground', ['dead ground']], ['Declination / magnetic north', ['magnetic']], ['DEM', ['DEM']],
+  ['Doctrine (GSP)', ['GSP']], ['Download DEM', ['Download DEM']], ['Enemy observation (defilade)', ['Enemy Observation', 'defilade']],
+  ['Enfilade', ['enfilade']], ['Export', ['Export']], ['Fly Route (3D)', ['Fly Route']], ['GeoJSON', ['GeoJSON']], ['GeoTIFF', ['GeoTIFF']],
+  ['Go / No-Go (mobility)', ['Go / No-Go', 'NO-GO']], ['Go To XY', ['Go To XY']], ['Grid references (MGRS, UTM, GARS)', ['MGRS', 'GARS']],
+  ['Helipad sites (HLS)', ['helipad', 'HLS']], ['Kalianpur', ['Kalianpur']], ['Key terrain', ['Key Terrain', 'dominating height']],
+  ['Layer Properties', ['Layer Properties', 'Properties']], ['Line of Sight', ['Line of Sight']], ['March time (GSP)', ['GSP time', 'march time', '3 km/h']],
+  ['Measure', ['Measure']], ['Minefields', ['minefield']], ['Mount limits (MG / RR)', ['mount limits', 'mount\'s']], ['Movement classes', ['movement class']],
+  ['No-Go area (drawing)', ['No-Go area']], ['Nullah', ['nullah']], ['OP (observation post)', ['OP']], ['Passes / cols', ['passes', 'cols']],
+  ['Picquets', ['picquet']], ['Plan (save / open)', ['Save Plan', 'Open Plan', 'save the plan']], ['Posts', ['post']], ['Report', ['Report']],
+  ['Ribbon', ['Ribbon']], ['Route A→B (Least-Time Route)', ['Least-Time Route', 'Route A']], ['Route card', ['Route Card']], ['Scene (3D) view', ['Scene']],
+  ['Settings', ['Settings']], ['Shortcuts', ['Ctrl+']], ['Sight setting (uphill / downhill fire)', ['sight setting', 'slant range']],
+  ['Snow line', ['snow line']], ['Strong point', ['strong point']], ['Tiered defence', ['tier']], ['Track (drawing)', ['Track']],
+  ['Viewshed', ['Viewshed']], ['Weapon sites', ['Weapon Sites', 'weapon']],
+];
+
+const makeDoc = (PAGES) => {
+C.length = 0; HEAD.length = 0; numberingRefs.length = 0; fig = 0; listNo = 0;
+const pg = (id) => (PAGES && PAGES.headings[id]) || '00';
+
 // Title page
 add(
   new Paragraph({ spacing: { before: 2400, after: 240 }, alignment: AlignmentType.CENTER, children: [run('MTNAI', { bold: true })] }),
@@ -80,8 +121,9 @@ add(
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [run('Features, how to use them, every setting and how each tool thinks')] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1200 }, children: [run('Built on the teachings of GSP Mountain Warfare (low and high altitude operations)')] }),
   para('**How to read this guide.** Each tool has four parts: what it does (in plain words), the doctrine behind it, a flowchart of how it works, and a table of every setting with its default. Screenshots use the demo terrain.'),
-  para('**Contents.** 1 What MtnAI is · 2 Quick start · 3 The screen · 4 Getting terrain · 5 Coordinates and grids · 6 Setting the scene · 7 Terrain tools · 8 Visibility tools · 9 Siting tools · 10 Movement tools · 11 Layers, tables and saving · 12 Settings · 13 Doctrine in MtnAI · 14 Shortcuts and limits'),
 );
+
+const titleEnd = C.length;
 
 // 1
 add(h1('1. What MtnAI is'),
@@ -363,6 +405,19 @@ add(h1('14. Shortcuts and limits'),
   bullet('Every suggestion is a starting point for reconnaissance, not a replacement for it.'),
 );
 
+// Contents page (after the title page)
+const contents = [new Paragraph({ pageBreakBefore: true, spacing: { after: 240 }, children: [run('CONTENTS', { bold: true })] })]
+  .concat(HEAD.map((h) => leaderLine([new InternalHyperlink({ anchor: h.id, children: [run(h.text, { bold: h.level === 1 })] })], pg(h.id),
+    { bold: h.level === 1, indent: { left: h.level === 1 ? 0 : 440 }, spacing: { before: h.level === 1 ? 140 : 0, after: 40 } })));
+C.splice(titleEnd, 0, ...contents);
+
+// Index (alphabetical, last)
+add(new Paragraph({ pageBreakBefore: true, spacing: { after: 240 }, children: [run('INDEX', { bold: true })] }),
+  INDEX_TERMS.slice().sort((a, b) => a[0].localeCompare(b[0])).map(([label]) => {
+    const pages = PAGES ? PAGES.index[label] || [] : ['00'];
+    return leaderLine([run(label)], pages.length ? pages.join(', ') : '—', { spacing: { after: 20 } });
+  }));
+
 // ------------------------------------------------------------ document
 const headingStyle = (id, name) => ({ id, name, basedOn: 'Normal', next: 'Normal', quickFormat: true,
   run: { font: FONT, size: SIZE, bold: true, color: COLOR }, paragraph: { spacing: { before: 240, after: 120 }, keepNext: true, keepLines: true } });
@@ -384,5 +439,56 @@ const doc = new Document({
     children: C,
   }],
 });
-const out = path.join(ROOT, 'docs/guide/MtnAI_User_Guide.docx');
-Packer.toBuffer(doc).then((buf) => { fs.writeFileSync(out, buf); console.log('wrote', out, `(${Math.round(buf.length / 1024)} KB, ${fig} figures)`); });
+return doc;
+};
+
+// ------------------------------------------------------------ build: two passes
+const toPDF = (docx, dir) => {
+  execFileSync('soffice', [`-env:UserInstallation=file://${path.join(dir, 'lo-profile')}`, '--headless', '--convert-to', 'pdf', '--outdir', dir, docx], { stdio: 'ignore', timeout: 300000 });
+  return path.join(dir, path.basename(docx).replace(/\.docx$/, '.pdf'));
+};
+const pageTexts = (pdf) => execFileSync('pdftotext', ['-layout', pdf, '-'], { maxBuffer: 1 << 28 }).toString().split('\f');
+/** Whole-word match (plural allowed); short all-capital terms (OP, DEM, HLS) match case exactly. */
+const wordRe = (w) => new RegExp(`(^|[^A-Za-z])${w.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(s|es)?(?![A-Za-z])`, /^[A-Z]{2,4}$/.test(w) ? '' : 'i');
+/** Page of each heading (in order) and of each index term, from a rendered pass. */
+const paginate = (pdf) => {
+  const pages = pageTexts(pdf);
+  const lines = pages.map((t) => t.split('\n').map((l) => l.trim().replace(/\s+/g, ' ')));
+  const headings = {};
+  let from = lines.findIndex((ls) => ls.includes('CONTENTS')) + 1;
+  for (const h of HEAD) {
+    const want = h.match.replace(/\s+/g, ' ');
+    let k = from;
+    while (k < lines.length && !lines[k].includes(want)) k++;
+    if (k >= lines.length) throw new Error(`heading not found in PDF: ${want}`);
+    headings[h.id] = k + 1; from = k;
+  }
+  const first = headings[HEAD[0].id] - 1;
+  const last = lines.findIndex((ls, i) => i > first && ls.includes('INDEX'));
+  const index = {};
+  for (const [label, words] of INDEX_TERMS) {
+    const hits = [];
+    for (let i = first; i < last; i++) {
+      const t = pages[i].replace(/\s+/g, ' ');
+      if (words.some((w) => wordRe(w).test(t))) hits.push(i + 1);
+    }
+    index[label] = hits.length > 8 ? hits.slice(0, 8).concat(['…']) : hits;
+  }
+  return { headings, index };
+};
+
+(async () => {
+  const out = path.join(ROOT, 'docs/guide/MtnAI_User_Guide.docx');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtnai-guide-'));
+  const draft = path.join(tmp, 'MtnAI_User_Guide.docx');
+  fs.writeFileSync(draft, await Packer.toBuffer(makeDoc(null)));
+  const pages = paginate(toPDF(draft, tmp));
+  const buf = await Packer.toBuffer(makeDoc(pages));
+  fs.writeFileSync(out, buf);
+  const check = paginate(toPDF(out, tmp));
+  const moved = HEAD.filter((h) => check.headings[h.id] !== pages.headings[h.id]).map((h) => h.text);
+  if (moved.length) console.warn('page numbers shifted for:', moved.join(', '));
+  fs.copyFileSync(path.join(tmp, 'MtnAI_User_Guide.pdf'), out.replace(/\.docx$/, '.pdf'));
+  fs.rmSync(tmp, { recursive: true, force: true });
+  console.log('wrote', out, `and PDF (${Math.round(buf.length / 1024)} KB, ${fig} figures, ${HEAD.length} contents entries, ${INDEX_TERMS.length} index terms)`);
+})();
