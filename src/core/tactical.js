@@ -23,13 +23,22 @@
   /** Landform classes 0..5: valley, lower, flat, mid, upper, ridge. */
   const LF = (arr) => arr.slice(0, 6);
 
+  /**
+   * GSP Mountain Warfare Sec 18 — uphill / downhill firing: gravity acts on the
+   * horizontal range only, so divide the slant range by this factor (1 / cos angle;
+   * 10° → 1.02, 25° → 1.10, 60° → 2.0) to get the sight setting.
+   */
+  /** GSP Sec 12 para 8 — tiered defence: valley / foothill, mid slope, ridge line. */
+  M.defenceTier = (lf) => (lf >= 5 ? 'Ridge line' : lf >= 3 ? 'Mid slope' : 'Valley / foothill');
+  M.sightFactor = (angleDeg) => 1 / Math.cos(M.rad(Math.min(80, Math.abs(angleDeg))));
+
   /** Default parameters of every siting algorithm (all overridable per call). */
   M.TACTICAL_DEFAULTS = {
     value: { footGo: 1, footSlow: 0.55, footNogo: 0.05, vehGo: 1, vehSlow: 0.35, vehNogo: 0, obsFoot: 0.7, obsVeh: 0.5, avenueBonus: 2,
       useCorridor: true, corridorWidth: 0.45, corridorMinM: 1500, rearFactor: 0.3 },
     posts: { count: 5, rangeM: 3000, obsH: 2, tgtH: 1.5, minSepM: 600, maxSlope: 35, maxDistOwnM: 7000, minDistThreatM: 500,
       landforms: [3, 4, 5], candidates: 110, overlapKeep: 0.25, rangeDecay: 0.5, requireAccess: true, accessProfile: 'foot', maxAccessH: 0,
-      wTpiL: 0.6, wTpiS: 0.4, wElev: 0.4, wCorridor: 0.4, deadThreshold: 0.25, linkFactor: 2.5 },
+      wTpiL: 0.6, wTpiS: 0.4, wElev: 0.4, wCorridor: 0.4, deadThreshold: 0.25, linkFactor: 2.5, heightSpreadM: 150, heightSpreadBonus: 0.15 },
     direct: { count: 3, minSepM: 300, defRadiusM: 3000, candidates: 120, overlapKeep: 0.5, rangeDecay: 0.35, enfilade: null,
       requireAccess: true, maxAccessH: 0, lfWeights: [0.25, 0.5, 0.6, 0.85, 1.0, 0.55], wCorridor: 0.5, wTpiS: 0.15 },
     ad: { count: 3, minSepM: 500, defRadiusM: 5000, candidates: 120, overlapKeep: 0.5, rangeDecay: 0.35, requireAccess: true, maxAccessH: 0,
@@ -38,7 +47,10 @@
       idealRangeFrac: 0.55, minRangeFrac: 0.15, maxRangeFrac: 0.92, forwardLimit: 0.25,
       wClear: 0.35, wDefilade: 0.3, wRange: 0.15, wFlat: 0.1, wAccess: 0.1, lfWeights: [0.7, 0.9, 1.0, 0.6, 0.35, 0.15] },
     mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 300, maxDistOwnM: 3000, minSepM: 400,
-      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15 },
+      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15,
+      maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
+    helipads: { use: 'regular', count: 3, padRadiusM: 30, minSepM: 500, maxDistOwnM: 5000, requireConcealed: true, requireAccess: true,
+      accessProfile: 'foot', maxAccessH: 0, avoidCrest: true, candidates: 400, wFlat: 0.4, wHidden: 0.35, wNear: 0.25 },
     picquets: { rangeM: 1500, count: 0, kmPerPicquet: 2.5, maxCount: 12, minSepM: 500, maxOffsetM: 2000, minLandform: 4, maxSlope: 38, maxClimbH: 4,
       candidates: 120, overlapKeep: 0.15, obsH: 2, tgtH: 1.5 },
     hostile: { count: 5, searchRadiusM: 3000, rangeM: 8000, obsH: 3, tgtH: 1.5, minSepM: 600, includeThreat: true },
@@ -177,7 +189,7 @@
   };
 
   /** Greedy maximum-coverage selection with overlap discount and separation. */
-  const greedySelect = (g, cands, count, overlapKeep, minSepCells) => {
+  const greedySelect = (g, cands, count, overlapKeep, minSepCells, bonus) => {
     const covered = new Float32Array(g.w * g.h);
     const chosen = [];
     const used = new Uint8Array(cands.length);
@@ -189,6 +201,7 @@
         if (chosen.some((o) => dCells(o, cd) < minSepCells)) continue;
         let gain = 0;
         for (let q = 0; q < cd.cells.length; q++) gain += cd.wts[q] * (1 - covered[cd.cells[q]]);
+        if (bonus) gain *= bonus(cd, chosen);
         if (gain > bestGain) { bestGain = gain; best = j; }
       }
       if (best < 0) break;
@@ -271,7 +284,12 @@
       Object.assign(cd, evalViewshed(T, cd, { obsH: p.obsH, tgtH: p.tgtH, rangeM: p.rangeM }, (i, r, c, d) => V[i] * (1 - (p.rangeDecay * d) / p.rangeM)));
       if (progress && j % 8 === 0) progress(0.15 + (0.7 * j) / cands.length, `Viewshed ${j + 1}/${cands.length}`);
     });
-    const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep);
+    // GSP Sec 4 para 15 / Sec 22: OPs laterally, in depth and at varying altitudes so low cloud
+    // cannot blind every tier at once — credit candidates at a new height band.
+    const spread = p.heightSpreadM > 0 && p.heightSpreadBonus > 0
+      ? (cd, ch) => (ch.length && ch.every((o) => Math.abs(g.z[o.r * g.w + o.c] - g.z[cd.r * g.w + cd.c]) >= p.heightSpreadM) ? 1 + p.heightSpreadBonus : 1)
+      : null;
+    const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep, spread);
     const cover = M.viewshedCount(g, chosen, { obsH: p.obsH, tgtH: p.tgtH, radiusM: p.rangeM });
     const dead = new Uint8Array(g.w * g.h);
     const R = p.rangeM / g.cs;
@@ -293,8 +311,11 @@
       return Object.assign(siteInfo(g, q), {
         id: `${o.mode === 'op' ? 'OP' : 'P'}${k + 1}`, visibleKm2: q.areaKm2, valueShare: totalV ? vis / totalV : 0,
         accessH: access && access[ai] < Infinity ? access[ai] / 3600 : null, landform: M.LANDFORMS[L.landform[ai]].name,
+        tier: M.defenceTier(L.landform[ai]), dominance: L.tpiL[ai] / L.sdL,
       });
     });
+    // GSP Sec 12 para 9: the strong point goes on the most dominating feature
+    if (posts.length) posts.reduce((a, b) => (b.dominance > a.dominance ? b : a)).strongPoint = true;
     const links = [];
     for (let a = 0; a < posts.length; a++)
       for (let b = a + 1; b < posts.length; b++) {
@@ -330,8 +351,14 @@
     const ax = corridor.axis;
     const enf = (p.enfilade ?? wp.enfilade ?? 0) * 0.5;
     cands.forEach((cd, j) => {
+      const zw = g.z[cd.i] + wp.obsH;
+      let aimOut = 0, angSum = 0, angW = 0;
       Object.assign(cd, evalViewshed(T, cd, { obsH: wp.obsH, tgtH: wp.tgtH, rangeM: wp.maxR }, (i, r, c, d) => {
         if (d < wp.minR) return 0;
+        // GSP Sec 18: the mount limits elevation / depression — steeper ground is dead to this weapon
+        const ang = d > 0 ? M.deg(Math.atan2(g.z[i] + wp.tgtH - zw, d)) : 0;
+        if ((wp.aimUp != null && ang > wp.aimUp) || (wp.aimDown != null && ang < -wp.aimDown)) { if (V[i] > 0) aimOut += V[i]; return 0; }
+        if (V[i] > 0) { angSum += Math.abs(ang) * V[i]; angW += V[i]; }
         let v = V[i] * (1 - p.rangeDecay * (d / wp.maxR) * (d / wp.maxR));
         if (enf && ax && d > 0) {
           const fr = ((r - cd.r) * g.cs) / d, fc = ((c - cd.c) * g.cs) / d;
@@ -339,6 +366,7 @@
         }
         return v;
       }));
+      cd.aimOut = aimOut; cd.meanAngle = angW ? angSum / angW : 0;
       if (progress && j % 8 === 0) progress(0.15 + (0.75 * j) / cands.length, `Fields of fire ${j + 1}/${cands.length}`);
     });
     const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep);
@@ -358,6 +386,8 @@
         id: `${wp.short}-${k + 1}`, weapon: wp.id, cat: wp.cat, maxR: wp.maxR, minR: wp.minR,
         sector: M.bearingSpread(bearings, wts, 0.8), meanRangeM: wSum ? rangeSum / wSum : 0, valueShare: totalV ? vis / totalV : 0,
         accessH: access && access[ai] < Infinity ? access[ai] / 3600 : null, landform: M.LANDFORMS[L.landform[ai]].name,
+        // GSP Sec 18: bullets fired up- or downhill strike high — set the sight to slant range ÷ factor
+        meanAngleDeg: q.meanAngle, sightFactor: M.sightFactor(q.meanAngle), plungeDeadShare: totalV ? q.aimOut / totalV : 0,
       });
     });
     const cover = M.viewshedCount(g, chosen, { obsH: wp.obsH, tgtH: wp.tgtH, radiusM: wp.maxR });
@@ -552,7 +582,12 @@
       const dm = Math.hypot(r - T.own.r, c - T.own.c) * g.cs;
       const distW = dm < p.minDistOwnM ? p.outOfRangeFactor : dm > p.maxDistOwnM ? Math.max(p.outOfRangeFactor, 1 - (dm - p.maxDistOwnM) / p.maxDistOwnM) : 1;
       const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
-      items.push({ r, c, score: narrow * avW * distW * fwd * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered });
+      // GSP Sec 12 para 4k / 6, Sec 13 para 4e: mines are thickest in valleys / foothills; on steep
+      // or rocky slopes they wash away (use wire there) and heavy snow reduces their effect.
+      const sl = T.L.slope[cell], lf = T.L.landform[cell];
+      const steep = sl > p.maxSiteSlope, snowy = p.snowLine > 0 && g.z[cell] > p.snowLine;
+      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1);
+      items.push({ r, c, score: narrow * avW * distW * fwd * ground * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered, steep, snowy, sl });
       if (progress && j % 2000 === 0) progress(0.2 + (0.7 * j) / candCells.length, 'Defile analysis');
     });
     if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches — increase the maximum gap width.');
@@ -578,6 +613,7 @@
         id: `Mfd ${k + 1}`, type, profile: profId, poly, frontM: front, depthM: depth * g.cs,
         gapM: it.df.width * g.cs, orientationDeg: dir.deg, estMines: Math.round(front * p.densityPerM),
         onAvenues: it.routes.map((x) => x + 1), covered: it.covered, score: it.score,
+        siteSlopeDeg: it.sl, note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
       });
     });
     return { fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })), params: p };
@@ -634,5 +670,57 @@
     }).sort((a, b) => (a.routeFromKm ?? 0) - (b.routeFromKm ?? 0));
     picquets.forEach((q, k) => (q.id = `PQ${k + 1}`));
     return { picquets, routeCoverage: covered / path.length, params: p };
+  };
+
+  // =====================================================================
+  // Helipads / landing sites (GSP Mountain Warfare Sec 22 para 19)
+  // =====================================================================
+  /** Slope limits (deg): regular use ≤ 4°; emergency 4–10° light helicopters, 4–20° cargo helicopters. */
+  M.HELIPAD_SLOPE = { regular: 4, light: 10, cargo: 20 };
+  M.siteHelipads = (T, o = {}, progress) => {
+    const { g, L } = T;
+    const p = opt('helipads', o);
+    const lim = M.HELIPAD_SLOPE[p.use] || +p.use || 4;
+    const rad = Math.max(1, Math.round(p.padRadiusM / g.cs));
+    const minSep = Math.max(2, p.minSepM / g.cs);
+    progress && progress(0.05, 'Pad flatness');
+    const meanSlope = M.boxMean(L.slope, g.w, g.h, rad);
+    const hostile = T.threat ? T.hostileObs() : null;
+    progress && progress(0.3, 'Access from own position');
+    const access = accessField(T, p.accessProfile, p.requireAccess);
+    const maxOwn = p.maxDistOwnM / g.cs;
+    const flatOK = (r, c) => {
+      for (let dr = -rad; dr <= rad; dr++)
+        for (let dc = -rad; dc <= rad; dc++) {
+          if (dr * dr + dc * dc > rad * rad + 0.5) continue;
+          const rr = r + dr, cc = c + dc;
+          if (!M.inGrid(g, rr, cc) || L.slope[rr * g.w + cc] > lim) return false;
+        }
+      return true;
+    };
+    const { cands, relaxed } = withAccess(access, (acc) => {
+      const items = [];
+      const st = stride(g);
+      for (let r = rad; r < g.h - rad; r += st)
+        for (let c = rad; c < g.w - rad; c += st) {
+          const i = r * g.w + c;
+          if (meanSlope[i] > lim || !accessOK(acc, i, p.maxAccessH)) continue;
+          if (T.own && Math.hypot(r - T.own.r, c - T.own.c) > maxOwn) continue;
+          if (p.requireConcealed && hostile && hostile[i]) continue;
+          if (p.avoidCrest && L.landform[i] === 5) continue; // skylined approach, wind
+          if (!flatOK(r, c)) continue;
+          const near = T.own ? 1 - Math.min(1, Math.hypot(r - T.own.r, c - T.own.c) / maxOwn) : 0.5;
+          const score = p.wFlat * (1 - meanSlope[i] / Math.max(1, lim)) + p.wHidden * (hostile && hostile[i] ? 0 : 1) + p.wNear * near;
+          items.push({ r, c, i, score });
+        }
+      return M.nms(items, minSep, p.candidates);
+    });
+    if (!cands.length) throw new Error(`No ground flat enough for a ${p.use} helipad (≤ ${lim}° over ${p.padRadiusM} m radius) — try the emergency classes, a smaller pad or a larger search distance.`);
+    const pads = cands.slice(0, p.count).map((q, k) => Object.assign(siteInfo(g, q), {
+      id: `HLS ${k + 1}`, use: p.use, slopeLimitDeg: lim, meanSlopeDeg: meanSlope[q.i], landform: M.LANDFORMS[L.landform[q.i]].name,
+      hidden: !(hostile && hostile[q.i]), accessH: access && access[q.i] < Infinity ? access[q.i] / 3600 : null,
+      distOwnM: T.own ? Math.hypot(q.r - T.own.r, q.c - T.own.c) * g.cs : null, score: q.score,
+    }));
+    return { pads, accessRelaxed: relaxed, params: p };
   };
 });

@@ -7,7 +7,8 @@
     "test": "node --test \"test/*.test.mjs\"",
     "build": "node tools/build.mjs",
     "e2e": "node tools/e2e-smoke.cjs",
-    "start": "python3 -m http.server 8080"
+    "start": "python3 -m http.server 8080",
+    "guide": "node tools/guide/params.mjs docs/guide/params.json && python3 tools/guide/flowcharts.py docs/guide/img && node tools/doc-shots.cjs docs/guide/img && python3 tools/guide/prepare_images.py docs/guide/img && node tools/guide/build-guide.cjs"
   },
   "engines": {
     "node": ">=20"

@@ -16,6 +16,26 @@
         <h3>Mouse</h3><table><tr><td>2D</td><td>drag = pan · wheel = zoom · click = select / inspect · double-click = zoom in</td></tr>
         <tr><td>3D</td><td>drag = orbit · right-drag or Shift-drag = pan · wheel = zoom · double-click = recentre</td></tr></table>` };
     }
+    if (section === 'doctrine') {
+      const rows = [
+        ['Planning (Sec 4)', 'Measure distance in time. Map distance + ⅓ ≈ ground distance. Avoid losing height — a 3 km ridge detour beats a 600 m down-and-up. Follow ridges, not gullies. Make a route card.', 'Route A→B: GSP time, nullah penalty, Route Card; Measure: GSP time'],
+        ['Rate of march (Sec 7, Annex E)', 'Day 3 km/h; night 0.5–1 km/h; +30–60 min per 300 m ascent and per 600 m descent.', 'GSP time on every route and route-card leg'],
+        ['Objectives (Sec 4, 7)', 'Tasks are the seizure or retention of dominating heights; objectives are hill features on the flanks and rear that dominate the enemy.', 'Key Terrain'],
+        ['Approaches (Sec 7)', 'Valley (obvious, well covered), nullah (infiltration, ambush), ridge line (easy to fight on, hard to maintain). Guard every approach.', 'Avenues of Approach'],
+        ['Defence (Sec 12–13)', 'Hold dominating features astride and on the flanks of the main axis. Posts at platoon level. Tiered defence: valley / foothill, mid slope, ridge line. Strong point on the most dominating feature. Reverse slopes when the forward slope is under fire.', 'Posts: tier, strong point, Enemy Observation'],
+        ['Observation (Sec 4, 22)', 'Long-range observation but dead space at mid ranges. OPs laterally, in depth and at varying heights so low cloud cannot blind all of them. Voices carry 900 m up — listening posts in valleys.', 'Posts: height tiers, dead ground layer, Viewshed'],
+        ['Obstacles (Sec 12–13)', 'Cover gaps with mines, fire and obstacles; mines thickest in valleys and foothills; mines wash away on slopes and lose effect in snow and rock — use wire there.', 'Minefields: valley bonus, steep-slope and snow-line factors'],
+        ['Fire (Sec 18)', 'Fire up- or downhill strikes high: sight = slant range ÷ factor (10° 1.02, 20° 1.06, 25° 1.10, 60° 2.0). Plunging fire leaves dead ground; MG mount +6° / −8.5°, 75 mm RR +30° / −5°. Mortars cover dead space.', 'Weapon sites: sight factor, mount limits; LOS: sight setting'],
+        ['Artillery & AD (Sec 22)', 'High-angle weapons beat crest clearance; light guns and mortars on reverse slopes and in valleys. Harass passes and defiles. AD covers defiles, gun areas and logistic sites from dominating features.', 'Indirect fire: crest clearance, defilade; AD air corridors'],
+        ['Advance (Sec 6)', 'The axis runs through valleys and defiles dominated by flanking heights — picquet the heights for the main body and the supply route.', 'Route Picquets'],
+        ['Helicopters (Sec 22)', 'Landing sites ≤ 4° for repeated use; emergency 4–10° light, 4–20° cargo. Conceal the site and its approach; hard ground, rock or grass.', 'Helipad Sites (HLS)'],
+        ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
+      ];
+      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnAI applies GSP Mountain Warfare</h2>
+        <p>The rules below come from the GSP Mountain Warfare pamphlet. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the pamphlet.</p>
+        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnAI</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+        <p class="hint">MtnAI is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
+    }
     if (section === 'about') {
       return { title: 'About MtnAI', html: `<h2>MtnAI ${M.VERSION}</h2>
         <p>Offline GIS decision aid for mountain operations. All processing runs locally in the browser; no data leaves the computer.</p>
@@ -51,7 +71,8 @@ Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) 
 <li><b>Map ▸ Situation</b> — place own position, enemy, target area and route start / end. <b>Edit ▸ Create</b> — digitise No-Go areas (rivers, glaciers, cliffs) and tracks.</li>
 <li><b>Analysis ▸ Terrain</b> — Key Terrain and Go / No-Go per movement class (slope limits, snow line, generalisation).</li>
 <li><b>Analysis ▸ Visibility / Tactical Siting</b> — Enemy Observation, Avenues, Posts / OPs, Weapon Sites and Minefields. Each tool exposes its full set of constraints and scoring weights.</li>
-<li><b>Analysis ▸ Routing</b> — Least-Time Route (fastest / balanced / covered / custom weights), Route Picquets, Fly Route.</li>
+<li><b>Analysis ▸ Routing & Movement</b> — Least-Time Route (fastest / balanced / covered / custom weights) with GSP march time and route card, Route Picquets, Helipad Sites, Fly Route.</li>
+<li><b>Help ▸ Doctrine</b> — the GSP Mountain Warfare rules built into each tool.</li>
 <li><b>Share</b> — plan file, GeoJSON, CSV, GeoTIFF / ASCII rasters, PNG and the printable terrain assessment report.</li>
 </ol>
 

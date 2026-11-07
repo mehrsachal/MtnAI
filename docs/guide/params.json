@@ -1,0 +1,1577 @@
+{
+ "downloadDEM": {
+  "name": "Download DEM",
+  "desc": "Downloads an elevation model for an area from the internet and loads it. This is the only tool that uses the network; save a GeoTIFF copy to work offline later.",
+  "gsp": "",
+  "rows": [
+   {
+    "label": "Source",
+    "def": "AWS Terrain Tiles (Terrarium) — global, no key",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Resolution (tile level)",
+    "def": "Level 12 — ≈ 30 m",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Dataset",
+    "def": "Copernicus GLO-30 (30 m)",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "OpenTopography API key",
+    "def": "—",
+    "help": "Free from opentopography.org (MyOpenTopo ▸ Get an API key).",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Extent",
+    "def": "Centre point and size",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Centre",
+    "def": "35.80, 74.30",
+    "help": "Any reference: MGRS, UTM, lat/lon (DD / DMS), GARS, GEOREF or secondary-CRS E/N.",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Width",
+    "def": "20 km",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Height",
+    "def": "20 km",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "West (lon °)",
+    "def": "74.2",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "South (lat °)",
+    "def": "35.7",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "East (lon °)",
+    "def": "74.45",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "North (lat °)",
+    "def": "35.9",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "section": "Output"
+   },
+   {
+    "label": "Save a GeoTIFF copy for offline use",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Add to map",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "exportRaster": {
+  "name": "Export Raster",
+  "desc": "Writes the elevation model or an analysis raster to GeoTIFF (Float32, WGS 84 / UTM) or ESRI ASCII grid with .prj.",
+  "gsp": "",
+  "rows": [
+   {
+    "label": "Raster",
+    "def": "Elevation",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Format",
+    "def": "GeoTIFF (.tif)",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "keyTerrain": {
+  "name": "Key Terrain",
+  "desc": "Finds dominating heights (local summits with high regional topographic position) and passes / cols (saddles).",
+  "gsp": "GSP Sec 4 para 6–7: routes are overlooked by dominating heights; at brigade level and below, objectives are the seizure or retention of specific dominating heights. Passes are held from the heights on both shoulders (Sec 12 para 14).",
+  "rows": [
+   {
+    "section": "Dominating heights"
+   },
+   {
+    "label": "Maximum heights",
+    "def": "20",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Summit search radius",
+    "def": "600 m",
+    "help": "A height must be the highest point within this radius.",
+    "only": ""
+   },
+   {
+    "label": "Minimum dominance (σ of regional TPI)",
+    "def": "0.5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Passes / cols"
+   },
+   {
+    "label": "Maximum passes",
+    "def": "15",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Saddle test radius",
+    "def": "240 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum relief either side (0 = auto)",
+    "def": "0 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "mobility": {
+  "name": "Go / No-Go (Mobility)",
+  "desc": "Classifies cross-country movement into GO / SLOW-GO / NO-GO for a movement class from slope, snow line and digitised obstacles / tracks.",
+  "gsp": "GSP Sec 4 para 8–13: mobility is the key-note; vehicles keep to valley roads, cross-compartment travel is often impossible. A loaded mule can climb any slope a man can negotiate without using his hands (Annex H).",
+  "rows": [
+   {
+    "label": "Movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "GO — maximum slope",
+    "def": "from movement class",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "SLOW-GO — maximum slope",
+    "def": "from movement class",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Cross-country speed (level GO)",
+    "def": "from movement class",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Speed on tracks",
+    "def": "from movement class",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Snow line (0 = off)",
+    "def": "0 m",
+    "help": "Above it vehicles are NO-GO and foot movement drops one class.",
+    "only": ""
+   },
+   {
+    "label": "Generalise (3×3 majority filter)",
+    "def": "No",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "viewshed": {
+  "name": "Viewshed",
+  "desc": "Ground visible from an observer, with earth curvature and refraction (Settings ▸ Analysis parameters).",
+  "gsp": "GSP Sec 4 para 15: heights give long-range observation but rugged ground leaves dead space at mid ranges. A voice in a valley can be heard on ridges 900 m above — cover valleys with listening posts.",
+  "rows": [
+   {
+    "label": "Observer point",
+    "def": "pick on the map",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observer height above ground",
+    "def": "2 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height above ground",
+    "def": "1.5 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Radius",
+    "def": "5000 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "los": {
+  "name": "Line of Sight",
+  "desc": "Intervisibility between two points with terrain profile, obstruction point and clearance.",
+  "gsp": "",
+  "rows": [
+   {
+    "label": "Observer point",
+    "def": "pick on the map",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target point",
+    "def": "pick on the map",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observer height",
+    "def": "2 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height",
+    "def": "2 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "hostile": {
+  "name": "Enemy Observation",
+  "desc": "Ground overlooked by likely enemy OPs on the high ground near the enemy position. Unshaded ground is in defilade.",
+  "gsp": "GSP Sec 12: heights are conspicuous — dig down and conceal; use reverse slopes when the forward slope is under enemy observation. Light guns and mortars deploy on reverse slopes and in valleys (Sec 22).",
+  "rows": [
+   {
+    "label": "Enemy position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Likely enemy OPs to model",
+    "def": "5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "OP search radius around enemy",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum OP separation",
+    "def": "600 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observation range",
+    "def": "8000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Enemy observer height",
+    "def": "3 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height (own troops)",
+    "def": "1.5 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Include the enemy position itself",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "avenues": {
+  "name": "Avenues of Approach",
+  "desc": "Least-time enemy approach routes from the enemy to own position for the enemy movement class.",
+  "gsp": "GSP Sec 7 para 4: three approaches — valley (obvious, well covered), nullah (narrow, for infiltration and ambush) and ridge line (easy to fight on, hard to maintain). Every conceivable approach must be guarded (Sec 4 para 23).",
+  "rows": [
+   {
+    "label": "Own position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy movement class",
+    "def": "Infantry (dismounted)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of avenues",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Separation between avenues",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Corridor half-width",
+    "def": "300 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "posts": {
+  "name": "Suggest Posts / OPs",
+  "desc": "Sites defended posts or OPs on the heights by maximum coverage of likely enemy movement ground, with dead ground and intervisibility.",
+  "gsp": "GSP Sec 12: occupy dominating features astride and on the flanks of the main axis; posts at platoon level; tiered defence (valley / foothill, mid slope, ridge line); a strong point on the most dominating feature; OPs laterally, in depth and at varying heights.",
+  "rows": [
+   {
+    "label": "Own position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Post type",
+    "def": "Defended post",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Strength (symbol)",
+    "def": "Platoon",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of posts",
+    "def": "5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observation range",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observer height",
+    "def": "2 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height",
+    "def": "1.5 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum separation",
+    "def": "600 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Site constraints"
+   },
+   {
+    "label": "Maximum site slope",
+    "def": "35 °",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Allowed landforms",
+    "def": "Mid slope, Upper slope, Ridge",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum distance from own position",
+    "def": "7000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum distance from enemy",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Must be reachable from own position",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Access movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Maximum access time (0 = any)",
+    "def": "0 h",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "section": "Search & scoring"
+   },
+   {
+    "label": "Candidate sites evaluated",
+    "def": "110",
+    "help": "More candidates = better coverage, longer run time.",
+    "only": ""
+   },
+   {
+    "label": "Value of repeated coverage (0–1)",
+    "def": "0.25",
+    "help": "0 = no credit for ground already observed; 1 = full credit (mutual support).",
+    "only": ""
+   },
+   {
+    "label": "Range decay (0–1)",
+    "def": "0.5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Prescore — regional dominance",
+    "def": "0.6",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Prescore — local prominence",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Prescore — absolute height",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Prescore — closeness to approach",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Dead-ground value threshold (0–1)",
+    "def": "0.25",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Intervisibility check range (× obs range)",
+    "def": "2.5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Height band for OP tiers (0 = off)",
+    "def": "150 m",
+    "help": "GSP: site OPs laterally, in depth and at varying altitudes so low cloud cannot blind them all.",
+    "only": ""
+   },
+   {
+    "label": "Credit for a new height tier (0–1)",
+    "def": "0.15",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Target value — enemy movement ground"
+   },
+   {
+    "label": "Dismounted GO ground",
+    "def": "1",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Dismounted SLOW-GO ground",
+    "def": "0.55",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Dismounted NO-GO ground",
+    "def": "0.05",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle GO ground",
+    "def": "1",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle SLOW-GO ground",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle NO-GO ground",
+    "def": "0",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Share for dismounted movement",
+    "def": "0.7",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Share for vehicle movement",
+    "def": "0.5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Bonus on avenues of approach (×)",
+    "def": "2",
+    "help": "Extra value for ground within the enemy avenue corridors (0 = ignore avenues).",
+    "only": ""
+   },
+   {
+    "label": "Concentrate on the enemy approach corridor",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Corridor width (fraction of enemy distance)",
+    "def": "0.45",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum corridor width",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Value of ground behind own position",
+    "def": "0.3",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "weapons": {
+  "name": "Suggest Weapon Sites",
+  "desc": "Direct-fire sites by fields of fire over target ground (with enfilade), indirect-fire positions with crest clearance and defilade, AD sites over air corridors.",
+  "gsp": "GSP Sec 18: fire up- or downhill strikes high — set the sight to slant range ÷ factor (10° 1.02, 20° 1.06, 25° 1.10, 60° 2.0). Plunging fire leaves dead ground; cover it with 60 / 81 mm mortars, riflemen and mines. Air defence covers defiles, gun areas and logistic sites from dominating features (Sec 22).",
+  "rows": [
+   {
+    "label": "Own position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Target area",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Weapon",
+    "def": "7.62 mm MG3 GPMG (SF role) — Direct fire — anti-personnel",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of sites",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Weapon data (saved to Settings ▸ Weapon data)"
+   },
+   {
+    "label": "Minimum range",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum / effective range",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum site slope",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Sight height",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Mount elevation limit (blank = none)",
+    "def": "from weapon data",
+    "help": "GSP Sec 18: MG on mount +6° / −8.5°; 75 mm RR +30° / −5°. Ground beyond the limits is dead to the weapon (plunging fire).",
+    "only": ""
+   },
+   {
+    "label": "Mount depression limit (blank = none)",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Access movement class",
+    "def": "from weapon data",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Site constraints"
+   },
+   {
+    "label": "Defended-area radius around own position",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum separation",
+    "def": "300 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Must be reachable from own position",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum access time (0 = any)",
+    "def": "0 h",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Enfilade preference (0–1, blank = weapon default)",
+    "def": "—",
+    "help": "Credit for fire across the enemy approach rather than head-on.",
+    "only": ""
+   },
+   {
+    "label": "Position must be hidden from enemy observation",
+    "def": "No",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Maximum forward of own position (fraction)",
+    "def": "0.25",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Minimum range to target (× max range)",
+    "def": "0.15",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Maximum range to target (× max range)",
+    "def": "0.92",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Preferred range to target (× max range)",
+    "def": "0.55",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Target-area spread (crest clearance fan)",
+    "def": "400 m",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Crest clearance margin",
+    "def": "15 m",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "section": "Search & scoring"
+   },
+   {
+    "label": "Candidate sites evaluated",
+    "def": "120",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Value of overlapping arcs (0–1)",
+    "def": "0.5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Range decay (0–1)",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Landform preference",
+    "def": "0.25, 0.5, 0.6, 0.85, 1, 0.55",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Landform preference (site)",
+    "def": "0.1, 0.3, 0.45, 0.7, 1, 1",
+    "help": "",
+    "only": "air defence only"
+   },
+   {
+    "label": "Air corridor value by landform",
+    "def": "1, 0.8, 0.7, 0.25, 0.1, 0.05",
+    "help": "Where low-flying aircraft are expected (helicopters follow valleys).",
+    "only": "air defence only"
+   },
+   {
+    "label": "Landform preference",
+    "def": "0.7, 0.9, 1, 0.6, 0.35, 0.15",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Weight — crest clearance",
+    "def": "0.35",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Weight — defilade from enemy view",
+    "def": "0.3",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Weight — range suitability",
+    "def": "0.15",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Weight — flat ground",
+    "def": "0.1",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "label": "Weight — access time",
+    "def": "0.1",
+    "help": "",
+    "only": "indirect fire only"
+   },
+   {
+    "section": "Target value — enemy movement ground"
+   },
+   {
+    "label": "Dismounted GO ground",
+    "def": "1",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Dismounted SLOW-GO ground",
+    "def": "0.55",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Dismounted NO-GO ground",
+    "def": "0.05",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle GO ground",
+    "def": "1",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle SLOW-GO ground",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Vehicle NO-GO ground",
+    "def": "0",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Bonus on avenues of approach (×)",
+    "def": "2",
+    "help": "Extra value for ground within the enemy avenue corridors (0 = ignore avenues).",
+    "only": ""
+   },
+   {
+    "label": "Concentrate on the enemy approach corridor",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Corridor width (fraction of enemy distance)",
+    "def": "0.45",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum corridor width",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Value of ground behind own position",
+    "def": "0.3",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "mfd": {
+  "name": "Suggest Minefields",
+  "desc": "Sites AT / AP minefields at the narrowest defiles on enemy avenues of approach, tied into NO-GO ground and within reach of own troops.",
+  "gsp": "GSP Sec 12: gaps between posts are covered by mines, fire and obstacles; density thickest in valleys and foothills. Mines lose effect in heavy snow and rocky ground and wash away on slopes — use wire there.",
+  "rows": [
+   {
+    "label": "Own position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Minefield type",
+    "def": "Anti-tank (AT)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of minefields",
+    "def": "4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Enemy movement class",
+    "def": "Automatic (AT: armour/wheeled, AP: dismounted)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Obstacle geometry"
+   },
+   {
+    "label": "Maximum gap width (0 = 600 AT / 300 AP)",
+    "def": "0 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Depth (0 = 100 AT / 40 AP)",
+    "def": "0 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Density (0 = 1 AT / 3 AP)",
+    "def": "0 mines/m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Tie-in into NO-GO ground",
+    "def": "30 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Siting constraints"
+   },
+   {
+    "label": "Minimum distance from own position",
+    "def": "300 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum distance from own position",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum separation",
+    "def": "400 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Avenues of approach considered",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Block every avenue at least once",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Only sites under own observation / fire",
+    "def": "No",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Search & scoring"
+   },
+   {
+    "label": "Orientations tested at each defile",
+    "def": "8",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight of narrowness (0–1)",
+    "def": "0.7",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Factor if not observed (0–1)",
+    "def": "0.45",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Factor behind own position (0–1)",
+    "def": "0.2",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Factor outside distance band (0–1)",
+    "def": "0.15",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Ground (GSP Mountain Warfare)"
+   },
+   {
+    "label": "Extra value in valleys / foothills",
+    "def": "0.25",
+    "help": "GSP: minefield density is thickest in the valleys and foothills.",
+    "only": ""
+   },
+   {
+    "label": "Steep-slope limit",
+    "def": "30 °",
+    "help": "GSP: mines on slopes wash away in rain and slides; use wire on rocky / steep slopes.",
+    "only": ""
+   },
+   {
+    "label": "Factor on steeper ground (0–1)",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Snow line (0 = off)",
+    "def": "0 m",
+    "help": "GSP: heavy snow cover greatly reduces the effect of mines.",
+    "only": ""
+   },
+   {
+    "label": "Factor above the snow line (0–1)",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "route": {
+  "name": "Least-Time Route",
+  "desc": "Anisotropic least-time route between A and B with alternatives, checkpoints and exposure to enemy observation.",
+  "gsp": "GSP Sec 4 / 7 / Annex E: measure distance in time — 3 km/h by day, 0.5–1 km/h by night, plus 30–60 min per 300 m of ascent and per 600 m of descent. Avoid losing height (a 3 km ridge detour beats a 600 m down-and-up). Follow ridges, not gullies. Prepare a route card.",
+  "rows": [
+   {
+    "label": "Start A",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "End B",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Optimisation",
+    "def": "Fastest",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Exposure penalty",
+    "def": "3 ×",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Skyline (crest) penalty",
+    "def": "0.8 ×",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Alternative routes",
+    "def": "2",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Separation of alternatives",
+    "def": "350 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Checkpoint interval (0 = none)",
+    "def": "1000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Keep out of nullah beds (penalty)",
+    "def": "0.5 ×",
+    "help": "GSP: routes follow ridge lines rather than gullies and stream beds (scree, vertical patches, ambush). Tracks are exempt.",
+    "only": ""
+   },
+   {
+    "section": "Route card (GSP Annex E)"
+   },
+   {
+    "label": "Leg length",
+    "def": "1000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Night move (0.5–1 km/h instead of 3 km/h)",
+    "def": "No",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "picquets": {
+  "name": "Route Picquets",
+  "desc": "Picquets on the heights dominating the selected route (\"crowning the heights\").",
+  "gsp": "GSP Sec 6: the axis passes through valleys and defiles dominated by flanking heights — secure (picquet) these heights for the main body and to protect the main supply route.",
+  "rows": [
+   {
+    "label": "Picquet observation range",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of picquets (0 = automatic)",
+    "def": "0",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Automatic: route length per picquet",
+    "def": "2.5 km",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Automatic: maximum picquets",
+    "def": "12",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Minimum separation",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Site constraints"
+   },
+   {
+    "label": "Maximum distance from route",
+    "def": "2000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Lowest landform allowed",
+    "def": "Upper slope",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum site slope",
+    "def": "38 °",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum climb time from route",
+    "def": "4 h",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Search & scoring"
+   },
+   {
+    "label": "Candidate sites evaluated",
+    "def": "120",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Value of overlapping coverage (0–1)",
+    "def": "0.15",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observer height",
+    "def": "2 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Target height",
+    "def": "1.5 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "helipads": {
+  "name": "Helipad Sites (HLS)",
+  "desc": "Finds flat, concealed helicopter landing sites near own position.",
+  "gsp": "GSP Sec 22 para 19: sites for repeated use ≤ 4° slope; in emergency 4–10° for observation / utility and 4–20° for cargo helicopters. Shield the site and its approach from enemy observation; avoid dust (dry barren ground) — hard ground, rock or grass is best.",
+  "rows": [
+   {
+    "label": "Own position",
+    "def": "set on the map",
+    "marker": true
+   },
+   {
+    "label": "Use",
+    "def": "Regular use (≤ 4°)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Number of sites",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Pad radius (all of it within the slope limit)",
+    "def": "30 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum distance from own position",
+    "def": "5000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum separation",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Constraints"
+   },
+   {
+    "label": "Hidden from enemy observation",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Not on crests (skyline, wind)",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Reachable from own position",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Access movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Maximum access time (0 = any)",
+    "def": "0 h",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "section": "Scoring"
+   },
+   {
+    "label": "Weight — flatness",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight — concealment",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight — closeness to own position",
+    "def": "0.25",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "fly": {
+  "name": "Fly Route (3D)",
+  "desc": "Animated fly-through of the selected route in the Scene view. Esc stops.",
+  "gsp": "",
+  "rows": [
+   {
+    "label": "Speed",
+    "def": "260 m/s",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Height above route",
+    "def": "140 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "convert": {
+  "name": "Convert Coordinates",
+  "desc": "Converts a reference in any supported format to all others (MGRS, UTM, lat/lon, GARS, GEOREF, secondary CRS).",
+  "gsp": "",
+  "rows": [
+   {
+    "label": "Input reference",
+    "def": "—",
+    "help": "e.g. 43S DV 1950 5100 · 35°42'30\"N 74°06'00\"E · 509LM32 · E/N in the secondary CRS",
+    "only": ""
+   }
+  ]
+ },
+ "_weapons": [
+  {
+   "name": "7.62 mm MG3 GPMG (SF role)",
+   "group": "Direct fire — anti-personnel",
+   "minR": 0,
+   "maxR": 1200,
+   "siteSlope": 30,
+   "access": "Infantry (dismounted, laden)",
+   "aim": "+6° / −8.5°"
+  },
+  {
+   "name": "12.7 mm HMG (Type 54 / W-85)",
+   "group": "Direct fire — anti-personnel",
+   "minR": 0,
+   "maxR": 1600,
+   "siteSlope": 25,
+   "access": "Mule / Animal Transport",
+   "aim": ""
+  },
+  {
+   "name": "RPG-7 (AT rocket launcher)",
+   "group": "Direct fire — anti-armour",
+   "minR": 30,
+   "maxR": 300,
+   "siteSlope": 35,
+   "access": "Infantry (dismounted, laden)",
+   "aim": ""
+  },
+  {
+   "name": "106 mm RCL (M40)",
+   "group": "Direct fire — anti-armour",
+   "minR": 50,
+   "maxR": 1100,
+   "siteSlope": 12,
+   "access": "Light vehicle (jeep / 4x4)",
+   "aim": "+30° / −5°"
+  },
+  {
+   "name": "Baktar-Shikan ATGM",
+   "group": "Direct fire — anti-armour",
+   "minR": 100,
+   "maxR": 3000,
+   "siteSlope": 20,
+   "access": "Mule / Animal Transport",
+   "aim": ""
+  },
+  {
+   "name": "TOW-2A ATGM",
+   "group": "Direct fire — anti-armour",
+   "minR": 65,
+   "maxR": 3750,
+   "siteSlope": 15,
+   "access": "Light vehicle (jeep / 4x4)",
+   "aim": ""
+  },
+  {
+   "name": "60 mm light mortar",
+   "group": "Indirect fire — mortars",
+   "minR": 100,
+   "maxR": 2500,
+   "siteSlope": 15,
+   "access": "Infantry (dismounted, laden)",
+   "aim": ""
+  },
+  {
+   "name": "81 mm mortar",
+   "group": "Indirect fire — mortars",
+   "minR": 100,
+   "maxR": 5600,
+   "siteSlope": 12,
+   "access": "Mule / Animal Transport",
+   "aim": ""
+  },
+  {
+   "name": "120 mm mortar",
+   "group": "Indirect fire — mortars",
+   "minR": 450,
+   "maxR": 7200,
+   "siteSlope": 10,
+   "access": "Light vehicle (jeep / 4x4)",
+   "aim": ""
+  },
+  {
+   "name": "105 mm M56 pack howitzer (mountain arty)",
+   "group": "Indirect fire — artillery",
+   "minR": 1000,
+   "maxR": 10500,
+   "siteSlope": 10,
+   "access": "Mule / Animal Transport",
+   "aim": ""
+  },
+  {
+   "name": "122 mm Type 54-1 howitzer",
+   "group": "Indirect fire — artillery",
+   "minR": 2000,
+   "maxR": 11800,
+   "siteSlope": 8,
+   "access": "Truck / towed gun",
+   "aim": ""
+  },
+  {
+   "name": "130 mm Type 59-1 field gun",
+   "group": "Indirect fire — artillery",
+   "minR": 3000,
+   "maxR": 27000,
+   "siteSlope": 6,
+   "access": "Truck / towed gun",
+   "aim": ""
+  },
+  {
+   "name": "155 mm M198 howitzer",
+   "group": "Indirect fire — artillery",
+   "minR": 2500,
+   "maxR": 22400,
+   "siteSlope": 6,
+   "access": "Truck / towed gun",
+   "aim": ""
+  },
+  {
+   "name": "Anza Mk-II MANPADS",
+   "group": "Air defence",
+   "minR": 500,
+   "maxR": 5000,
+   "siteSlope": 35,
+   "access": "Infantry (dismounted, laden)",
+   "aim": ""
+  },
+  {
+   "name": "Anza Mk-III MANPADS",
+   "group": "Air defence",
+   "minR": 500,
+   "maxR": 6000,
+   "siteSlope": 35,
+   "access": "Infantry (dismounted, laden)",
+   "aim": ""
+  },
+  {
+   "name": "35 mm Oerlikon GDF twin AD gun",
+   "group": "Air defence",
+   "minR": 0,
+   "maxR": 4000,
+   "siteSlope": 8,
+   "access": "Truck / towed gun",
+   "aim": ""
+  }
+ ],
+ "_profiles": [
+  {
+   "name": "Infantry (dismounted, laden)",
+   "go": 20,
+   "slow": 40,
+   "speed": 4.5,
+   "road": 5
+  },
+  {
+   "name": "Mule / Animal Transport",
+   "go": 15,
+   "slow": 30,
+   "speed": 3.5,
+   "road": 4.5
+  },
+  {
+   "name": "Light vehicle (jeep / 4x4)",
+   "go": 10,
+   "slow": 20,
+   "speed": 20,
+   "road": 35
+  },
+  {
+   "name": "Truck / towed gun",
+   "go": 6,
+   "slow": 12,
+   "speed": 12,
+   "road": 30
+  },
+  {
+   "name": "Tracked (tank / APC)",
+   "go": 15,
+   "slow": 30,
+   "speed": 18,
+   "road": 30
+  }
+ ]
+}

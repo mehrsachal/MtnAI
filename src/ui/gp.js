@@ -43,7 +43,7 @@
     { name: 'Terrain Analysis', tools: ['keyTerrain', 'mobility'] },
     { name: 'Visibility', tools: ['viewshed', 'los', 'hostile'] },
     { name: 'Tactical Siting', tools: ['avenues', 'posts', 'weapons', 'mfd'] },
-    { name: 'Routing', tools: ['route', 'picquets', 'fly'] },
+    { name: 'Routing & Movement', tools: ['route', 'picquets', 'helipads', 'fly'] },
     { name: 'Conversion', tools: ['convert'] },
   ];
 
@@ -80,6 +80,7 @@
     },
     keyTerrain: {
       name: 'Key Terrain', icon: 'peak',
+      gsp: 'GSP Sec 4 para 6–7: routes are overlooked by dominating heights; at brigade level and below, objectives are the seizure or retention of specific dominating heights. Passes are held from the heights on both shoulders (Sec 12 para 14).',
       desc: 'Finds dominating heights (local summits with high regional topographic position) and passes / cols (saddles).',
       params: [
         sec('Dominating heights', false),
@@ -94,6 +95,7 @@
     },
     mobility: {
       name: 'Go / No-Go (Mobility)', icon: 'mobility',
+      gsp: 'GSP Sec 4 para 8–13: mobility is the key-note; vehicles keep to valley roads, cross-compartment travel is often impossible. A loaded mule can climb any slope a man can negotiate without using his hands (Annex H).',
       desc: 'Classifies cross-country movement into GO / SLOW-GO / NO-GO for a movement class from slope, snow line and digitised obstacles / tracks.',
       params: [
         { k: 'profile', label: 'Movement class', type: 'select', def: 'foot', options: profOpts },
@@ -107,6 +109,7 @@
     },
     viewshed: {
       name: 'Viewshed', icon: 'eye',
+      gsp: 'GSP Sec 4 para 15: heights give long-range observation but rugged ground leaves dead space at mid ranges. A voice in a valley can be heard on ridges 900 m above — cover valleys with listening posts.',
       desc: 'Ground visible from an observer, with earth curvature and refraction (Settings ▸ Analysis parameters).',
       params: [
         { k: 'observer', label: 'Observer point', type: 'point' },
@@ -127,6 +130,7 @@
     },
     hostile: {
       name: 'Enemy Observation', icon: 'eye',
+      gsp: 'GSP Sec 12: heights are conspicuous — dig down and conceal; use reverse slopes when the forward slope is under enemy observation. Light guns and mortars deploy on reverse slopes and in valleys (Sec 22).',
       desc: 'Ground overlooked by likely enemy OPs on the high ground near the enemy position. Unshaded ground is in defilade.',
       params: [
         { k: 'threat', type: 'marker' },
@@ -141,6 +145,7 @@
     },
     avenues: {
       name: 'Avenues of Approach', icon: 'axis',
+      gsp: 'GSP Sec 7 para 4: three approaches — valley (obvious, well covered), nullah (narrow, for infiltration and ambush) and ridge line (easy to fight on, hard to maintain). Every conceivable approach must be guarded (Sec 4 para 23).',
       desc: 'Least-time enemy approach routes from the enemy to own position for the enemy movement class.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -152,6 +157,7 @@
     },
     posts: {
       name: 'Suggest Posts / OPs', icon: 'post',
+      gsp: 'GSP Sec 12: occupy dominating features astride and on the flanks of the main axis; posts at platoon level; tiered defence (valley / foothill, mid slope, ridge line); a strong point on the most dominating feature; OPs laterally, in depth and at varying heights.',
       desc: 'Sites defended posts or OPs on the heights by maximum coverage of likely enemy movement ground, with dead ground and intervisibility.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -180,11 +186,14 @@
         { k: 'wCorridor', label: 'Prescore — closeness to approach', type: 'number', def: D.posts.wCorridor, min: 0, max: 5, step: 0.05 },
         { k: 'deadThreshold', label: 'Dead-ground value threshold (0–1)', type: 'number', def: D.posts.deadThreshold, min: 0, max: 1, step: 0.05 },
         { k: 'linkFactor', label: 'Intervisibility check range (× obs range)', type: 'number', def: D.posts.linkFactor, min: 0.5, max: 10, step: 0.5 },
+        { k: 'heightSpreadM', label: 'Height band for OP tiers (0 = off)', type: 'number', def: D.posts.heightSpreadM, min: 0, max: 2000, step: 25, unit: 'm', help: 'GSP: site OPs laterally, in depth and at varying altitudes so low cloud cannot blind them all.' },
+        { k: 'heightSpreadBonus', label: 'Credit for a new height tier (0–1)', type: 'number', def: D.posts.heightSpreadBonus, min: 0, max: 1, step: 0.05 },
         ...VALUE(true),
       ],
     },
     weapons: {
       name: 'Suggest Weapon Sites', icon: 'tactical',
+      gsp: 'GSP Sec 18: fire up- or downhill strikes high — set the sight to slant range ÷ factor (10° 1.02, 20° 1.06, 25° 1.10, 60° 2.0). Plunging fire leaves dead ground; cover it with 60 / 81 mm mortars, riflemen and mines. Air defence covers defiles, gun areas and logistic sites from dominating features (Sec 22).',
       desc: 'Direct-fire sites by fields of fire over target ground (with enfilade), indirect-fire positions with crest clearance and defilade, AD sites over air corridors.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' }, { k: 'target', type: 'marker', show: (v) => weaponCat(v) === 'indirect' },
@@ -196,6 +205,8 @@
         { k: 'w.siteSlope', label: 'Maximum site slope', type: 'number', unit: '°', min: 1, max: 60, step: 1, weapon: 'siteSlope' },
         { k: 'w.obsH', label: 'Sight height', type: 'number', unit: 'm', min: 0, max: 20, step: 0.1, weapon: 'obsH', show: (v) => weaponCat(v) !== 'indirect' },
         { k: 'w.tgtH', label: 'Target height', type: 'number', unit: 'm', min: 0, max: 500, step: 0.5, weapon: 'tgtH', show: (v) => weaponCat(v) !== 'indirect' },
+        { k: 'w.aimUp', label: 'Mount elevation limit (blank = none)', type: 'number', unit: '°', min: 0, max: 90, step: 0.5, weapon: 'aimUp', show: (v) => weaponCat(v) === 'direct', help: 'GSP Sec 18: MG on mount +6° / −8.5°; 75 mm RR +30° / −5°. Ground beyond the limits is dead to the weapon (plunging fire).' },
+        { k: 'w.aimDown', label: 'Mount depression limit (blank = none)', type: 'number', unit: '°', min: 0, max: 90, step: 0.5, weapon: 'aimDown', show: (v) => weaponCat(v) === 'direct' },
         { k: 'w.access', label: 'Access movement class', type: 'select', options: profOpts, weapon: 'access' },
         sec('Site constraints'),
         { k: 'defRadiusM', label: 'Defended-area radius around own position', type: 'number', def: 3000, min: 100, max: 50000, step: 250, unit: 'm', show: (v) => weaponCat(v) !== 'indirect' },
@@ -228,6 +239,7 @@
     },
     mfd: {
       name: 'Suggest Minefields', icon: 'mine',
+      gsp: 'GSP Sec 12: gaps between posts are covered by mines, fire and obstacles; density thickest in valleys and foothills. Mines lose effect in heavy snow and rocky ground and wash away on slopes — use wire there.',
       desc: 'Sites AT / AP minefields at the narrowest defiles on enemy avenues of approach, tied into NO-GO ground and within reach of own troops.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -252,10 +264,17 @@
         { k: 'uncoveredFactor', label: 'Factor if not observed (0–1)', type: 'number', def: D.mfd.uncoveredFactor, min: 0, max: 1, step: 0.05 },
         { k: 'rearFactor', label: 'Factor behind own position (0–1)', type: 'number', def: D.mfd.rearFactor, min: 0, max: 1, step: 0.05 },
         { k: 'outOfRangeFactor', label: 'Factor outside distance band (0–1)', type: 'number', def: D.mfd.outOfRangeFactor, min: 0, max: 1, step: 0.05 },
+        sec('Ground (GSP Mountain Warfare)'),
+        { k: 'valleyBonus', label: 'Extra value in valleys / foothills', type: 'number', def: D.mfd.valleyBonus, min: 0, max: 3, step: 0.05, help: 'GSP: minefield density is thickest in the valleys and foothills.' },
+        { k: 'maxSiteSlope', label: 'Steep-slope limit', type: 'number', def: D.mfd.maxSiteSlope, min: 5, max: 60, step: 1, unit: '°', help: 'GSP: mines on slopes wash away in rain and slides; use wire on rocky / steep slopes.' },
+        { k: 'steepFactor', label: 'Factor on steeper ground (0–1)', type: 'number', def: D.mfd.steepFactor, min: 0, max: 1, step: 0.05 },
+        { k: 'snowLine', label: 'Snow line (0 = off)', type: 'number', def: D.mfd.snowLine, min: 0, max: 9000, step: 100, unit: 'm', help: 'GSP: heavy snow cover greatly reduces the effect of mines.' },
+        { k: 'snowFactor', label: 'Factor above the snow line (0–1)', type: 'number', def: D.mfd.snowFactor, min: 0, max: 1, step: 0.05 },
       ],
     },
     route: {
       name: 'Least-Time Route', icon: 'route',
+      gsp: 'GSP Sec 4 / 7 / Annex E: measure distance in time — 3 km/h by day, 0.5–1 km/h by night, plus 30–60 min per 300 m of ascent and per 600 m of descent. Avoid losing height (a 3 km ridge detour beats a 600 m down-and-up). Follow ridges, not gullies. Prepare a route card.',
       desc: 'Anisotropic least-time route between A and B with alternatives, checkpoints and exposure to enemy observation.',
       params: [
         { k: 'a', type: 'marker' }, { k: 'b', type: 'marker' },
@@ -266,10 +285,15 @@
         { k: 'alternatives', label: 'Alternative routes', type: 'number', def: 2, min: 1, max: 4, step: 1 },
         { k: 'separationM', label: 'Separation of alternatives', type: 'number', def: () => cfg('an.altSepM'), min: 50, max: 5000, step: 50, unit: 'm' },
         { k: 'cpEveryM', label: 'Checkpoint interval (0 = none)', type: 'number', def: 1000, min: 0, max: 20000, step: 250, unit: 'm' },
+        { k: 'nullahW', label: 'Keep out of nullah beds (penalty)', type: 'number', def: 0.5, min: 0, max: 10, step: 0.1, unit: '×', help: 'GSP: routes follow ridge lines rather than gullies and stream beds (scree, vertical patches, ambush). Tracks are exempt.' },
+        sec('Route card (GSP Annex E)', false),
+        { k: 'legEveryM', label: 'Leg length', type: 'number', def: 1000, min: 200, max: 10000, step: 100, unit: 'm' },
+        { k: 'night', label: 'Night move (0.5–1 km/h instead of 3 km/h)', type: 'bool', def: false },
       ],
     },
     picquets: {
       name: 'Route Picquets', icon: 'post',
+      gsp: 'GSP Sec 6: the axis passes through valleys and defiles dominated by flanking heights — secure (picquet) these heights for the main body and to protect the main supply route.',
       desc: 'Picquets on the heights dominating the selected route ("crowning the heights").',
       params: [
         { k: 'rangeM', label: 'Picquet observation range', type: 'number', def: D.picquets.rangeM, min: 200, max: 10000, step: 100, unit: 'm' },
@@ -287,6 +311,29 @@
         { k: 'overlapKeep', label: 'Value of overlapping coverage (0–1)', type: 'number', def: D.picquets.overlapKeep, min: 0, max: 1, step: 0.05 },
         { k: 'obsH', label: 'Observer height', type: 'number', def: D.picquets.obsH, min: 0, max: 50, step: 0.5, unit: 'm' },
         { k: 'tgtH', label: 'Target height', type: 'number', def: D.picquets.tgtH, min: 0, max: 50, step: 0.5, unit: 'm' },
+      ],
+    },
+    helipads: {
+      name: 'Helipad Sites (HLS)', icon: 'target',
+      desc: 'Finds flat, concealed helicopter landing sites near own position.',
+      gsp: 'GSP Sec 22 para 19: sites for repeated use ≤ 4° slope; in emergency 4–10° for observation / utility and 4–20° for cargo helicopters. Shield the site and its approach from enemy observation; avoid dust (dry barren ground) — hard ground, rock or grass is best.',
+      params: [
+        { k: 'own', type: 'marker' },
+        { k: 'use', label: 'Use', type: 'select', def: 'regular', options: [['regular', 'Regular use (≤ 4°)'], ['light', 'Emergency — observation / utility (≤ 10°)'], ['cargo', 'Emergency — cargo (≤ 20°)']] },
+        { k: 'count', label: 'Number of sites', type: 'number', def: D.helipads.count, min: 1, max: 20, step: 1 },
+        { k: 'padRadiusM', label: 'Pad radius (all of it within the slope limit)', type: 'number', def: D.helipads.padRadiusM, min: 10, max: 200, step: 5, unit: 'm' },
+        { k: 'maxDistOwnM', label: 'Maximum distance from own position', type: 'number', def: D.helipads.maxDistOwnM, min: 200, max: 50000, step: 250, unit: 'm' },
+        { k: 'minSepM', label: 'Minimum separation', type: 'number', def: D.helipads.minSepM, min: 50, max: 10000, step: 50, unit: 'm' },
+        sec('Constraints'),
+        { k: 'requireConcealed', label: 'Hidden from enemy observation', type: 'bool', def: D.helipads.requireConcealed },
+        { k: 'avoidCrest', label: 'Not on crests (skyline, wind)', type: 'bool', def: D.helipads.avoidCrest },
+        { k: 'requireAccess', label: 'Reachable from own position', type: 'bool', def: D.helipads.requireAccess },
+        { k: 'accessProfile', label: 'Access movement class', type: 'select', def: D.helipads.accessProfile, options: profOpts, show: (v) => v.requireAccess },
+        { k: 'maxAccessH', label: 'Maximum access time (0 = any)', type: 'number', def: 0, min: 0, max: 48, step: 0.5, unit: 'h', show: (v) => v.requireAccess },
+        sec('Scoring'),
+        { k: 'wFlat', label: 'Weight — flatness', type: 'number', def: D.helipads.wFlat, min: 0, max: 5, step: 0.05 },
+        { k: 'wHidden', label: 'Weight — concealment', type: 'number', def: D.helipads.wHidden, min: 0, max: 5, step: 0.05 },
+        { k: 'wNear', label: 'Weight — closeness to own position', type: 'number', def: D.helipads.wNear, min: 0, max: 5, step: 0.05 },
       ],
     },
     fly: {
@@ -395,7 +442,7 @@
     const el = document.getElementById('gpPane');
     const scroll = (el.querySelector('.gp-form') || {}).scrollTop || 0;
     let html = `<div class="gp-head"><button class="ghost-ic" data-back title="Back to toolboxes">‹</button><span>${esc(t.name)}</span><button class="ghost-ic" data-help title="Tool help">?</button></div>
-      <div class="gp-desc" hidden>${esc(t.desc)}</div><div class="gp-tabs"><span class="on">Parameters</span><button class="link" data-env>Environments…</button></div><div class="gp-form">`;
+      <div class="gp-desc" hidden>${esc(t.desc)}</div>${t.gsp ? `<div class="gp-gsp" title="Click to expand / collapse"><b>Doctrine</b> ${esc(t.gsp)}</div>` : ''}<div class="gp-tabs"><span class="on">Parameters</span><button class="link" data-env>Environments…</button></div><div class="gp-form">`;
     let inSec = false, secId = '';
     for (const p of t.params) {
       if (p.show && !p.show(v)) continue;
@@ -429,6 +476,8 @@
     };
     el.querySelector('[data-back]').onclick = () => GP.home();
     el.querySelector('[data-help]').onclick = () => { const d = el.querySelector('.gp-desc'); d.hidden = !d.hidden; };
+    const gs = el.querySelector('.gp-gsp');
+    if (gs) gs.onclick = () => gs.classList.toggle('open');
     el.querySelector('[data-env]').onclick = () => UI.Settings.open('an');
     el.querySelectorAll('[data-k]').forEach((inp) => inp.addEventListener('change', () => {
       const p = t.params.find((x) => x.k === inp.dataset.k);

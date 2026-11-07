@@ -56,11 +56,12 @@
     <div class="splitter h" data-split="dock"></div>
     <div id="dock">
       <div class="dock-head">
-        <div class="dock-tabs"><button data-dock="table" class="on">Attribute table <i id="attrCount"></i></button><button data-dock="profile">Elevation profile</button></div>
+        <div class="dock-tabs"><button data-dock="table" class="on">Attribute table <i id="attrCount"></i></button><button data-dock="profile">Elevation profile</button><button data-dock="card">Route card</button></div>
         <div class="dock-tools" data-dockpanel-tools="table"><select id="attrLayer"><option value="">All layers</option></select><input id="attrFilter" placeholder="Filter…" spellcheck="false"><button class="btn sm" data-cmd="csv" data-need>Export CSV</button></div>
         <button id="dockToggle" class="ghost-ic" title="Collapse / expand">▾</button>
       </div>
       <div class="dock-body" data-dockpanel="table"><table id="attrTable" class="grid-table"></table></div>
+      <div class="dock-body" data-dockpanel="card" hidden><div class="card-tools"><span class="hint">Route card — GSP Mountain Warfare Annex E (3 km/h by day, 0.5–1 km/h by night, +30–60 min per 300 m up and per 600 m down)</span><button class="btn sm" id="cardCsv">Export CSV</button></div><table id="cardTable" class="grid-table"></table></div>
       <div class="dock-body" data-dockpanel="profile" hidden><div id="profileTitle" class="hint"></div><canvas id="chart"></canvas></div>
     </div>
   </section>

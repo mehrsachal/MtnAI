@@ -24,9 +24,9 @@
     },
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
-    key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
+    key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
     mobStats: {}, snowLine: 0, generalize: false,
-    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, hostileOps: true },
+    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true },
     tool: null, draft: null, sel: null, view: '2d', baseCanvas: null, texCanvas: null, texDirty: true,
     sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: {},
   });
@@ -104,7 +104,7 @@
   const setWeaponField = (id, field, val) => {
     const o = JSON.parse(JSON.stringify(cfg('weapons') || {}));
     if (field === null) delete o[id];
-    else o[id] = Object.assign(o[id] || {}, { [field]: typeof M.WEAPONS[id][field] === 'number' ? +val : val });
+    else o[id] = Object.assign(o[id] || {}, { [field]: val === '' || val === null ? null : typeof M.WEAPONS[id][field] === 'number' || ['aimUp', 'aimDown'].includes(field) ? +val : val });
     Settings.set('weapons', o);
   };
   const setProfileField = (id, field, val) => {
@@ -127,7 +127,7 @@
       S.stats = res.stats;
       S.sources = opts.sources || null;
       if (opts.full) S.fullGrid = opts.full;
-      Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
+      Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
       for (const o of Object.values(S.overlays)) { o.data = null; o.rgba = null; o.visible = false; }
       if (!opts.keepPlan) { S.markers = {}; S.obstacles = []; S.tracks = opts.tracks || []; }
       if (opts.markers) for (const k in opts.markers) S.markers[k] = snapLowSlope(opts.markers[k]);
@@ -454,6 +454,7 @@
     if (S.obstacles.length || S.tracks.length) feat.push(Object.assign({ id: 'obstacles', name: 'Obstacles & tracks', count: S.obstacles.length + S.tracks.length,
       legend: swatches([[polySw('rgba(217,58,50,0.35)', '#ff5b4f'), `No-Go areas (${S.obstacles.length})`], [lineSw('#c8955c', true), `Tracks (${S.tracks.length})`]]),
       remove: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } }, showFlag('obstacles')));
+    if (S.helipads) feat.push(Object.assign({ id: 'helipads', name: 'Helipad sites (HLS)', count: S.helipads.pads.length, table: true, legend: swatches([['<span class="lg-txt">Ⓗ</span>', `${S.helipads.pads[0] ? S.helipads.pads[0].use : ''} — ≤ ${S.helipads.params.use === 'regular' ? 4 : S.helipads.params.use === 'light' ? 10 : 20}°`]]), remove: () => { S.helipads = null; } }, showFlag('helipads')));
     if (S.picquets) feat.push(Object.assign({ id: 'picquets', name: 'Route picquets', count: S.picquets.picquets.length, table: true, legend: swatches([[symSw(UI.SYM.picquet()), 'Picquet (planned)']]), remove: () => { S.picquets = null; } }, showFlag('picquets')));
     if (S.routes) feat.push(Object.assign({ id: 'routes', name: `Routes — ${M.MOVEMENT_PROFILES[S.routes.profile].name.split(' (')[0]}`, count: S.routes.routes.length, table: true,
       legend: swatches([[lineSw(cfg('sym.routeColor')), 'Selected route'], [lineSw(cfg('sym.routeColor'), true), 'Alternative'], [symSw(UI.SYM.cp(1), 12), 'Checkpoint']]), remove: () => { S.routes = null; S.picquets = null; } }, showFlag('routes')));
@@ -545,6 +546,7 @@
     if (id === 'markers') Object.values(S.markers).forEach(add);
     else if (id === 'obstacles') { lines(S.obstacles); lines(S.tracks); }
     else if (id === 'picquets') S.picquets.picquets.forEach(add);
+    else if (id === 'helipads') S.helipads.pads.forEach(add);
     else if (id === 'routes') lines(S.routes.routes.map((r) => r.line));
     else if (id === 'mfd') S.mfd.fields.forEach(add);
     else if (id.startsWith('weapons:')) S.weapons[+id.slice(8)].sites.forEach(add);
@@ -759,6 +761,10 @@
     if (!tool) {
       const ref = nearestSymbol(ev.x, ev.y);
       if (ref) { select(ref, false, true); return; }
+      if (S.helipads && S.show.helipads !== false) {
+        const k = S.helipads.pads.findIndex((q) => { const [sx, sy] = S.view === '3d' ? [-1e9, -1e9] : map.toScreen(q.c, q.r); return Math.hypot(sx - ev.x, sy - ev.y) < 14; });
+        if (k >= 0) { select({ kind: 'hls', idx: k }, false, true); return; }
+      }
       if (S.mfd && inside && S.show.mfd) {
         const k = S.mfd.fields.findIndex((f) => M.pointInPoly(c, r, f.poly));
         if (k >= 0) { select({ kind: 'mfd', idx: k }, false, true); return; }
@@ -799,7 +805,10 @@
       ['Bearing — grid', F.angle(gb)], ['Bearing — true', F.angle(gb + conv)], ['Bearing — magnetic', F.angle(gb + conv - decl)],
       ['Back bearing', F.bearing(gb + 180, p[1], p[0])],
       ['Height difference', F.height(z2 - z1)], ['Mean gradient', `${M.deg(Math.atan(Math.abs(z2 - z1) / Math.max(1, d))).toFixed(1)}°`],
-    ])}</table>`;
+      ['GSP march time — day', gspRange(M.gspMarchTime(d, Math.max(0, z2 - z1), Math.max(0, z1 - z2)))],
+      ['GSP march time — night', gspRange(M.gspMarchTime(d, Math.max(0, z2 - z1), Math.max(0, z1 - z2), { night: true }))],
+      ['Off-map distance (map + ⅓)', F.dist(d * 4 / 3)],
+    ])}</table><p class="hint pad">GSP: distance is measured in time. Straight-line legs; use Least-Time Route for the real path.</p>`;
     showRightTab('attr');
     S.draft = { kind: 'measure', pts: [p, q] };
     map.render();
@@ -819,6 +828,7 @@
     if (!keepOthers && cfg('ovl.exclusive')) for (const [k, x] of Object.entries(S.overlays)) if (k !== id) x.visible = false;
     o.data = data; o.rgba = null; o.visible = !!data; o.info = info || o.info;
   };
+  const gspRange = (t) => `${F.time(t.minH)}–${F.time(t.maxH)}`;
   const refLines = (items, fmt) => items.map((x) => `${x.id}  ${F.listRef(x.r, x.c)}${fmt ? '  ' + fmt(x) : ''}`).join('\n');
 
   const computeMobility = async (v, quiet) => {
@@ -865,8 +875,11 @@
     const blk = res.blockIndex >= 0 ? res.profile[res.blockIndex] : null;
     openProfile(`Line of sight — ${res.visible ? 'visible' : 'masked'} — ${F.dist(res.distance)}`, { profile: res.profile, blockIndex: res.blockIndex });
     renderAll(); refresh();
-    return res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
-      : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`;
+    const pa = res.profile[0], pb = res.profile[res.profile.length - 1];
+    const ang = M.deg(Math.atan2((pb.z + +v.tgtH) - (pa.z + +v.obsH), Math.max(1, res.distance)));
+    const fire = `\nAngle of sight ${ang.toFixed(1)}° · slant ${F.dist(Math.hypot(res.distance, (pb.z + +v.tgtH) - (pa.z + +v.obsH)))} · set sight to slant ÷ ${M.sightFactor(ang).toFixed(2)} (GSP Sec 18)`;
+    return (res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
+      : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`) + fire;
   };
   H.hostile = async (v) => {
     needMarkers('threat');
@@ -953,12 +966,14 @@
     await syncSettings();
     const res = await run(`Route A→B (${v.mode})`, 'route', {
       a: S.markers.a, b: S.markers.b, profile: v.profile, mode: v.mode, alternatives: +v.alternatives, cpEveryM: +v.cpEveryM,
-      exposureW: +v.exposureW, skylineW: +v.skylineW, separationM: +v.separationM,
+      exposureW: +v.exposureW, skylineW: +v.skylineW, separationM: +v.separationM, nullahW: +v.nullahW, legEveryM: +v.legEveryM, night: !!v.night,
     }, (r) => r.routes.map((x, k) => `R${k + 1} ${F.dist(x.lengthM)} · ${F.time(x.timeH)}`).join('\n'));
-    S.routes = { routes: res.routes, sel: 0, profile: v.profile, mode: v.mode };
+    S.routes = { routes: res.routes, sel: 0, profile: v.profile, mode: v.mode, night: !!v.night };
     S.picquets = null;
     renderAll(); showRouteProfile(); refresh();
-    return `${M.MOVEMENT_PROFILES[v.profile].name} · ${v.mode}\n` + res.routes.map((r, k) => `R${k + 1}  ${F.dist(r.lengthM)} · ${F.time(r.timeH)} · ↑${F.height(r.ascentM)} · exposed ${pct(r.exposedFrac)}`).join('\n');
+    renderRouteCard();
+    return `${M.MOVEMENT_PROFILES[v.profile].name} · ${v.mode}\n` + res.routes.map((r, k) => `R${k + 1}  ${F.dist(r.lengthM)} · model ${F.time(r.timeH)} · GSP ${gspRange(v.night ? r.gspNight : r.gspDay)} · ↑${F.height(r.ascentM)} ↓${F.height(r.descentM)} · exposed ${pct(r.exposedFrac)}`).join('\n') +
+      '\nRoute card: bottom dock ▸ Route card.';
   };
   H.picquets = async (v) => {
     if (!S.routes) throw new Error('Run Least-Time Route first — picquets protect the selected route.');
@@ -966,6 +981,16 @@
     S.picquets = await run('Route Picquets', 'picquets', Object.assign({}, v, { path: Array.from(rt.path) }), (r) => `${r.picquets.length} picquets · ${pct(r.routeCoverage)} of route observed`);
     renderAll(); refresh();
     return `${S.picquets.picquets.length} picquets keep ${pct(S.picquets.routeCoverage)} of route R${(S.routes.sel || 0) + 1} under observation.\n` + refLines(S.picquets.picquets, (p) => `climb ${F.time(p.climbH)}`);
+  };
+  H.helipads = async (v) => {
+    needGrid();
+    await syncSettings();
+    const res = await run('Helipad Sites', 'helipads', v, (r) => `${r.pads.length} sites`);
+    S.helipads = res;
+    S.show.helipads = true;
+    renderAll(); refresh();
+    return `${res.pads.length} sites (${v.use}, ≤ ${res.pads[0] ? res.pads[0].slopeLimitDeg : '–'}°)${res.accessRelaxed ? '\nWARNING: access constraint relaxed.' : ''}\n` +
+      refLines(res.pads, (q) => `${q.meanSlopeDeg.toFixed(1)}° · ${q.hidden ? 'hidden' : 'SEEN by enemy'}${q.distOwnM !== null ? ` · ${F.dist(q.distOwnM)} from own` : ''}`);
   };
   H.fly = async (v) => {
     if (!S.routes) throw new Error('Run Least-Time Route first.');
@@ -1005,6 +1030,7 @@
       case 'weapon': return S.weapons[ref.idx] && S.weapons[ref.idx].sites[ref.sub];
       case 'mfd': return S.mfd && S.mfd.fields[ref.idx];
       case 'picquet': return S.picquets && S.picquets.picquets[ref.idx];
+      case 'hls': return S.helipads && S.helipads.pads[ref.idx];
       case 'key': return S.key && (ref.sub === 'pass' ? S.key.passes : S.key.peaks)[ref.idx];
       case 'marker': return S.markers[ref.idx];
       case 'route': return S.routes && S.routes.routes[ref.idx] && { c: S.routes.routes[ref.idx].line[0][0], r: S.routes.routes[ref.idx].line[0][1] };
@@ -1015,7 +1041,7 @@
     }
   };
   const select = (ref, zoom, fromMap) => {
-    if (ref && ref.kind === 'route') { S.routes.sel = ref.idx; S.picquets = null; showRouteProfile(); }
+    if (ref && ref.kind === 'route') { S.routes.sel = ref.idx; S.picquets = null; showRouteProfile(); renderRouteCard(); }
     S.sel = ref;
     renderAll();
     const pos = posOf(ref);
@@ -1064,7 +1090,8 @@
         icon = UI.symbolHTML(P.mode === 'op' ? UI.SYM.op() : UI.SYM.post(P.echelon), 26);
         title = p.id; sub = P.mode === 'op' ? 'Observation post (planned)' : `Defended post — ${P.echelon} (planned)`;
         const mates = P.links.filter((l) => l[0] === ref.idx || l[1] === ref.idx).map((l) => P.posts[l[0] === ref.idx ? l[1] : l[0]].id);
-        rows.push(['Assessment', null], ['Landform', p.landform.split(' (')[0]], ['Visible area', F.area(p.visibleKm2)], ['Approach coverage', pct(p.valueShare, 1)],
+        if (p.strongPoint) sub += ' — STRONG POINT (most dominating)';
+        rows.push(['Assessment', null], ['Defence tier (GSP)', p.tier || '—'], ['Landform', p.landform.split(' (')[0]], ['Visible area', F.area(p.visibleKm2)], ['Approach coverage', pct(p.valueShare, 1)],
           ['Access', p.accessH === null ? '—' : F.time(p.accessH)], ['Intervisible with', mates.join(', ') || 'none']);
         break;
       }
@@ -1079,6 +1106,8 @@
         } else {
           rows.push(['Left of arc', F.bearing(p.sector.left, p.r, p.c)], ['Right of arc', F.bearing(p.sector.right, p.r, p.c)], ['Principal direction', F.bearing(p.sector.mean, p.r, p.c)],
             ['Mean range', F.dist(p.meanRangeM)], ['Target ground covered', pct(p.valueShare, 1)]);
+          if (p.sightFactor) rows.push(['Mean angle of sight', `${p.meanAngleDeg.toFixed(1)}°`], ['Sight setting (GSP Sec 18)', `slant range ÷ ${p.sightFactor.toFixed(2)}`],
+            ['Dead to mount limits', pct(p.plungeDeadShare || 0, 1) + ' of target ground']);
         }
         rows.push(['Range band', `${F.dist(p.minR)} – ${F.dist(p.maxR)}`], ['Landform', p.landform.split(' (')[0]], ['Access', p.accessH === null ? '—' : F.time(p.accessH)]);
         break;
@@ -1086,7 +1115,7 @@
       case 'mfd':
         icon = UI.symbolHTML(UI.SYM.mine(p.type), 22); title = p.id; sub = `${p.type === 'AT' ? 'Anti-tank' : 'Anti-personnel'} minefield (planned)`;
         rows.push(['Obstacle', null], ['Gap at defile', F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
-          ['Est. mines', `≈ ${p.estMines}`], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
+          ['Est. mines', `≈ ${p.estMines}`], ['Site slope', p.siteSlopeDeg === undefined ? '—' : `${p.siteSlopeDeg.toFixed(0)}°`], ['Ground note (GSP)', p.note || 'suitable'], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
         break;
       case 'picquet':
         icon = UI.symbolHTML(UI.SYM.picquet(), 26); title = p.id; sub = 'Route picquet (planned)';
@@ -1101,7 +1130,7 @@
         const rt = S.routes.routes[ref.idx];
         title = `Route R${ref.idx + 1}`; sub = M.MOVEMENT_PROFILES[S.routes.profile].name;
         rows.push(['Route', null], ['Length', F.dist(rt.lengthM)], ['Time', F.time(rt.timeH)], ['Ascent / descent', `${F.height(rt.ascentM)} / ${F.height(-rt.descentM)}`],
-          ['Max grade', `${rt.maxGradeDeg.toFixed(0)}°`], ['Slow-Go', pct(rt.slowFrac)], ['Exposed', pct(rt.exposedFrac)], ['Highest point', F.elev(rt.highestM)]);
+          ['GSP time — day', rt.gspDay ? gspRange(rt.gspDay) : '—'], ['GSP time — night', rt.gspNight ? gspRange(rt.gspNight) : '—'], ['Max grade', `${rt.maxGradeDeg.toFixed(0)}°`], ['Slow-Go', pct(rt.slowFrac)], ['Exposed', pct(rt.exposedFrac)], ['Highest point', F.elev(rt.highestM)]);
         break;
       }
       case 'avenue': {
@@ -1110,6 +1139,11 @@
         rows.push(['Avenue', null], ['Length', F.dist(rt.lengthM)], ['Time', F.time(rt.timeH)], ['Slow-Go', pct(rt.slowFrac || 0)]);
         break;
       }
+      case 'hls':
+        title = p.id; sub = `Helipad / landing site — ${p.use}`;
+        rows.push(['Landing site', null], ['Mean slope', `${p.meanSlopeDeg.toFixed(1)}° (limit ${p.slopeLimitDeg}°)`], ['Enemy observation', p.hidden ? 'hidden' : 'SEEN'],
+          ['Landform', p.landform.split(' (')[0]], ['From own position', p.distOwnM === null ? '—' : F.dist(p.distOwnM)], ['Access', p.accessH === null ? '—' : F.time(p.accessH)]);
+        break;
       case 'cp': icon = UI.symbolHTML(UI.SYM.cp(ref.idx + 1), 20); title = `CKP ${ref.idx + 1}`; sub = `Checkpoint — km ${(p.d / 1000).toFixed(1)}`; break;
       case 'point': title = 'Location'; sub = 'Inspected point'; break;
       default: title = ref.kind;
@@ -1137,16 +1171,17 @@
       S.key.passes.forEach((p, k) => add('key', null, 'Pass / col', `Col ${k + 1}`, p, '', { kind: 'key', idx: k, sub: 'pass' }, p.z));
     }
     if (S.posts) S.posts.posts.forEach((p, k) => add('posts', S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), S.posts.mode === 'op' ? 'Observation post' : 'Defended post', p.id, p,
-      `sees ${F.area(p.visibleKm2)} · ${pct(p.valueShare, 1)} of approaches`, { kind: 'post', idx: k }, p.z));
+      `${p.strongPoint ? 'STRONG POINT · ' : ''}${p.tier || ''} · sees ${F.area(p.visibleKm2)} · ${pct(p.valueShare, 1)} of approaches`, { kind: 'post', idx: k }, p.z));
     S.weapons.forEach((res, wi) => res.sites.forEach((s, k) => add('weapons:' + wi, UI.SYM.weapon(res.weapon), `Weapon — ${res.weapon.short}`, s.id, s,
       s.cat === 'indirect' ? `${F.dist(s.rangeToTargetM)} to target · QE ${s.qeDeg === null ? '—' : F.angle(s.qeDeg)} · crest ${pct(s.clearShare)}`
         : `arc ${F.bearing(s.sector.left, s.r, s.c, true)}–${F.bearing(s.sector.right, s.r, s.c)} · ${pct(s.valueShare, 1)}`, { kind: 'weapon', idx: wi, sub: k }, s.z)));
     if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `gap ${F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
     if (S.avenues) S.avenues.routes.forEach((rt, k) => add('avenues', null, 'Enemy avenue', `AA${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)}`, { kind: 'avenue', idx: k }));
     if (S.routes) {
-      S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · ${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
+      S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · GSP ${rt.gspDay ? gspRange(S.routes.night ? rt.gspNight : rt.gspDay) : '—'} · ↑${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
       S.routes.routes[S.routes.sel || 0].checkpoints.forEach((cp, k) => add('routes', UI.SYM.cp(k + 1), 'Checkpoint', `CKP ${k + 1}`, cp, `km ${(cp.d / 1000).toFixed(1)}`, { kind: 'cp', idx: k }));
     }
+    if (S.helipads) S.helipads.pads.forEach((p, k) => add('helipads', null, 'Helipad (HLS)', p.id, p, `${p.use} · ${p.meanSlopeDeg.toFixed(1)}° · ${p.hidden ? 'hidden' : 'seen'}`, { kind: 'hls', idx: k }, p.z));
     if (S.picquets) S.picquets.picquets.forEach((p, k) => add('picquets', UI.SYM.picquet(), 'Picquet', p.id, p, `km ${p.routeFromKm === null ? '—' : p.routeFromKm.toFixed(1) + '–' + p.routeToKm.toFixed(1)} · climb ${F.time(p.climbH)}`, { kind: 'picquet', idx: k }, p.z));
     return rows;
   };
@@ -1213,11 +1248,41 @@
     UI.download(fileName('features.csv'), '﻿' + lines.join('\r\n'), 'text/csv');
   };
 
+  // =================================================================== route card (GSP Annex E)
+  const routeCardRows = () => {
+    if (!S.routes) return [];
+    const rt = S.routes.routes[S.routes.sel || 0];
+    if (!rt || !rt.card) return [];
+    const decl = F.declination();
+    return rt.card.map((l, k) => {
+      const mag = l.bearingDeg + F.convergence(l.from[1], l.from[0]) - decl;
+      return { leg: k + 1, from: F.listRef(l.from[1], l.from[0]), to: F.listRef(l.to[1], l.to[0]), mag: F.angle(((mag % 360) + 360) % 360), hEnd: F.elev(l.heightEndM),
+        hDiff: F.height(l.heightDiffM), dist: F.dist(l.distM), time: `${Math.round(l.minMin)}–${Math.round(l.maxMin)} min` };
+    });
+  };
+  const CARD_COLS = [['leg', 'Leg'], ['from', 'From'], ['to', 'To'], ['mag', 'Magnetic bearing'], ['hEnd', 'Height at end'], ['hDiff', 'Height diff'], ['dist', 'Distance'], ['time', 'Time (GSP)']];
+  const renderRouteCard = () => {
+    const rows = routeCardRows();
+    const tbl = $('cardTable');
+    if (!rows.length) { tbl.innerHTML = '<tbody><tr><td class="wrap">Run Least-Time Route to make a route card.</td></tr></tbody>'; return; }
+    const rt = S.routes.routes[S.routes.sel || 0];
+    const tot = S.routes.night ? rt.gspNight : rt.gspDay;
+    tbl.innerHTML = `<thead><tr>${CARD_COLS.map(([, t]) => `<th>${t}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${CARD_COLS.map(([k]) => `<td class="${k === 'from' || k === 'to' || k === 'mag' ? 'm' : ''}">${esc(r[k])}</td>`).join('')}</tr>`).join('')}
+      <tr class="sel"><td colspan="6">Total — route R${(S.routes.sel || 0) + 1} (${S.routes.night ? 'night' : 'day'}) · ↑${esc(F.height(rt.ascentM))} ↓${esc(F.height(rt.descentM))}</td><td>${esc(F.dist(rt.lengthM))}</td><td>${esc(gspRange(tot))}</td></tr></tbody>`;
+  };
+  const exportRouteCard = () => {
+    const rows = routeCardRows();
+    if (!rows.length) { toast('No route card — run Least-Time Route first.', true); return; }
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    UI.download(fileName('route_card.csv'), '\ufeff' + [CARD_COLS.map(([, t]) => q(t)).join(',')].concat(rows.map((r) => CARD_COLS.map(([k]) => q(r[k])).join(','))).join('\r\n'), 'text/csv');
+  };
+
   // =================================================================== dock / profile
   const showDockTab = (tab) => {
     document.querySelectorAll('.dock-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.dock === tab));
     document.querySelectorAll('[data-dockpanel]').forEach((p) => (p.hidden = p.dataset.dockpanel !== tab));
     document.querySelector('[data-dockpanel-tools]').hidden = tab !== 'table';
+    if (tab === 'card') renderRouteCard();
     if (tab === 'profile' && S.drawerData) UI.drawProfile($('chart'), S.drawerData);
   };
   const setDock = (open) => { $('dock').classList.toggle('collapsed', !open); $('dockToggle').textContent = open ? '▾' : '▴'; saveLayout(); updateRibbonState(); };
@@ -1365,7 +1430,7 @@
       format: 'mtnai-plan', version: M.VERSION, created: new Date().toISOString(), grid: M.gridMeta(S.grid),
       markers: S.markers, obstacles: S.obstacles, tracks: S.tracks, threatType: S.threatType, ownEchelon: S.ownEchelon, snowLine: S.snowLine,
       key: S.key, posts: strip(S.posts, ['cover', 'dead']), weapons: S.weapons.map((w) => strip(w, ['cover'])),
-      mfd: S.mfd, avenues: S.avenues, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
+      mfd: S.mfd, avenues: S.avenues, helipads: S.helipads, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
     };
   };
   const linePath = (line) => {
@@ -1391,7 +1456,7 @@
     for (const k in p.markers || {}) if (inGrid(p.markers[k])) S.markers[k] = { c: Math.round(p.markers[k].c), r: Math.round(p.markers[k].r) };
     Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0 });
     if (!opts.silent || plan.grid.name === S.grid.name) {
-      Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null });
+      Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null, helipads: p.helipads || null });
       S.weapons = (p.weapons || []).map((w) => Object.assign(w, { weapon: weaponOf(w.weapon.id) }));
       S.routes = p.routes || null;
       if (S.routes) {
@@ -1517,6 +1582,8 @@
     contours: { t: 'Contours', rb: 'Contours', check: true, run: () => Settings.set('map.contours', !cfg('map.contours')), on: () => cfg('map.contours') },
     labels: { t: 'Labels', rb: 'Labels', check: true, run: () => Settings.set('sym.labels', !cfg('sym.labels')), on: () => cfg('sym.labels') },
     theme: { t: 'Theme', rb: 'Theme', icon: 'panel', menu: () => [['dark', 'Dark'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red)']].map(([k, n]) => ({ t: n, checked: cfg('ui.theme') === k, run: () => Settings.set('ui.theme', k) })) },
+    routeCard: { t: 'Route card (GSP Annex E)', rb: 'Route Card', icon: 'doc', need, run: () => { setDock(true); showDockTab('card'); } },
+    doctrine: { t: 'Doctrine — GSP Mountain Warfare', rb: 'Doctrine', icon: 'doc', run: () => openHelp('doctrine') },
     swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; renderAll(); refresh(); } },
     clearObstacles: { t: 'Delete digitised obstacles and tracks', rb: 'Delete All', icon: 'err', need, run: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } },
     goto: { t: 'Go to XY (any reference)', k: 'Ctrl+G', need, run: () => { showRibbonTab('map'); $('gotoBox').focus(); } },
@@ -1534,7 +1601,7 @@
   for (const [id, tool] of Object.entries(GP.TOOLS)) {
     if (!CMD['gp:' + id]) CMD['gp:' + id] = { t: `${tool.name} (geoprocessing)`, rb: tool.name.replace(/ \(.*\)$/, '').replace(/^Suggest /, ''), icon: tool.icon, need: ['downloadDEM', 'convert'].includes(id) ? undefined : need, run: () => openGP(id) };
   }
-  CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
+  CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:helipads'].rb = 'Helipads'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
   CMD['gp:avenues'].rb = 'Avenues'; CMD['gp:posts'].rb = 'Posts / OPs'; CMD['gp:weapons'].rb = 'Weapon Sites'; CMD['gp:mfd'].rb = 'Minefields'; CMD['gp:convert'].rb = 'Convert Coords';
   CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:los'].rb = 'LOS Tool';
   for (const sec of Settings.SCHEMA) CMD['settings:' + sec.id] = { t: `Settings — ${sec.title}`, run: () => Settings.open(sec.id) };
@@ -1569,7 +1636,7 @@
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
       ['Visibility', ['gp:viewshed', 'gp:los', 'gp:hostile']],
       ['Tactical Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
-      ['Routing', ['*gp:route', 'gp:picquets', 'gp:fly', 'swapAB']],
+      ['Routing & Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'swapAB', 'routeCard']],
     ] },
     { id: 'edit', name: 'Edit', groups: [
       ['Create', ['*tool:poly', '*tool:line', 'clearObstacles']],
@@ -1594,7 +1661,7 @@
       ['Options', ['*settings']],
     ] },
     { id: 'help', name: 'Help', groups: [
-      ['Help', ['*help', '*shortcuts', 'about']],
+      ['Help', ['*help', '*doctrine', '*shortcuts', 'about']],
     ] },
   ];
   const rbIcon = (c, large) => (c.sym ? `<span class="rb-sym${large ? ' lg' : ''}" data-sym="${c.sym}"></span>` : c.check ? '<span class="rb-chk"></span>' : UI.icon(c.icon || 'command', large ? 24 : 15));
@@ -1669,7 +1736,7 @@
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer };
+    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure };
     UI.applyIcons();
     map.resize();
     renderRibbon();
@@ -1688,6 +1755,8 @@
     $('vtCRS').onclick = () => Settings.open('crs');
     document.querySelectorAll('[data-rtab]').forEach((b) => b.addEventListener('click', () => showRightTab(b.dataset.rtab)));
     $('logClear').onclick = () => { $('log').tBodies[0].innerHTML = ''; };
+    $('cardCsv').onclick = exportRouteCard;
+    renderRouteCard();
     document.querySelectorAll('.dock-tabs button').forEach((b) => b.addEventListener('click', () => { setDock(true); showDockTab(b.dataset.dock); }));
     $('dockToggle').onclick = () => setDock($('dock').classList.contains('collapsed'));
     $('attrFilter').addEventListener('input', renderAttrTable);

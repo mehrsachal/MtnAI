@@ -41,6 +41,26 @@ Also included:
 - Exports: GeoJSON with 2525D SIDCs, CSV, **GeoTIFF** or ESRI ASCII grid + `.prj` for any raster,
   PNG, plan save / load and a printable terrain-assessment report.
 
+## Doctrine: GSP Mountain Warfare
+
+The pamphlet's teachings are built into the tools (Help ▸ Doctrine lists them in the app):
+
+| GSP teaching | In MtnAI |
+|---|---|
+| Rate of march: 3 km/h by day, 0.5–1 km/h by night, +30–60 min per 300 m of ascent and per 600 m of descent (Sec 7, Annex E) | GSP time on every route and in Measure; **route card** (legs, magnetic bearing, heights, distance, time) with CSV export |
+| Routes follow ridge lines, not gullies (Sec 4) | Nullah-bed penalty in Least-Time Route |
+| Tiered defence; strong point on the most dominating feature; OPs laterally, in depth and at varying heights (Sec 4, 12, 13) | Posts carry a defence tier, the strong point is flagged, height-band bonus for OPs |
+| Up- / downhill fire strikes high: sight = slant range ÷ factor; MG mount +6° / −8.5° (Sec 18) | Sight factor on weapon sites and Line of Sight; mount limits create plunging-fire dead ground |
+| Mines thickest in valleys / foothills; ineffective on steep, rocky or snow-covered ground (Sec 12, 13) | Minefield valley bonus, steep-slope and snow-line factors with notes |
+| Helicopter landing sites ≤ 4° (emergency 10° light, 20° cargo), concealed (Sec 22) | New **Helipad Sites (HLS)** tool |
+| Picquet the heights dominating defiles on the axis (Sec 6) | Route Picquets |
+| A loaded mule climbs any slope a man can without hands (Annex H) | Mule SLOW-GO limit 30° |
+
+## User guide
+
+[`docs/guide/MtnAI_User_Guide.docx`](docs/guide/MtnAI_User_Guide.docx) (PDF copy alongside): every feature, how to use it,
+screenshots, a flowchart for each algorithm and a table of every tool setting. Rebuild it with `npm run guide`.
+
 ## Interface
 
 | ArcGIS Pro element | In MtnAI |
@@ -68,7 +88,8 @@ Every algorithm is configurable from its tool form. Highlights:
 | Suggest Posts / OPs | Number, range, heights, separation; max slope, allowed landforms, distance from own / enemy, access class and time; candidates, overlap credit, range decay, prescore weights, dead-ground threshold, intervisibility range; full target-value model (value of GO / SLOW-GO / NO-GO ground for dismounted and vehicle movement, avenue bonus, corridor width, value behind own position). |
 | Suggest Weapon Sites | Weapon (16 Pak Army systems) with editable range band, site slope, sight / target height and access class; defended-area radius, separation, access; enfilade preference; landform preference weights; AD air-corridor weights; for indirect fire: defilade requirement, forward limit, min / max / preferred range, crest-clearance fan and margin, and scoring weights. |
 | Suggest Minefields | AT / AP, number, enemy movement class, max gap, depth, density, tie-in; distance band from own position, separation, avenues considered, block every avenue, require observation; orientations tested and scoring factors. |
-| Least-Time Route | Movement class, fastest / balanced / covered / custom exposure and skyline penalties, alternatives and their separation, checkpoint interval. |
+| Least-Time Route | Movement class, fastest / balanced / covered / custom exposure and skyline penalties, nullah-bed penalty, alternatives and their separation, checkpoint interval, route-card leg length, night move. |
+| Helipad Sites | Use (regular ≤ 4°, emergency light ≤ 10°, cargo ≤ 20°), number, pad radius, distance from own position, separation, concealment, crest avoidance, access, scoring weights. |
 | Route Picquets | Range, explicit or automatic count, max distance from route, lowest landform, max slope, max climb time, candidates, overlap, heights. |
 
 Analysis-wide options (earth curvature, refraction, TPI scales, altitude penalty, route neighbourhood,

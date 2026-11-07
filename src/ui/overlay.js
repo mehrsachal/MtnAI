@@ -360,6 +360,21 @@
       ctx.restore();
     }
 
+    if (sh.helipads !== false && S.helipads) {
+      S.helipads.pads.forEach((q, k) => {
+        const [x, y] = P.xy(q.c, q.r);
+        const sel = S.sel && S.sel.kind === 'hls' && S.sel.idx === k;
+        const R = Math.max(7 * lw, (S.helipads.params.padRadiusM / g.cs) * (P.ppc || 1));
+        ctx.save();
+        ctx.lineWidth = 2 * lw; ctx.strokeStyle = sel ? selC : '#000'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(x, y, Math.max(8 * lw, Math.min(R, 22 * lw)), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.font = `700 ${Math.round(11 * lw)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('H', x, y + 0.5);
+        ctx.restore();
+        if (sh.labels) UI.haloText(ctx, q.id, x + 12 * lw, y - 10 * lw, { font: lblFont(11) });
+      });
+    }
+
     if (sh.key && S.key) {
       for (const pk of S.key.peaks) {
         const [x, y] = P.xy(pk.c, pk.r);
@@ -465,7 +480,7 @@
     const mk = S.markers;
     const F = UI.F;
     const isSel = (kind, idx, sub) => !!S.sel && S.sel.kind === kind && S.sel.idx === idx && (sub === undefined || S.sel.sub === sub);
-    if (sh.posts && S.posts) S.posts.posts.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), label: p.id, sub: F.elev(p.z), ref: { kind: 'post', idx: k }, sel: isSel('post', k) }));
+    if (sh.posts && S.posts) S.posts.posts.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), label: p.strongPoint ? `${p.id} SP` : p.id, sub: F.elev(p.z), ref: { kind: 'post', idx: k }, sel: isSel('post', k) }));
     if (sh.weapons) S.weapons.forEach((res, wi) => !res.hidden && res.sites.forEach((s, k) => items.push({ c: s.c, r: s.r, spec: UI.SYM.weapon(res.weapon), label: s.id, ref: { kind: 'weapon', idx: wi, sub: k }, sel: isSel('weapon', wi, k) })));
     if (sh.picquets && S.picquets) S.picquets.picquets.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: UI.SYM.picquet(), label: p.id, ref: { kind: 'picquet', idx: k }, sel: isSel('picquet', k) }));
     if (sh.hostileOps && S.hostile) S.hostile.observers.filter((o) => !o.isThreat).forEach((o) => items.push({ c: o.c, r: o.r, spec: UI.SYM.hostileOP(), small: true }));

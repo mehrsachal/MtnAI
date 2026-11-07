@@ -22,7 +22,8 @@
    */
   M.MOVEMENT_PROFILES = {
     foot: { id: 'foot', name: 'Infantry (dismounted, laden)', kind: 'foot', go: 20, slow: 40, speed: 4.5, road: 5, color: '#4fc3f7' },
-    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: 15, slow: 25, speed: 3.5, road: 4.5, color: '#ffb74d' },
+    // GSP Annex H: a loaded mule can climb any slope a man can negotiate without using his hands.
+    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: 15, slow: 30, speed: 3.5, road: 4.5, color: '#ffb74d' },
     jeep: { id: 'jeep', name: 'Light vehicle (jeep / 4x4)', kind: 'vehicle', go: 10, slow: 20, speed: 20, road: 35, color: '#aed581' },
     truck: { id: 'truck', name: 'Truck / towed gun', kind: 'vehicle', go: 6, slow: 12, speed: 12, road: 30, color: '#ce93d8' },
     tracked: { id: 'tracked', name: 'Tracked (tank / APC)', kind: 'vehicle', go: 15, slow: 30, speed: 18, road: 30, color: '#ef9a9a' },

@@ -33,7 +33,9 @@
 
   /**
    * A* search. ctx: {cls, slope, prof, trackMask?, exposure?, exposureW?,
-   * crest?, skylineW?, penalty?}. start/end: cell indices.
+   * crest?, skylineW?, nullah?, nullahW?, penalty?}. start/end: cell indices.
+   * nullah/nullahW: GSP Mountain Warfare — routes follow ridge lines rather than
+   * gullies and stream beds (scree, vertical patches, ambush).
    * Returns {path: Int32Array, cost (weighted s)} or null.
    */
   M.astar = (g, ctx, start, end, progress) => {
@@ -84,6 +86,7 @@
         let mult = 1;
         if (expW && ctx.exposure && ctx.exposure[nb]) mult += expW * Math.min(1, ctx.exposure[nb] / 2 + 0.5);
         if (skyW && ctx.crest && ctx.crest[nb]) mult += skyW;
+        if (ctx.nullahW && ctx.nullah && ctx.nullah[nb]) mult += ctx.nullahW;
         if (ctx.penalty) mult *= ctx.penalty[nb];
         t *= mult;
         const ng = gc + t;
@@ -137,6 +140,7 @@
     }
     return {
       lengthM: len2, length3dM: len3, ascentM: up, descentM: down, timeH: time / 3600,
+      gspDay: M.gspMarchTime(len2, up, down), gspNight: M.gspMarchTime(len2, up, down, { night: true }),
       slowFrac: len2 ? slowLen / len2 : 0, exposedFrac: len2 ? expLen / len2 : 0,
       maxGradeDeg: maxGrade, highestM: zMax, line, checkpoints: cps,
     };
@@ -211,5 +215,45 @@
       }
     }
     return t;
+  };
+
+  /**
+   * GSP Mountain Warfare march-time rule (Sec 7 para 7b, Annex E): 3 km/h by day
+   * (0.5–1 km/h by night) plus 30–60 min for every 300 m of ascent and every 600 m
+   * of descent. Returns {minH, maxH}. opts: {night, mapFactor} — mapFactor (Sec 4
+   * para 13b: "map distance plus 1/3") applies only to distances measured off a map.
+   */
+  M.GSP_MARCH = { dayKmh: 3, nightKmh: [0.5, 1], ascentM: 300, descentM: 600, extraMin: [30, 60] };
+  M.gspMarchTime = (distM, ascentM, descentM, opts = {}) => {
+    const G = M.GSP_MARCH;
+    const d = (distM * (opts.mapFactor || 1)) / 1000;
+    const base = opts.night ? [d / G.nightKmh[1], d / G.nightKmh[0]] : [d / G.dayKmh, d / G.dayKmh];
+    const units = ascentM / G.ascentM + descentM / G.descentM;
+    return { minH: base[0] + (units * G.extraMin[0]) / 60, maxH: base[1] + (units * G.extraMin[1]) / 60 };
+  };
+
+  /**
+   * Route card (GSP Annex E): legs between checkpoints / turning points with grid
+   * bearing, height at end of leg, height difference, distance and GSP time.
+   * legEveryM: split the route into legs of about this length (default 1000 m).
+   */
+  M.routeCard = (g, line, opts = {}) => {
+    const every = opts.legEveryM || 1000;
+    const legs = [];
+    let from = line[0], acc = 0, up = 0, down = 0;
+    const zAt = (p) => M.sample(g, g.z, p[1], p[0]);
+    for (let k = 1; k < line.length; k++) {
+      const a = line[k - 1], b = line[k];
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]) * g.cs;
+      const dz = zAt(b) - zAt(a);
+      acc += d; if (dz > 0) up += dz; else down -= dz;
+      if (acc >= every || k === line.length - 1) {
+        const t = M.gspMarchTime(acc, up, down, opts);
+        legs.push({ from, to: b, bearingDeg: M.bearing(b[0] - from[0], from[1] - b[1]), heightEndM: zAt(b), heightDiffM: zAt(b) - zAt(from),
+          distM: acc, ascentM: up, descentM: down, minMin: t.minH * 60, maxMin: t.maxH * 60 });
+        from = b; acc = 0; up = 0; down = 0;
+      }
+    }
+    return legs;
   };
 });

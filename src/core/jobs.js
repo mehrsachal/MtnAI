@@ -166,7 +166,7 @@
         return M.siteMinefields(tctx(), opts, progress);
       },
 
-      route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM }, progress) {
+      route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM, nullahW, legEveryM, night }, progress) {
         need();
         const m = mob(profile);
         const md = mode === 'custom' ? { exposureW: exposureW || 0, skylineW: skylineW || 0 } : M.routeMode(mode);
@@ -175,16 +175,25 @@
         const exposure = S.settings.threat ? t.hostileObs() : null;
         let crest = null;
         if (md.skylineW) { crest = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < crest.length; i++) crest[i] = S.L.landform[i] === 5 ? 1 : 0; }
-        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW };
+        // GSP: foot / animal columns keep to ridges rather than nullah beds (valley-floor landform).
+        let nullah = null;
+        if (nullahW) { nullah = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < nullah.length; i++) nullah[i] = S.L.landform[i] === 0 && !(m.trackMask && m.trackMask[i]) ? 1 : 0; }
+        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW, nullah, nullahW: nullahW || 0 };
         const sa = cellIdx(a), sb = cellIdx(b);
         if (m.cls[sa] === 2) throw new Error('Start point is in No-Go terrain for this movement class.');
         if (m.cls[sb] === 2) throw new Error('End point is in No-Go terrain for this movement class.');
         const routes = M.findRoutes(S.g, ctx, sa, sb, { alternatives, cpEveryM, separationM: separationM || M.CFG.altSepM }, (p) => progress(p, 'Searching'));
         if (!routes.length) throw new Error('No route found — A and B are not connected for this movement class.');
         return {
-          routes: routes.map((r) => Object.assign({}, r, { path: r.path, profile: M.terrainProfile(S.g, r.line, S.g.cs) })),
+          routes: routes.map((r) => Object.assign({}, r, { path: r.path, profile: M.terrainProfile(S.g, r.line, S.g.cs),
+            card: M.routeCard(S.g, Array.from(r.path, (p) => [p % S.g.w, (p / S.g.w) | 0]), { legEveryM: legEveryM || 1000, night: !!night }) })),
           usedExposure: !!exposure,
         };
+      },
+
+      helipads(opts, progress) {
+        need();
+        return M.siteHelipads(tctx(), opts, progress);
       },
 
       picquets(opts, progress) {

@@ -10,6 +10,8 @@
  *   access:  movement class that must be able to reach the site from own position
  *   angle:   low | high | both (indirect fire trajectory groups)
  *   elev:    [min, max] barrel elevation (deg) for indirect weapons
+ *   aimUp / aimDown: direct-fire elevation / depression limit of the mount (deg; GSP Mountain
+ *            Warfare Sec 18: MG on mount +6° / −8.5°; 75 mm RR +30° / −5°). Omitted = unlimited.
  *   icon:    APP-6D land-equipment icon key; rng: range amplifier bars (1-3)
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function weapons(M) {
@@ -17,11 +19,11 @@
 
   M.WEAPONS = {
     // ---------------- direct fire, anti-personnel
-    mg3: { id: 'mg3', name: '7.62 mm MG3 GPMG (SF role)', short: 'MG3', cat: 'direct', role: 'pers', minR: 0, maxR: 1200, obsH: 0.6, tgtH: 1.0, siteSlope: 30, access: 'foot', enfilade: 1, icon: 'mg', rng: 2 },
+    mg3: { id: 'mg3', name: '7.62 mm MG3 GPMG (SF role)', short: 'MG3', cat: 'direct', role: 'pers', minR: 0, maxR: 1200, obsH: 0.6, tgtH: 1.0, siteSlope: 30, access: 'foot', enfilade: 1, aimUp: 6, aimDown: 8.5, icon: 'mg', rng: 2 },
     hmg: { id: 'hmg', name: '12.7 mm HMG (Type 54 / W-85)', short: 'HMG', cat: 'direct', role: 'pers', minR: 0, maxR: 1600, obsH: 0.8, tgtH: 1.5, siteSlope: 25, access: 'mule', enfilade: 0.8, icon: 'mg', rng: 3 },
     // ---------------- direct fire, anti-armour
     rpg7: { id: 'rpg7', name: 'RPG-7 (AT rocket launcher)', short: 'RPG-7', cat: 'direct', role: 'veh', minR: 30, maxR: 300, obsH: 0.8, tgtH: 2.4, siteSlope: 35, access: 'foot', enfilade: 0.5, icon: 'atrl', rng: 1 },
-    rcl106: { id: 'rcl106', name: '106 mm RCL (M40)', short: '106 RCL', cat: 'direct', role: 'veh', minR: 50, maxR: 1100, obsH: 1.0, tgtH: 2.4, siteSlope: 12, access: 'jeep', enfilade: 0.5, icon: 'rcl', rng: 2 },
+    rcl106: { id: 'rcl106', name: '106 mm RCL (M40)', short: '106 RCL', cat: 'direct', role: 'veh', minR: 50, maxR: 1100, obsH: 1.0, tgtH: 2.4, siteSlope: 12, access: 'jeep', enfilade: 0.5, aimUp: 30, aimDown: 5, icon: 'rcl', rng: 2 },
     baktar: { id: 'baktar', name: 'Baktar-Shikan ATGM', short: 'BKT-SKN', cat: 'direct', role: 'veh', minR: 100, maxR: 3000, obsH: 0.8, tgtH: 2.4, siteSlope: 20, access: 'mule', enfilade: 0.5, icon: 'atgm', rng: 2 },
     tow: { id: 'tow', name: 'TOW-2A ATGM', short: 'TOW', cat: 'direct', role: 'veh', minR: 65, maxR: 3750, obsH: 1.0, tgtH: 2.4, siteSlope: 15, access: 'jeep', enfilade: 0.5, icon: 'atgm', rng: 3 },
     // ---------------- indirect fire

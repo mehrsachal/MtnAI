@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- MtnAI 1.0.0 — single-file offline build generated 2026-10-31 -->
+<!-- MtnAI 1.0.0 — single-file offline build generated 2026-11-07 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MtnAI — Mountain Terrain Analysis</title>
@@ -221,6 +221,12 @@ body.rb-min.rb-peek .rb-body { display: flex; position: absolute; left: 0; right
 .gp-tabs { display: flex; align-items: center; gap: 12px; padding: 0 12px; height: 26px; border-bottom: 1px solid var(--line); flex: none; }
 .gp-tabs .on { font-weight: 600; border-bottom: 2px solid var(--accent); height: 100%; display: flex; align-items: center; }
 .gp-tabs .link { margin-left: auto; }
+.gp-gsp { padding: 6px 12px; font-size: 11.5px; color: var(--text-2); border-bottom: 1px solid var(--line); border-left: 3px solid var(--warn); background: var(--panel-2); flex: none; }
+.gp-gsp { max-height: 3.1em; overflow: hidden; cursor: pointer; position: relative; }
+.gp-gsp.open { max-height: none; }
+.gp-gsp b { color: var(--text); margin-right: 4px; }
+.card-tools { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-bottom: 1px solid var(--line); }
+.card-tools .hint { flex: 1; margin: 0; }
 .gp-form { flex: 1; overflow-y: auto; padding: 4px 12px 16px; min-height: 0; }
 .gp-p { margin: 7px 0; display: flex; flex-direction: column; gap: 3px; }
 .gp-p > label { color: var(--text-2); font-size: 11.5px; }
@@ -515,11 +521,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     <div class="splitter h" data-split="dock"></div>
     <div id="dock">
       <div class="dock-head">
-        <div class="dock-tabs"><button data-dock="table" class="on">Attribute table <i id="attrCount"></i></button><button data-dock="profile">Elevation profile</button></div>
+        <div class="dock-tabs"><button data-dock="table" class="on">Attribute table <i id="attrCount"></i></button><button data-dock="profile">Elevation profile</button><button data-dock="card">Route card</button></div>
         <div class="dock-tools" data-dockpanel-tools="table"><select id="attrLayer"><option value="">All layers</option></select><input id="attrFilter" placeholder="Filter…" spellcheck="false"><button class="btn sm" data-cmd="csv" data-need>Export CSV</button></div>
         <button id="dockToggle" class="ghost-ic" title="Collapse / expand">▾</button>
       </div>
       <div class="dock-body" data-dockpanel="table"><table id="attrTable" class="grid-table"></table></div>
+      <div class="dock-body" data-dockpanel="card" hidden><div class="card-tools"><span class="hint">Route card — GSP Mountain Warfare Annex E (3 km/h by day, 0.5–1 km/h by night, +30–60 min per 300 m up and per 600 m down)</span><button class="btn sm" id="cardCsv">Export CSV</button></div><table id="cardTable" class="grid-table"></table></div>
       <div class="dock-body" data-dockpanel="profile" hidden><div id="profileTitle" class="hint"></div><canvas id="chart"></canvas></div>
     </div>
   </section>
@@ -1814,7 +1821,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
    */
   M.MOVEMENT_PROFILES = {
     foot: { id: 'foot', name: 'Infantry (dismounted, laden)', kind: 'foot', go: 20, slow: 40, speed: 4.5, road: 5, color: '#4fc3f7' },
-    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: 15, slow: 25, speed: 3.5, road: 4.5, color: '#ffb74d' },
+    // GSP Annex H: a loaded mule can climb any slope a man can negotiate without using his hands.
+    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: 15, slow: 30, speed: 3.5, road: 4.5, color: '#ffb74d' },
     jeep: { id: 'jeep', name: 'Light vehicle (jeep / 4x4)', kind: 'vehicle', go: 10, slow: 20, speed: 20, road: 35, color: '#aed581' },
     truck: { id: 'truck', name: 'Truck / towed gun', kind: 'vehicle', go: 6, slow: 12, speed: 12, road: 30, color: '#ce93d8' },
     tracked: { id: 'tracked', name: 'Tracked (tank / APC)', kind: 'vehicle', go: 15, slow: 30, speed: 18, road: 30, color: '#ef9a9a' },
@@ -2061,7 +2069,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
   /**
    * A* search. ctx: {cls, slope, prof, trackMask?, exposure?, exposureW?,
-   * crest?, skylineW?, penalty?}. start/end: cell indices.
+   * crest?, skylineW?, nullah?, nullahW?, penalty?}. start/end: cell indices.
+   * nullah/nullahW: GSP Mountain Warfare — routes follow ridge lines rather than
+   * gullies and stream beds (scree, vertical patches, ambush).
    * Returns {path: Int32Array, cost (weighted s)} or null.
    */
   M.astar = (g, ctx, start, end, progress) => {
@@ -2112,6 +2122,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         let mult = 1;
         if (expW && ctx.exposure && ctx.exposure[nb]) mult += expW * Math.min(1, ctx.exposure[nb] / 2 + 0.5);
         if (skyW && ctx.crest && ctx.crest[nb]) mult += skyW;
+        if (ctx.nullahW && ctx.nullah && ctx.nullah[nb]) mult += ctx.nullahW;
         if (ctx.penalty) mult *= ctx.penalty[nb];
         t *= mult;
         const ng = gc + t;
@@ -2165,6 +2176,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     }
     return {
       lengthM: len2, length3dM: len3, ascentM: up, descentM: down, timeH: time / 3600,
+      gspDay: M.gspMarchTime(len2, up, down), gspNight: M.gspMarchTime(len2, up, down, { night: true }),
       slowFrac: len2 ? slowLen / len2 : 0, exposedFrac: len2 ? expLen / len2 : 0,
       maxGradeDeg: maxGrade, highestM: zMax, line, checkpoints: cps,
     };
@@ -2240,6 +2252,46 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     }
     return t;
   };
+
+  /**
+   * GSP Mountain Warfare march-time rule (Sec 7 para 7b, Annex E): 3 km/h by day
+   * (0.5–1 km/h by night) plus 30–60 min for every 300 m of ascent and every 600 m
+   * of descent. Returns {minH, maxH}. opts: {night, mapFactor} — mapFactor (Sec 4
+   * para 13b: "map distance plus 1/3") applies only to distances measured off a map.
+   */
+  M.GSP_MARCH = { dayKmh: 3, nightKmh: [0.5, 1], ascentM: 300, descentM: 600, extraMin: [30, 60] };
+  M.gspMarchTime = (distM, ascentM, descentM, opts = {}) => {
+    const G = M.GSP_MARCH;
+    const d = (distM * (opts.mapFactor || 1)) / 1000;
+    const base = opts.night ? [d / G.nightKmh[1], d / G.nightKmh[0]] : [d / G.dayKmh, d / G.dayKmh];
+    const units = ascentM / G.ascentM + descentM / G.descentM;
+    return { minH: base[0] + (units * G.extraMin[0]) / 60, maxH: base[1] + (units * G.extraMin[1]) / 60 };
+  };
+
+  /**
+   * Route card (GSP Annex E): legs between checkpoints / turning points with grid
+   * bearing, height at end of leg, height difference, distance and GSP time.
+   * legEveryM: split the route into legs of about this length (default 1000 m).
+   */
+  M.routeCard = (g, line, opts = {}) => {
+    const every = opts.legEveryM || 1000;
+    const legs = [];
+    let from = line[0], acc = 0, up = 0, down = 0;
+    const zAt = (p) => M.sample(g, g.z, p[1], p[0]);
+    for (let k = 1; k < line.length; k++) {
+      const a = line[k - 1], b = line[k];
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]) * g.cs;
+      const dz = zAt(b) - zAt(a);
+      acc += d; if (dz > 0) up += dz; else down -= dz;
+      if (acc >= every || k === line.length - 1) {
+        const t = M.gspMarchTime(acc, up, down, opts);
+        legs.push({ from, to: b, bearingDeg: M.bearing(b[0] - from[0], from[1] - b[1]), heightEndM: zAt(b), heightDiffM: zAt(b) - zAt(from),
+          distM: acc, ascentM: up, descentM: down, minMin: t.minH * 60, maxMin: t.maxH * 60 });
+        from = b; acc = 0; up = 0; down = 0;
+      }
+    }
+    return legs;
+  };
 });
 
 </script>
@@ -2256,6 +2308,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
  *   access:  movement class that must be able to reach the site from own position
  *   angle:   low | high | both (indirect fire trajectory groups)
  *   elev:    [min, max] barrel elevation (deg) for indirect weapons
+ *   aimUp / aimDown: direct-fire elevation / depression limit of the mount (deg; GSP Mountain
+ *            Warfare Sec 18: MG on mount +6° / −8.5°; 75 mm RR +30° / −5°). Omitted = unlimited.
  *   icon:    APP-6D land-equipment icon key; rng: range amplifier bars (1-3)
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function weapons(M) {
@@ -2263,11 +2317,11 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
   M.WEAPONS = {
     // ---------------- direct fire, anti-personnel
-    mg3: { id: 'mg3', name: '7.62 mm MG3 GPMG (SF role)', short: 'MG3', cat: 'direct', role: 'pers', minR: 0, maxR: 1200, obsH: 0.6, tgtH: 1.0, siteSlope: 30, access: 'foot', enfilade: 1, icon: 'mg', rng: 2 },
+    mg3: { id: 'mg3', name: '7.62 mm MG3 GPMG (SF role)', short: 'MG3', cat: 'direct', role: 'pers', minR: 0, maxR: 1200, obsH: 0.6, tgtH: 1.0, siteSlope: 30, access: 'foot', enfilade: 1, aimUp: 6, aimDown: 8.5, icon: 'mg', rng: 2 },
     hmg: { id: 'hmg', name: '12.7 mm HMG (Type 54 / W-85)', short: 'HMG', cat: 'direct', role: 'pers', minR: 0, maxR: 1600, obsH: 0.8, tgtH: 1.5, siteSlope: 25, access: 'mule', enfilade: 0.8, icon: 'mg', rng: 3 },
     // ---------------- direct fire, anti-armour
     rpg7: { id: 'rpg7', name: 'RPG-7 (AT rocket launcher)', short: 'RPG-7', cat: 'direct', role: 'veh', minR: 30, maxR: 300, obsH: 0.8, tgtH: 2.4, siteSlope: 35, access: 'foot', enfilade: 0.5, icon: 'atrl', rng: 1 },
-    rcl106: { id: 'rcl106', name: '106 mm RCL (M40)', short: '106 RCL', cat: 'direct', role: 'veh', minR: 50, maxR: 1100, obsH: 1.0, tgtH: 2.4, siteSlope: 12, access: 'jeep', enfilade: 0.5, icon: 'rcl', rng: 2 },
+    rcl106: { id: 'rcl106', name: '106 mm RCL (M40)', short: '106 RCL', cat: 'direct', role: 'veh', minR: 50, maxR: 1100, obsH: 1.0, tgtH: 2.4, siteSlope: 12, access: 'jeep', enfilade: 0.5, aimUp: 30, aimDown: 5, icon: 'rcl', rng: 2 },
     baktar: { id: 'baktar', name: 'Baktar-Shikan ATGM', short: 'BKT-SKN', cat: 'direct', role: 'veh', minR: 100, maxR: 3000, obsH: 0.8, tgtH: 2.4, siteSlope: 20, access: 'mule', enfilade: 0.5, icon: 'atgm', rng: 2 },
     tow: { id: 'tow', name: 'TOW-2A ATGM', short: 'TOW', cat: 'direct', role: 'veh', minR: 65, maxR: 3750, obsH: 1.0, tgtH: 2.4, siteSlope: 15, access: 'jeep', enfilade: 0.5, icon: 'atgm', rng: 3 },
     // ---------------- indirect fire
@@ -2322,13 +2376,22 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   /** Landform classes 0..5: valley, lower, flat, mid, upper, ridge. */
   const LF = (arr) => arr.slice(0, 6);
 
+  /**
+   * GSP Mountain Warfare Sec 18 — uphill / downhill firing: gravity acts on the
+   * horizontal range only, so divide the slant range by this factor (1 / cos angle;
+   * 10° → 1.02, 25° → 1.10, 60° → 2.0) to get the sight setting.
+   */
+  /** GSP Sec 12 para 8 — tiered defence: valley / foothill, mid slope, ridge line. */
+  M.defenceTier = (lf) => (lf >= 5 ? 'Ridge line' : lf >= 3 ? 'Mid slope' : 'Valley / foothill');
+  M.sightFactor = (angleDeg) => 1 / Math.cos(M.rad(Math.min(80, Math.abs(angleDeg))));
+
   /** Default parameters of every siting algorithm (all overridable per call). */
   M.TACTICAL_DEFAULTS = {
     value: { footGo: 1, footSlow: 0.55, footNogo: 0.05, vehGo: 1, vehSlow: 0.35, vehNogo: 0, obsFoot: 0.7, obsVeh: 0.5, avenueBonus: 2,
       useCorridor: true, corridorWidth: 0.45, corridorMinM: 1500, rearFactor: 0.3 },
     posts: { count: 5, rangeM: 3000, obsH: 2, tgtH: 1.5, minSepM: 600, maxSlope: 35, maxDistOwnM: 7000, minDistThreatM: 500,
       landforms: [3, 4, 5], candidates: 110, overlapKeep: 0.25, rangeDecay: 0.5, requireAccess: true, accessProfile: 'foot', maxAccessH: 0,
-      wTpiL: 0.6, wTpiS: 0.4, wElev: 0.4, wCorridor: 0.4, deadThreshold: 0.25, linkFactor: 2.5 },
+      wTpiL: 0.6, wTpiS: 0.4, wElev: 0.4, wCorridor: 0.4, deadThreshold: 0.25, linkFactor: 2.5, heightSpreadM: 150, heightSpreadBonus: 0.15 },
     direct: { count: 3, minSepM: 300, defRadiusM: 3000, candidates: 120, overlapKeep: 0.5, rangeDecay: 0.35, enfilade: null,
       requireAccess: true, maxAccessH: 0, lfWeights: [0.25, 0.5, 0.6, 0.85, 1.0, 0.55], wCorridor: 0.5, wTpiS: 0.15 },
     ad: { count: 3, minSepM: 500, defRadiusM: 5000, candidates: 120, overlapKeep: 0.5, rangeDecay: 0.35, requireAccess: true, maxAccessH: 0,
@@ -2337,7 +2400,10 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       idealRangeFrac: 0.55, minRangeFrac: 0.15, maxRangeFrac: 0.92, forwardLimit: 0.25,
       wClear: 0.35, wDefilade: 0.3, wRange: 0.15, wFlat: 0.1, wAccess: 0.1, lfWeights: [0.7, 0.9, 1.0, 0.6, 0.35, 0.15] },
     mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 300, maxDistOwnM: 3000, minSepM: 400,
-      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15 },
+      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15,
+      maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
+    helipads: { use: 'regular', count: 3, padRadiusM: 30, minSepM: 500, maxDistOwnM: 5000, requireConcealed: true, requireAccess: true,
+      accessProfile: 'foot', maxAccessH: 0, avoidCrest: true, candidates: 400, wFlat: 0.4, wHidden: 0.35, wNear: 0.25 },
     picquets: { rangeM: 1500, count: 0, kmPerPicquet: 2.5, maxCount: 12, minSepM: 500, maxOffsetM: 2000, minLandform: 4, maxSlope: 38, maxClimbH: 4,
       candidates: 120, overlapKeep: 0.15, obsH: 2, tgtH: 1.5 },
     hostile: { count: 5, searchRadiusM: 3000, rangeM: 8000, obsH: 3, tgtH: 1.5, minSepM: 600, includeThreat: true },
@@ -2476,7 +2542,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   };
 
   /** Greedy maximum-coverage selection with overlap discount and separation. */
-  const greedySelect = (g, cands, count, overlapKeep, minSepCells) => {
+  const greedySelect = (g, cands, count, overlapKeep, minSepCells, bonus) => {
     const covered = new Float32Array(g.w * g.h);
     const chosen = [];
     const used = new Uint8Array(cands.length);
@@ -2488,6 +2554,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         if (chosen.some((o) => dCells(o, cd) < minSepCells)) continue;
         let gain = 0;
         for (let q = 0; q < cd.cells.length; q++) gain += cd.wts[q] * (1 - covered[cd.cells[q]]);
+        if (bonus) gain *= bonus(cd, chosen);
         if (gain > bestGain) { bestGain = gain; best = j; }
       }
       if (best < 0) break;
@@ -2570,7 +2637,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       Object.assign(cd, evalViewshed(T, cd, { obsH: p.obsH, tgtH: p.tgtH, rangeM: p.rangeM }, (i, r, c, d) => V[i] * (1 - (p.rangeDecay * d) / p.rangeM)));
       if (progress && j % 8 === 0) progress(0.15 + (0.7 * j) / cands.length, `Viewshed ${j + 1}/${cands.length}`);
     });
-    const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep);
+    // GSP Sec 4 para 15 / Sec 22: OPs laterally, in depth and at varying altitudes so low cloud
+    // cannot blind every tier at once — credit candidates at a new height band.
+    const spread = p.heightSpreadM > 0 && p.heightSpreadBonus > 0
+      ? (cd, ch) => (ch.length && ch.every((o) => Math.abs(g.z[o.r * g.w + o.c] - g.z[cd.r * g.w + cd.c]) >= p.heightSpreadM) ? 1 + p.heightSpreadBonus : 1)
+      : null;
+    const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep, spread);
     const cover = M.viewshedCount(g, chosen, { obsH: p.obsH, tgtH: p.tgtH, radiusM: p.rangeM });
     const dead = new Uint8Array(g.w * g.h);
     const R = p.rangeM / g.cs;
@@ -2592,8 +2664,11 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       return Object.assign(siteInfo(g, q), {
         id: `${o.mode === 'op' ? 'OP' : 'P'}${k + 1}`, visibleKm2: q.areaKm2, valueShare: totalV ? vis / totalV : 0,
         accessH: access && access[ai] < Infinity ? access[ai] / 3600 : null, landform: M.LANDFORMS[L.landform[ai]].name,
+        tier: M.defenceTier(L.landform[ai]), dominance: L.tpiL[ai] / L.sdL,
       });
     });
+    // GSP Sec 12 para 9: the strong point goes on the most dominating feature
+    if (posts.length) posts.reduce((a, b) => (b.dominance > a.dominance ? b : a)).strongPoint = true;
     const links = [];
     for (let a = 0; a < posts.length; a++)
       for (let b = a + 1; b < posts.length; b++) {
@@ -2629,8 +2704,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     const ax = corridor.axis;
     const enf = (p.enfilade ?? wp.enfilade ?? 0) * 0.5;
     cands.forEach((cd, j) => {
+      const zw = g.z[cd.i] + wp.obsH;
+      let aimOut = 0, angSum = 0, angW = 0;
       Object.assign(cd, evalViewshed(T, cd, { obsH: wp.obsH, tgtH: wp.tgtH, rangeM: wp.maxR }, (i, r, c, d) => {
         if (d < wp.minR) return 0;
+        // GSP Sec 18: the mount limits elevation / depression — steeper ground is dead to this weapon
+        const ang = d > 0 ? M.deg(Math.atan2(g.z[i] + wp.tgtH - zw, d)) : 0;
+        if ((wp.aimUp != null && ang > wp.aimUp) || (wp.aimDown != null && ang < -wp.aimDown)) { if (V[i] > 0) aimOut += V[i]; return 0; }
+        if (V[i] > 0) { angSum += Math.abs(ang) * V[i]; angW += V[i]; }
         let v = V[i] * (1 - p.rangeDecay * (d / wp.maxR) * (d / wp.maxR));
         if (enf && ax && d > 0) {
           const fr = ((r - cd.r) * g.cs) / d, fc = ((c - cd.c) * g.cs) / d;
@@ -2638,6 +2719,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         }
         return v;
       }));
+      cd.aimOut = aimOut; cd.meanAngle = angW ? angSum / angW : 0;
       if (progress && j % 8 === 0) progress(0.15 + (0.75 * j) / cands.length, `Fields of fire ${j + 1}/${cands.length}`);
     });
     const chosen = greedySelect(g, cands, p.count, p.overlapKeep, minSep);
@@ -2657,6 +2739,8 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         id: `${wp.short}-${k + 1}`, weapon: wp.id, cat: wp.cat, maxR: wp.maxR, minR: wp.minR,
         sector: M.bearingSpread(bearings, wts, 0.8), meanRangeM: wSum ? rangeSum / wSum : 0, valueShare: totalV ? vis / totalV : 0,
         accessH: access && access[ai] < Infinity ? access[ai] / 3600 : null, landform: M.LANDFORMS[L.landform[ai]].name,
+        // GSP Sec 18: bullets fired up- or downhill strike high — set the sight to slant range ÷ factor
+        meanAngleDeg: q.meanAngle, sightFactor: M.sightFactor(q.meanAngle), plungeDeadShare: totalV ? q.aimOut / totalV : 0,
       });
     });
     const cover = M.viewshedCount(g, chosen, { obsH: wp.obsH, tgtH: wp.tgtH, radiusM: wp.maxR });
@@ -2851,7 +2935,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       const dm = Math.hypot(r - T.own.r, c - T.own.c) * g.cs;
       const distW = dm < p.minDistOwnM ? p.outOfRangeFactor : dm > p.maxDistOwnM ? Math.max(p.outOfRangeFactor, 1 - (dm - p.maxDistOwnM) / p.maxDistOwnM) : 1;
       const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
-      items.push({ r, c, score: narrow * avW * distW * fwd * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered });
+      // GSP Sec 12 para 4k / 6, Sec 13 para 4e: mines are thickest in valleys / foothills; on steep
+      // or rocky slopes they wash away (use wire there) and heavy snow reduces their effect.
+      const sl = T.L.slope[cell], lf = T.L.landform[cell];
+      const steep = sl > p.maxSiteSlope, snowy = p.snowLine > 0 && g.z[cell] > p.snowLine;
+      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1);
+      items.push({ r, c, score: narrow * avW * distW * fwd * ground * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered, steep, snowy, sl });
       if (progress && j % 2000 === 0) progress(0.2 + (0.7 * j) / candCells.length, 'Defile analysis');
     });
     if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches — increase the maximum gap width.');
@@ -2877,6 +2966,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         id: `Mfd ${k + 1}`, type, profile: profId, poly, frontM: front, depthM: depth * g.cs,
         gapM: it.df.width * g.cs, orientationDeg: dir.deg, estMines: Math.round(front * p.densityPerM),
         onAvenues: it.routes.map((x) => x + 1), covered: it.covered, score: it.score,
+        siteSlopeDeg: it.sl, note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
       });
     });
     return { fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })), params: p };
@@ -2933,6 +3023,58 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     }).sort((a, b) => (a.routeFromKm ?? 0) - (b.routeFromKm ?? 0));
     picquets.forEach((q, k) => (q.id = `PQ${k + 1}`));
     return { picquets, routeCoverage: covered / path.length, params: p };
+  };
+
+  // =====================================================================
+  // Helipads / landing sites (GSP Mountain Warfare Sec 22 para 19)
+  // =====================================================================
+  /** Slope limits (deg): regular use ≤ 4°; emergency 4–10° light helicopters, 4–20° cargo helicopters. */
+  M.HELIPAD_SLOPE = { regular: 4, light: 10, cargo: 20 };
+  M.siteHelipads = (T, o = {}, progress) => {
+    const { g, L } = T;
+    const p = opt('helipads', o);
+    const lim = M.HELIPAD_SLOPE[p.use] || +p.use || 4;
+    const rad = Math.max(1, Math.round(p.padRadiusM / g.cs));
+    const minSep = Math.max(2, p.minSepM / g.cs);
+    progress && progress(0.05, 'Pad flatness');
+    const meanSlope = M.boxMean(L.slope, g.w, g.h, rad);
+    const hostile = T.threat ? T.hostileObs() : null;
+    progress && progress(0.3, 'Access from own position');
+    const access = accessField(T, p.accessProfile, p.requireAccess);
+    const maxOwn = p.maxDistOwnM / g.cs;
+    const flatOK = (r, c) => {
+      for (let dr = -rad; dr <= rad; dr++)
+        for (let dc = -rad; dc <= rad; dc++) {
+          if (dr * dr + dc * dc > rad * rad + 0.5) continue;
+          const rr = r + dr, cc = c + dc;
+          if (!M.inGrid(g, rr, cc) || L.slope[rr * g.w + cc] > lim) return false;
+        }
+      return true;
+    };
+    const { cands, relaxed } = withAccess(access, (acc) => {
+      const items = [];
+      const st = stride(g);
+      for (let r = rad; r < g.h - rad; r += st)
+        for (let c = rad; c < g.w - rad; c += st) {
+          const i = r * g.w + c;
+          if (meanSlope[i] > lim || !accessOK(acc, i, p.maxAccessH)) continue;
+          if (T.own && Math.hypot(r - T.own.r, c - T.own.c) > maxOwn) continue;
+          if (p.requireConcealed && hostile && hostile[i]) continue;
+          if (p.avoidCrest && L.landform[i] === 5) continue; // skylined approach, wind
+          if (!flatOK(r, c)) continue;
+          const near = T.own ? 1 - Math.min(1, Math.hypot(r - T.own.r, c - T.own.c) / maxOwn) : 0.5;
+          const score = p.wFlat * (1 - meanSlope[i] / Math.max(1, lim)) + p.wHidden * (hostile && hostile[i] ? 0 : 1) + p.wNear * near;
+          items.push({ r, c, i, score });
+        }
+      return M.nms(items, minSep, p.candidates);
+    });
+    if (!cands.length) throw new Error(`No ground flat enough for a ${p.use} helipad (≤ ${lim}° over ${p.padRadiusM} m radius) — try the emergency classes, a smaller pad or a larger search distance.`);
+    const pads = cands.slice(0, p.count).map((q, k) => Object.assign(siteInfo(g, q), {
+      id: `HLS ${k + 1}`, use: p.use, slopeLimitDeg: lim, meanSlopeDeg: meanSlope[q.i], landform: M.LANDFORMS[L.landform[q.i]].name,
+      hidden: !(hostile && hostile[q.i]), accessH: access && access[q.i] < Infinity ? access[q.i] / 3600 : null,
+      distOwnM: T.own ? Math.hypot(q.r - T.own.r, q.c - T.own.c) * g.cs : null, score: q.score,
+    }));
+    return { pads, accessRelaxed: relaxed, params: p };
   };
 });
 
@@ -3236,7 +3378,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         return M.siteMinefields(tctx(), opts, progress);
       },
 
-      route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM }, progress) {
+      route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM, nullahW, legEveryM, night }, progress) {
         need();
         const m = mob(profile);
         const md = mode === 'custom' ? { exposureW: exposureW || 0, skylineW: skylineW || 0 } : M.routeMode(mode);
@@ -3245,16 +3387,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         const exposure = S.settings.threat ? t.hostileObs() : null;
         let crest = null;
         if (md.skylineW) { crest = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < crest.length; i++) crest[i] = S.L.landform[i] === 5 ? 1 : 0; }
-        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW };
+        // GSP: foot / animal columns keep to ridges rather than nullah beds (valley-floor landform).
+        let nullah = null;
+        if (nullahW) { nullah = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < nullah.length; i++) nullah[i] = S.L.landform[i] === 0 && !(m.trackMask && m.trackMask[i]) ? 1 : 0; }
+        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW, nullah, nullahW: nullahW || 0 };
         const sa = cellIdx(a), sb = cellIdx(b);
         if (m.cls[sa] === 2) throw new Error('Start point is in No-Go terrain for this movement class.');
         if (m.cls[sb] === 2) throw new Error('End point is in No-Go terrain for this movement class.');
         const routes = M.findRoutes(S.g, ctx, sa, sb, { alternatives, cpEveryM, separationM: separationM || M.CFG.altSepM }, (p) => progress(p, 'Searching'));
         if (!routes.length) throw new Error('No route found — A and B are not connected for this movement class.');
         return {
-          routes: routes.map((r) => Object.assign({}, r, { path: r.path, profile: M.terrainProfile(S.g, r.line, S.g.cs) })),
+          routes: routes.map((r) => Object.assign({}, r, { path: r.path, profile: M.terrainProfile(S.g, r.line, S.g.cs),
+            card: M.routeCard(S.g, Array.from(r.path, (p) => [p % S.g.w, (p / S.g.w) | 0]), { legEveryM: legEveryM || 1000, night: !!night }) })),
           usedExposure: !!exposure,
         };
+      },
+
+      helipads(opts, progress) {
+        need();
+        return M.siteHelipads(tctx(), opts, progress);
       },
 
       picquets(opts, progress) {
@@ -5348,6 +5499,21 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       ctx.restore();
     }
 
+    if (sh.helipads !== false && S.helipads) {
+      S.helipads.pads.forEach((q, k) => {
+        const [x, y] = P.xy(q.c, q.r);
+        const sel = S.sel && S.sel.kind === 'hls' && S.sel.idx === k;
+        const R = Math.max(7 * lw, (S.helipads.params.padRadiusM / g.cs) * (P.ppc || 1));
+        ctx.save();
+        ctx.lineWidth = 2 * lw; ctx.strokeStyle = sel ? selC : '#000'; ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(x, y, Math.max(8 * lw, Math.min(R, 22 * lw)), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.font = `700 ${Math.round(11 * lw)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('H', x, y + 0.5);
+        ctx.restore();
+        if (sh.labels) UI.haloText(ctx, q.id, x + 12 * lw, y - 10 * lw, { font: lblFont(11) });
+      });
+    }
+
     if (sh.key && S.key) {
       for (const pk of S.key.peaks) {
         const [x, y] = P.xy(pk.c, pk.r);
@@ -5453,7 +5619,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     const mk = S.markers;
     const F = UI.F;
     const isSel = (kind, idx, sub) => !!S.sel && S.sel.kind === kind && S.sel.idx === idx && (sub === undefined || S.sel.sub === sub);
-    if (sh.posts && S.posts) S.posts.posts.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), label: p.id, sub: F.elev(p.z), ref: { kind: 'post', idx: k }, sel: isSel('post', k) }));
+    if (sh.posts && S.posts) S.posts.posts.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), label: p.strongPoint ? `${p.id} SP` : p.id, sub: F.elev(p.z), ref: { kind: 'post', idx: k }, sel: isSel('post', k) }));
     if (sh.weapons) S.weapons.forEach((res, wi) => !res.hidden && res.sites.forEach((s, k) => items.push({ c: s.c, r: s.r, spec: UI.SYM.weapon(res.weapon), label: s.id, ref: { kind: 'weapon', idx: wi, sub: k }, sel: isSel('weapon', wi, k) })));
     if (sh.picquets && S.picquets) S.picquets.picquets.forEach((p, k) => items.push({ c: p.c, r: p.r, spec: UI.SYM.picquet(), label: p.id, ref: { kind: 'picquet', idx: k }, sel: isSel('picquet', k) }));
     if (sh.hostileOps && S.hostile) S.hostile.observers.filter((o) => !o.isThreat).forEach((o) => items.push({ c: o.c, r: o.r, spec: UI.SYM.hostileOP(), small: true }));
@@ -6666,6 +6832,26 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         <h3>Mouse</h3><table><tr><td>2D</td><td>drag = pan · wheel = zoom · click = select / inspect · double-click = zoom in</td></tr>
         <tr><td>3D</td><td>drag = orbit · right-drag or Shift-drag = pan · wheel = zoom · double-click = recentre</td></tr></table>` };
     }
+    if (section === 'doctrine') {
+      const rows = [
+        ['Planning (Sec 4)', 'Measure distance in time. Map distance + ⅓ ≈ ground distance. Avoid losing height — a 3 km ridge detour beats a 600 m down-and-up. Follow ridges, not gullies. Make a route card.', 'Route A→B: GSP time, nullah penalty, Route Card; Measure: GSP time'],
+        ['Rate of march (Sec 7, Annex E)', 'Day 3 km/h; night 0.5–1 km/h; +30–60 min per 300 m ascent and per 600 m descent.', 'GSP time on every route and route-card leg'],
+        ['Objectives (Sec 4, 7)', 'Tasks are the seizure or retention of dominating heights; objectives are hill features on the flanks and rear that dominate the enemy.', 'Key Terrain'],
+        ['Approaches (Sec 7)', 'Valley (obvious, well covered), nullah (infiltration, ambush), ridge line (easy to fight on, hard to maintain). Guard every approach.', 'Avenues of Approach'],
+        ['Defence (Sec 12–13)', 'Hold dominating features astride and on the flanks of the main axis. Posts at platoon level. Tiered defence: valley / foothill, mid slope, ridge line. Strong point on the most dominating feature. Reverse slopes when the forward slope is under fire.', 'Posts: tier, strong point, Enemy Observation'],
+        ['Observation (Sec 4, 22)', 'Long-range observation but dead space at mid ranges. OPs laterally, in depth and at varying heights so low cloud cannot blind all of them. Voices carry 900 m up — listening posts in valleys.', 'Posts: height tiers, dead ground layer, Viewshed'],
+        ['Obstacles (Sec 12–13)', 'Cover gaps with mines, fire and obstacles; mines thickest in valleys and foothills; mines wash away on slopes and lose effect in snow and rock — use wire there.', 'Minefields: valley bonus, steep-slope and snow-line factors'],
+        ['Fire (Sec 18)', 'Fire up- or downhill strikes high: sight = slant range ÷ factor (10° 1.02, 20° 1.06, 25° 1.10, 60° 2.0). Plunging fire leaves dead ground; MG mount +6° / −8.5°, 75 mm RR +30° / −5°. Mortars cover dead space.', 'Weapon sites: sight factor, mount limits; LOS: sight setting'],
+        ['Artillery & AD (Sec 22)', 'High-angle weapons beat crest clearance; light guns and mortars on reverse slopes and in valleys. Harass passes and defiles. AD covers defiles, gun areas and logistic sites from dominating features.', 'Indirect fire: crest clearance, defilade; AD air corridors'],
+        ['Advance (Sec 6)', 'The axis runs through valleys and defiles dominated by flanking heights — picquet the heights for the main body and the supply route.', 'Route Picquets'],
+        ['Helicopters (Sec 22)', 'Landing sites ≤ 4° for repeated use; emergency 4–10° light, 4–20° cargo. Conceal the site and its approach; hard ground, rock or grass.', 'Helipad Sites (HLS)'],
+        ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
+      ];
+      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnAI applies GSP Mountain Warfare</h2>
+        <p>The rules below come from the GSP Mountain Warfare pamphlet. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the pamphlet.</p>
+        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnAI</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+        <p class="hint">MtnAI is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
+    }
     if (section === 'about') {
       return { title: 'About MtnAI', html: `<h2>MtnAI ${M.VERSION}</h2>
         <p>Offline GIS decision aid for mountain operations. All processing runs locally in the browser; no data leaves the computer.</p>
@@ -6701,7 +6887,8 @@ Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) 
 <li><b>Map ▸ Situation</b> — place own position, enemy, target area and route start / end. <b>Edit ▸ Create</b> — digitise No-Go areas (rivers, glaciers, cliffs) and tracks.</li>
 <li><b>Analysis ▸ Terrain</b> — Key Terrain and Go / No-Go per movement class (slope limits, snow line, generalisation).</li>
 <li><b>Analysis ▸ Visibility / Tactical Siting</b> — Enemy Observation, Avenues, Posts / OPs, Weapon Sites and Minefields. Each tool exposes its full set of constraints and scoring weights.</li>
-<li><b>Analysis ▸ Routing</b> — Least-Time Route (fastest / balanced / covered / custom weights), Route Picquets, Fly Route.</li>
+<li><b>Analysis ▸ Routing & Movement</b> — Least-Time Route (fastest / balanced / covered / custom weights) with GSP march time and route card, Route Picquets, Helipad Sites, Fly Route.</li>
+<li><b>Help ▸ Doctrine</b> — the GSP Mountain Warfare rules built into each tool.</li>
 <li><b>Share</b> — plan file, GeoJSON, CSV, GeoTIFF / ASCII rasters, PNG and the printable terrain assessment report.</li>
 </ol>
 
@@ -6790,7 +6977,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     { name: 'Terrain Analysis', tools: ['keyTerrain', 'mobility'] },
     { name: 'Visibility', tools: ['viewshed', 'los', 'hostile'] },
     { name: 'Tactical Siting', tools: ['avenues', 'posts', 'weapons', 'mfd'] },
-    { name: 'Routing', tools: ['route', 'picquets', 'fly'] },
+    { name: 'Routing & Movement', tools: ['route', 'picquets', 'helipads', 'fly'] },
     { name: 'Conversion', tools: ['convert'] },
   ];
 
@@ -6827,6 +7014,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     keyTerrain: {
       name: 'Key Terrain', icon: 'peak',
+      gsp: 'GSP Sec 4 para 6–7: routes are overlooked by dominating heights; at brigade level and below, objectives are the seizure or retention of specific dominating heights. Passes are held from the heights on both shoulders (Sec 12 para 14).',
       desc: 'Finds dominating heights (local summits with high regional topographic position) and passes / cols (saddles).',
       params: [
         sec('Dominating heights', false),
@@ -6841,6 +7029,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     mobility: {
       name: 'Go / No-Go (Mobility)', icon: 'mobility',
+      gsp: 'GSP Sec 4 para 8–13: mobility is the key-note; vehicles keep to valley roads, cross-compartment travel is often impossible. A loaded mule can climb any slope a man can negotiate without using his hands (Annex H).',
       desc: 'Classifies cross-country movement into GO / SLOW-GO / NO-GO for a movement class from slope, snow line and digitised obstacles / tracks.',
       params: [
         { k: 'profile', label: 'Movement class', type: 'select', def: 'foot', options: profOpts },
@@ -6854,6 +7043,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     viewshed: {
       name: 'Viewshed', icon: 'eye',
+      gsp: 'GSP Sec 4 para 15: heights give long-range observation but rugged ground leaves dead space at mid ranges. A voice in a valley can be heard on ridges 900 m above — cover valleys with listening posts.',
       desc: 'Ground visible from an observer, with earth curvature and refraction (Settings ▸ Analysis parameters).',
       params: [
         { k: 'observer', label: 'Observer point', type: 'point' },
@@ -6874,6 +7064,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     hostile: {
       name: 'Enemy Observation', icon: 'eye',
+      gsp: 'GSP Sec 12: heights are conspicuous — dig down and conceal; use reverse slopes when the forward slope is under enemy observation. Light guns and mortars deploy on reverse slopes and in valleys (Sec 22).',
       desc: 'Ground overlooked by likely enemy OPs on the high ground near the enemy position. Unshaded ground is in defilade.',
       params: [
         { k: 'threat', type: 'marker' },
@@ -6888,6 +7079,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     avenues: {
       name: 'Avenues of Approach', icon: 'axis',
+      gsp: 'GSP Sec 7 para 4: three approaches — valley (obvious, well covered), nullah (narrow, for infiltration and ambush) and ridge line (easy to fight on, hard to maintain). Every conceivable approach must be guarded (Sec 4 para 23).',
       desc: 'Least-time enemy approach routes from the enemy to own position for the enemy movement class.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -6899,6 +7091,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     posts: {
       name: 'Suggest Posts / OPs', icon: 'post',
+      gsp: 'GSP Sec 12: occupy dominating features astride and on the flanks of the main axis; posts at platoon level; tiered defence (valley / foothill, mid slope, ridge line); a strong point on the most dominating feature; OPs laterally, in depth and at varying heights.',
       desc: 'Sites defended posts or OPs on the heights by maximum coverage of likely enemy movement ground, with dead ground and intervisibility.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -6927,11 +7120,14 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'wCorridor', label: 'Prescore — closeness to approach', type: 'number', def: D.posts.wCorridor, min: 0, max: 5, step: 0.05 },
         { k: 'deadThreshold', label: 'Dead-ground value threshold (0–1)', type: 'number', def: D.posts.deadThreshold, min: 0, max: 1, step: 0.05 },
         { k: 'linkFactor', label: 'Intervisibility check range (× obs range)', type: 'number', def: D.posts.linkFactor, min: 0.5, max: 10, step: 0.5 },
+        { k: 'heightSpreadM', label: 'Height band for OP tiers (0 = off)', type: 'number', def: D.posts.heightSpreadM, min: 0, max: 2000, step: 25, unit: 'm', help: 'GSP: site OPs laterally, in depth and at varying altitudes so low cloud cannot blind them all.' },
+        { k: 'heightSpreadBonus', label: 'Credit for a new height tier (0–1)', type: 'number', def: D.posts.heightSpreadBonus, min: 0, max: 1, step: 0.05 },
         ...VALUE(true),
       ],
     },
     weapons: {
       name: 'Suggest Weapon Sites', icon: 'tactical',
+      gsp: 'GSP Sec 18: fire up- or downhill strikes high — set the sight to slant range ÷ factor (10° 1.02, 20° 1.06, 25° 1.10, 60° 2.0). Plunging fire leaves dead ground; cover it with 60 / 81 mm mortars, riflemen and mines. Air defence covers defiles, gun areas and logistic sites from dominating features (Sec 22).',
       desc: 'Direct-fire sites by fields of fire over target ground (with enfilade), indirect-fire positions with crest clearance and defilade, AD sites over air corridors.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' }, { k: 'target', type: 'marker', show: (v) => weaponCat(v) === 'indirect' },
@@ -6943,6 +7139,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'w.siteSlope', label: 'Maximum site slope', type: 'number', unit: '°', min: 1, max: 60, step: 1, weapon: 'siteSlope' },
         { k: 'w.obsH', label: 'Sight height', type: 'number', unit: 'm', min: 0, max: 20, step: 0.1, weapon: 'obsH', show: (v) => weaponCat(v) !== 'indirect' },
         { k: 'w.tgtH', label: 'Target height', type: 'number', unit: 'm', min: 0, max: 500, step: 0.5, weapon: 'tgtH', show: (v) => weaponCat(v) !== 'indirect' },
+        { k: 'w.aimUp', label: 'Mount elevation limit (blank = none)', type: 'number', unit: '°', min: 0, max: 90, step: 0.5, weapon: 'aimUp', show: (v) => weaponCat(v) === 'direct', help: 'GSP Sec 18: MG on mount +6° / −8.5°; 75 mm RR +30° / −5°. Ground beyond the limits is dead to the weapon (plunging fire).' },
+        { k: 'w.aimDown', label: 'Mount depression limit (blank = none)', type: 'number', unit: '°', min: 0, max: 90, step: 0.5, weapon: 'aimDown', show: (v) => weaponCat(v) === 'direct' },
         { k: 'w.access', label: 'Access movement class', type: 'select', options: profOpts, weapon: 'access' },
         sec('Site constraints'),
         { k: 'defRadiusM', label: 'Defended-area radius around own position', type: 'number', def: 3000, min: 100, max: 50000, step: 250, unit: 'm', show: (v) => weaponCat(v) !== 'indirect' },
@@ -6975,6 +7173,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     mfd: {
       name: 'Suggest Minefields', icon: 'mine',
+      gsp: 'GSP Sec 12: gaps between posts are covered by mines, fire and obstacles; density thickest in valleys and foothills. Mines lose effect in heavy snow and rocky ground and wash away on slopes — use wire there.',
       desc: 'Sites AT / AP minefields at the narrowest defiles on enemy avenues of approach, tied into NO-GO ground and within reach of own troops.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
@@ -6999,10 +7198,17 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'uncoveredFactor', label: 'Factor if not observed (0–1)', type: 'number', def: D.mfd.uncoveredFactor, min: 0, max: 1, step: 0.05 },
         { k: 'rearFactor', label: 'Factor behind own position (0–1)', type: 'number', def: D.mfd.rearFactor, min: 0, max: 1, step: 0.05 },
         { k: 'outOfRangeFactor', label: 'Factor outside distance band (0–1)', type: 'number', def: D.mfd.outOfRangeFactor, min: 0, max: 1, step: 0.05 },
+        sec('Ground (GSP Mountain Warfare)'),
+        { k: 'valleyBonus', label: 'Extra value in valleys / foothills', type: 'number', def: D.mfd.valleyBonus, min: 0, max: 3, step: 0.05, help: 'GSP: minefield density is thickest in the valleys and foothills.' },
+        { k: 'maxSiteSlope', label: 'Steep-slope limit', type: 'number', def: D.mfd.maxSiteSlope, min: 5, max: 60, step: 1, unit: '°', help: 'GSP: mines on slopes wash away in rain and slides; use wire on rocky / steep slopes.' },
+        { k: 'steepFactor', label: 'Factor on steeper ground (0–1)', type: 'number', def: D.mfd.steepFactor, min: 0, max: 1, step: 0.05 },
+        { k: 'snowLine', label: 'Snow line (0 = off)', type: 'number', def: D.mfd.snowLine, min: 0, max: 9000, step: 100, unit: 'm', help: 'GSP: heavy snow cover greatly reduces the effect of mines.' },
+        { k: 'snowFactor', label: 'Factor above the snow line (0–1)', type: 'number', def: D.mfd.snowFactor, min: 0, max: 1, step: 0.05 },
       ],
     },
     route: {
       name: 'Least-Time Route', icon: 'route',
+      gsp: 'GSP Sec 4 / 7 / Annex E: measure distance in time — 3 km/h by day, 0.5–1 km/h by night, plus 30–60 min per 300 m of ascent and per 600 m of descent. Avoid losing height (a 3 km ridge detour beats a 600 m down-and-up). Follow ridges, not gullies. Prepare a route card.',
       desc: 'Anisotropic least-time route between A and B with alternatives, checkpoints and exposure to enemy observation.',
       params: [
         { k: 'a', type: 'marker' }, { k: 'b', type: 'marker' },
@@ -7013,10 +7219,15 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'alternatives', label: 'Alternative routes', type: 'number', def: 2, min: 1, max: 4, step: 1 },
         { k: 'separationM', label: 'Separation of alternatives', type: 'number', def: () => cfg('an.altSepM'), min: 50, max: 5000, step: 50, unit: 'm' },
         { k: 'cpEveryM', label: 'Checkpoint interval (0 = none)', type: 'number', def: 1000, min: 0, max: 20000, step: 250, unit: 'm' },
+        { k: 'nullahW', label: 'Keep out of nullah beds (penalty)', type: 'number', def: 0.5, min: 0, max: 10, step: 0.1, unit: '×', help: 'GSP: routes follow ridge lines rather than gullies and stream beds (scree, vertical patches, ambush). Tracks are exempt.' },
+        sec('Route card (GSP Annex E)', false),
+        { k: 'legEveryM', label: 'Leg length', type: 'number', def: 1000, min: 200, max: 10000, step: 100, unit: 'm' },
+        { k: 'night', label: 'Night move (0.5–1 km/h instead of 3 km/h)', type: 'bool', def: false },
       ],
     },
     picquets: {
       name: 'Route Picquets', icon: 'post',
+      gsp: 'GSP Sec 6: the axis passes through valleys and defiles dominated by flanking heights — secure (picquet) these heights for the main body and to protect the main supply route.',
       desc: 'Picquets on the heights dominating the selected route ("crowning the heights").',
       params: [
         { k: 'rangeM', label: 'Picquet observation range', type: 'number', def: D.picquets.rangeM, min: 200, max: 10000, step: 100, unit: 'm' },
@@ -7034,6 +7245,29 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'overlapKeep', label: 'Value of overlapping coverage (0–1)', type: 'number', def: D.picquets.overlapKeep, min: 0, max: 1, step: 0.05 },
         { k: 'obsH', label: 'Observer height', type: 'number', def: D.picquets.obsH, min: 0, max: 50, step: 0.5, unit: 'm' },
         { k: 'tgtH', label: 'Target height', type: 'number', def: D.picquets.tgtH, min: 0, max: 50, step: 0.5, unit: 'm' },
+      ],
+    },
+    helipads: {
+      name: 'Helipad Sites (HLS)', icon: 'target',
+      desc: 'Finds flat, concealed helicopter landing sites near own position.',
+      gsp: 'GSP Sec 22 para 19: sites for repeated use ≤ 4° slope; in emergency 4–10° for observation / utility and 4–20° for cargo helicopters. Shield the site and its approach from enemy observation; avoid dust (dry barren ground) — hard ground, rock or grass is best.',
+      params: [
+        { k: 'own', type: 'marker' },
+        { k: 'use', label: 'Use', type: 'select', def: 'regular', options: [['regular', 'Regular use (≤ 4°)'], ['light', 'Emergency — observation / utility (≤ 10°)'], ['cargo', 'Emergency — cargo (≤ 20°)']] },
+        { k: 'count', label: 'Number of sites', type: 'number', def: D.helipads.count, min: 1, max: 20, step: 1 },
+        { k: 'padRadiusM', label: 'Pad radius (all of it within the slope limit)', type: 'number', def: D.helipads.padRadiusM, min: 10, max: 200, step: 5, unit: 'm' },
+        { k: 'maxDistOwnM', label: 'Maximum distance from own position', type: 'number', def: D.helipads.maxDistOwnM, min: 200, max: 50000, step: 250, unit: 'm' },
+        { k: 'minSepM', label: 'Minimum separation', type: 'number', def: D.helipads.minSepM, min: 50, max: 10000, step: 50, unit: 'm' },
+        sec('Constraints'),
+        { k: 'requireConcealed', label: 'Hidden from enemy observation', type: 'bool', def: D.helipads.requireConcealed },
+        { k: 'avoidCrest', label: 'Not on crests (skyline, wind)', type: 'bool', def: D.helipads.avoidCrest },
+        { k: 'requireAccess', label: 'Reachable from own position', type: 'bool', def: D.helipads.requireAccess },
+        { k: 'accessProfile', label: 'Access movement class', type: 'select', def: D.helipads.accessProfile, options: profOpts, show: (v) => v.requireAccess },
+        { k: 'maxAccessH', label: 'Maximum access time (0 = any)', type: 'number', def: 0, min: 0, max: 48, step: 0.5, unit: 'h', show: (v) => v.requireAccess },
+        sec('Scoring'),
+        { k: 'wFlat', label: 'Weight — flatness', type: 'number', def: D.helipads.wFlat, min: 0, max: 5, step: 0.05 },
+        { k: 'wHidden', label: 'Weight — concealment', type: 'number', def: D.helipads.wHidden, min: 0, max: 5, step: 0.05 },
+        { k: 'wNear', label: 'Weight — closeness to own position', type: 'number', def: D.helipads.wNear, min: 0, max: 5, step: 0.05 },
       ],
     },
     fly: {
@@ -7142,7 +7376,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     const el = document.getElementById('gpPane');
     const scroll = (el.querySelector('.gp-form') || {}).scrollTop || 0;
     let html = `<div class="gp-head"><button class="ghost-ic" data-back title="Back to toolboxes">‹</button><span>${esc(t.name)}</span><button class="ghost-ic" data-help title="Tool help">?</button></div>
-      <div class="gp-desc" hidden>${esc(t.desc)}</div><div class="gp-tabs"><span class="on">Parameters</span><button class="link" data-env>Environments…</button></div><div class="gp-form">`;
+      <div class="gp-desc" hidden>${esc(t.desc)}</div>${t.gsp ? `<div class="gp-gsp" title="Click to expand / collapse"><b>Doctrine</b> ${esc(t.gsp)}</div>` : ''}<div class="gp-tabs"><span class="on">Parameters</span><button class="link" data-env>Environments…</button></div><div class="gp-form">`;
     let inSec = false, secId = '';
     for (const p of t.params) {
       if (p.show && !p.show(v)) continue;
@@ -7176,6 +7410,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     };
     el.querySelector('[data-back]').onclick = () => GP.home();
     el.querySelector('[data-help]').onclick = () => { const d = el.querySelector('.gp-desc'); d.hidden = !d.hidden; };
+    const gs = el.querySelector('.gp-gsp');
+    if (gs) gs.onclick = () => gs.classList.toggle('open');
     el.querySelector('[data-env]').onclick = () => UI.Settings.open('an');
     el.querySelectorAll('[data-k]').forEach((inp) => inp.addEventListener('change', () => {
       const p = t.params.find((x) => x.k === inp.dataset.k);
@@ -7269,9 +7505,9 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     },
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
-    key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
+    key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
     mobStats: {}, snowLine: 0, generalize: false,
-    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, hostileOps: true },
+    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true },
     tool: null, draft: null, sel: null, view: '2d', baseCanvas: null, texCanvas: null, texDirty: true,
     sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: {},
   });
@@ -7349,7 +7585,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   const setWeaponField = (id, field, val) => {
     const o = JSON.parse(JSON.stringify(cfg('weapons') || {}));
     if (field === null) delete o[id];
-    else o[id] = Object.assign(o[id] || {}, { [field]: typeof M.WEAPONS[id][field] === 'number' ? +val : val });
+    else o[id] = Object.assign(o[id] || {}, { [field]: val === '' || val === null ? null : typeof M.WEAPONS[id][field] === 'number' || ['aimUp', 'aimDown'].includes(field) ? +val : val });
     Settings.set('weapons', o);
   };
   const setProfileField = (id, field, val) => {
@@ -7372,7 +7608,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       S.stats = res.stats;
       S.sources = opts.sources || null;
       if (opts.full) S.fullGrid = opts.full;
-      Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
+      Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
       for (const o of Object.values(S.overlays)) { o.data = null; o.rgba = null; o.visible = false; }
       if (!opts.keepPlan) { S.markers = {}; S.obstacles = []; S.tracks = opts.tracks || []; }
       if (opts.markers) for (const k in opts.markers) S.markers[k] = snapLowSlope(opts.markers[k]);
@@ -7699,6 +7935,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (S.obstacles.length || S.tracks.length) feat.push(Object.assign({ id: 'obstacles', name: 'Obstacles & tracks', count: S.obstacles.length + S.tracks.length,
       legend: swatches([[polySw('rgba(217,58,50,0.35)', '#ff5b4f'), `No-Go areas (${S.obstacles.length})`], [lineSw('#c8955c', true), `Tracks (${S.tracks.length})`]]),
       remove: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } }, showFlag('obstacles')));
+    if (S.helipads) feat.push(Object.assign({ id: 'helipads', name: 'Helipad sites (HLS)', count: S.helipads.pads.length, table: true, legend: swatches([['<span class="lg-txt">Ⓗ</span>', `${S.helipads.pads[0] ? S.helipads.pads[0].use : ''} — ≤ ${S.helipads.params.use === 'regular' ? 4 : S.helipads.params.use === 'light' ? 10 : 20}°`]]), remove: () => { S.helipads = null; } }, showFlag('helipads')));
     if (S.picquets) feat.push(Object.assign({ id: 'picquets', name: 'Route picquets', count: S.picquets.picquets.length, table: true, legend: swatches([[symSw(UI.SYM.picquet()), 'Picquet (planned)']]), remove: () => { S.picquets = null; } }, showFlag('picquets')));
     if (S.routes) feat.push(Object.assign({ id: 'routes', name: `Routes — ${M.MOVEMENT_PROFILES[S.routes.profile].name.split(' (')[0]}`, count: S.routes.routes.length, table: true,
       legend: swatches([[lineSw(cfg('sym.routeColor')), 'Selected route'], [lineSw(cfg('sym.routeColor'), true), 'Alternative'], [symSw(UI.SYM.cp(1), 12), 'Checkpoint']]), remove: () => { S.routes = null; S.picquets = null; } }, showFlag('routes')));
@@ -7790,6 +8027,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (id === 'markers') Object.values(S.markers).forEach(add);
     else if (id === 'obstacles') { lines(S.obstacles); lines(S.tracks); }
     else if (id === 'picquets') S.picquets.picquets.forEach(add);
+    else if (id === 'helipads') S.helipads.pads.forEach(add);
     else if (id === 'routes') lines(S.routes.routes.map((r) => r.line));
     else if (id === 'mfd') S.mfd.fields.forEach(add);
     else if (id.startsWith('weapons:')) S.weapons[+id.slice(8)].sites.forEach(add);
@@ -8004,6 +8242,10 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (!tool) {
       const ref = nearestSymbol(ev.x, ev.y);
       if (ref) { select(ref, false, true); return; }
+      if (S.helipads && S.show.helipads !== false) {
+        const k = S.helipads.pads.findIndex((q) => { const [sx, sy] = S.view === '3d' ? [-1e9, -1e9] : map.toScreen(q.c, q.r); return Math.hypot(sx - ev.x, sy - ev.y) < 14; });
+        if (k >= 0) { select({ kind: 'hls', idx: k }, false, true); return; }
+      }
       if (S.mfd && inside && S.show.mfd) {
         const k = S.mfd.fields.findIndex((f) => M.pointInPoly(c, r, f.poly));
         if (k >= 0) { select({ kind: 'mfd', idx: k }, false, true); return; }
@@ -8044,7 +8286,10 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       ['Bearing — grid', F.angle(gb)], ['Bearing — true', F.angle(gb + conv)], ['Bearing — magnetic', F.angle(gb + conv - decl)],
       ['Back bearing', F.bearing(gb + 180, p[1], p[0])],
       ['Height difference', F.height(z2 - z1)], ['Mean gradient', `${M.deg(Math.atan(Math.abs(z2 - z1) / Math.max(1, d))).toFixed(1)}°`],
-    ])}</table>`;
+      ['GSP march time — day', gspRange(M.gspMarchTime(d, Math.max(0, z2 - z1), Math.max(0, z1 - z2)))],
+      ['GSP march time — night', gspRange(M.gspMarchTime(d, Math.max(0, z2 - z1), Math.max(0, z1 - z2), { night: true }))],
+      ['Off-map distance (map + ⅓)', F.dist(d * 4 / 3)],
+    ])}</table><p class="hint pad">GSP: distance is measured in time. Straight-line legs; use Least-Time Route for the real path.</p>`;
     showRightTab('attr');
     S.draft = { kind: 'measure', pts: [p, q] };
     map.render();
@@ -8064,6 +8309,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (!keepOthers && cfg('ovl.exclusive')) for (const [k, x] of Object.entries(S.overlays)) if (k !== id) x.visible = false;
     o.data = data; o.rgba = null; o.visible = !!data; o.info = info || o.info;
   };
+  const gspRange = (t) => `${F.time(t.minH)}–${F.time(t.maxH)}`;
   const refLines = (items, fmt) => items.map((x) => `${x.id}  ${F.listRef(x.r, x.c)}${fmt ? '  ' + fmt(x) : ''}`).join('\n');
 
   const computeMobility = async (v, quiet) => {
@@ -8110,8 +8356,11 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     const blk = res.blockIndex >= 0 ? res.profile[res.blockIndex] : null;
     openProfile(`Line of sight — ${res.visible ? 'visible' : 'masked'} — ${F.dist(res.distance)}`, { profile: res.profile, blockIndex: res.blockIndex });
     renderAll(); refresh();
-    return res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
-      : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`;
+    const pa = res.profile[0], pb = res.profile[res.profile.length - 1];
+    const ang = M.deg(Math.atan2((pb.z + +v.tgtH) - (pa.z + +v.obsH), Math.max(1, res.distance)));
+    const fire = `\nAngle of sight ${ang.toFixed(1)}° · slant ${F.dist(Math.hypot(res.distance, (pb.z + +v.tgtH) - (pa.z + +v.obsH)))} · set sight to slant ÷ ${M.sightFactor(ang).toFixed(2)} (GSP Sec 18)`;
+    return (res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
+      : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`) + fire;
   };
   H.hostile = async (v) => {
     needMarkers('threat');
@@ -8198,12 +8447,14 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     await syncSettings();
     const res = await run(`Route A→B (${v.mode})`, 'route', {
       a: S.markers.a, b: S.markers.b, profile: v.profile, mode: v.mode, alternatives: +v.alternatives, cpEveryM: +v.cpEveryM,
-      exposureW: +v.exposureW, skylineW: +v.skylineW, separationM: +v.separationM,
+      exposureW: +v.exposureW, skylineW: +v.skylineW, separationM: +v.separationM, nullahW: +v.nullahW, legEveryM: +v.legEveryM, night: !!v.night,
     }, (r) => r.routes.map((x, k) => `R${k + 1} ${F.dist(x.lengthM)} · ${F.time(x.timeH)}`).join('\n'));
-    S.routes = { routes: res.routes, sel: 0, profile: v.profile, mode: v.mode };
+    S.routes = { routes: res.routes, sel: 0, profile: v.profile, mode: v.mode, night: !!v.night };
     S.picquets = null;
     renderAll(); showRouteProfile(); refresh();
-    return `${M.MOVEMENT_PROFILES[v.profile].name} · ${v.mode}\n` + res.routes.map((r, k) => `R${k + 1}  ${F.dist(r.lengthM)} · ${F.time(r.timeH)} · ↑${F.height(r.ascentM)} · exposed ${pct(r.exposedFrac)}`).join('\n');
+    renderRouteCard();
+    return `${M.MOVEMENT_PROFILES[v.profile].name} · ${v.mode}\n` + res.routes.map((r, k) => `R${k + 1}  ${F.dist(r.lengthM)} · model ${F.time(r.timeH)} · GSP ${gspRange(v.night ? r.gspNight : r.gspDay)} · ↑${F.height(r.ascentM)} ↓${F.height(r.descentM)} · exposed ${pct(r.exposedFrac)}`).join('\n') +
+      '\nRoute card: bottom dock ▸ Route card.';
   };
   H.picquets = async (v) => {
     if (!S.routes) throw new Error('Run Least-Time Route first — picquets protect the selected route.');
@@ -8211,6 +8462,16 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     S.picquets = await run('Route Picquets', 'picquets', Object.assign({}, v, { path: Array.from(rt.path) }), (r) => `${r.picquets.length} picquets · ${pct(r.routeCoverage)} of route observed`);
     renderAll(); refresh();
     return `${S.picquets.picquets.length} picquets keep ${pct(S.picquets.routeCoverage)} of route R${(S.routes.sel || 0) + 1} under observation.\n` + refLines(S.picquets.picquets, (p) => `climb ${F.time(p.climbH)}`);
+  };
+  H.helipads = async (v) => {
+    needGrid();
+    await syncSettings();
+    const res = await run('Helipad Sites', 'helipads', v, (r) => `${r.pads.length} sites`);
+    S.helipads = res;
+    S.show.helipads = true;
+    renderAll(); refresh();
+    return `${res.pads.length} sites (${v.use}, ≤ ${res.pads[0] ? res.pads[0].slopeLimitDeg : '–'}°)${res.accessRelaxed ? '\nWARNING: access constraint relaxed.' : ''}\n` +
+      refLines(res.pads, (q) => `${q.meanSlopeDeg.toFixed(1)}° · ${q.hidden ? 'hidden' : 'SEEN by enemy'}${q.distOwnM !== null ? ` · ${F.dist(q.distOwnM)} from own` : ''}`);
   };
   H.fly = async (v) => {
     if (!S.routes) throw new Error('Run Least-Time Route first.');
@@ -8250,6 +8511,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       case 'weapon': return S.weapons[ref.idx] && S.weapons[ref.idx].sites[ref.sub];
       case 'mfd': return S.mfd && S.mfd.fields[ref.idx];
       case 'picquet': return S.picquets && S.picquets.picquets[ref.idx];
+      case 'hls': return S.helipads && S.helipads.pads[ref.idx];
       case 'key': return S.key && (ref.sub === 'pass' ? S.key.passes : S.key.peaks)[ref.idx];
       case 'marker': return S.markers[ref.idx];
       case 'route': return S.routes && S.routes.routes[ref.idx] && { c: S.routes.routes[ref.idx].line[0][0], r: S.routes.routes[ref.idx].line[0][1] };
@@ -8260,7 +8522,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     }
   };
   const select = (ref, zoom, fromMap) => {
-    if (ref && ref.kind === 'route') { S.routes.sel = ref.idx; S.picquets = null; showRouteProfile(); }
+    if (ref && ref.kind === 'route') { S.routes.sel = ref.idx; S.picquets = null; showRouteProfile(); renderRouteCard(); }
     S.sel = ref;
     renderAll();
     const pos = posOf(ref);
@@ -8309,7 +8571,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         icon = UI.symbolHTML(P.mode === 'op' ? UI.SYM.op() : UI.SYM.post(P.echelon), 26);
         title = p.id; sub = P.mode === 'op' ? 'Observation post (planned)' : `Defended post — ${P.echelon} (planned)`;
         const mates = P.links.filter((l) => l[0] === ref.idx || l[1] === ref.idx).map((l) => P.posts[l[0] === ref.idx ? l[1] : l[0]].id);
-        rows.push(['Assessment', null], ['Landform', p.landform.split(' (')[0]], ['Visible area', F.area(p.visibleKm2)], ['Approach coverage', pct(p.valueShare, 1)],
+        if (p.strongPoint) sub += ' — STRONG POINT (most dominating)';
+        rows.push(['Assessment', null], ['Defence tier (GSP)', p.tier || '—'], ['Landform', p.landform.split(' (')[0]], ['Visible area', F.area(p.visibleKm2)], ['Approach coverage', pct(p.valueShare, 1)],
           ['Access', p.accessH === null ? '—' : F.time(p.accessH)], ['Intervisible with', mates.join(', ') || 'none']);
         break;
       }
@@ -8324,6 +8587,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         } else {
           rows.push(['Left of arc', F.bearing(p.sector.left, p.r, p.c)], ['Right of arc', F.bearing(p.sector.right, p.r, p.c)], ['Principal direction', F.bearing(p.sector.mean, p.r, p.c)],
             ['Mean range', F.dist(p.meanRangeM)], ['Target ground covered', pct(p.valueShare, 1)]);
+          if (p.sightFactor) rows.push(['Mean angle of sight', `${p.meanAngleDeg.toFixed(1)}°`], ['Sight setting (GSP Sec 18)', `slant range ÷ ${p.sightFactor.toFixed(2)}`],
+            ['Dead to mount limits', pct(p.plungeDeadShare || 0, 1) + ' of target ground']);
         }
         rows.push(['Range band', `${F.dist(p.minR)} – ${F.dist(p.maxR)}`], ['Landform', p.landform.split(' (')[0]], ['Access', p.accessH === null ? '—' : F.time(p.accessH)]);
         break;
@@ -8331,7 +8596,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       case 'mfd':
         icon = UI.symbolHTML(UI.SYM.mine(p.type), 22); title = p.id; sub = `${p.type === 'AT' ? 'Anti-tank' : 'Anti-personnel'} minefield (planned)`;
         rows.push(['Obstacle', null], ['Gap at defile', F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
-          ['Est. mines', `≈ ${p.estMines}`], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
+          ['Est. mines', `≈ ${p.estMines}`], ['Site slope', p.siteSlopeDeg === undefined ? '—' : `${p.siteSlopeDeg.toFixed(0)}°`], ['Ground note (GSP)', p.note || 'suitable'], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
         break;
       case 'picquet':
         icon = UI.symbolHTML(UI.SYM.picquet(), 26); title = p.id; sub = 'Route picquet (planned)';
@@ -8346,7 +8611,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         const rt = S.routes.routes[ref.idx];
         title = `Route R${ref.idx + 1}`; sub = M.MOVEMENT_PROFILES[S.routes.profile].name;
         rows.push(['Route', null], ['Length', F.dist(rt.lengthM)], ['Time', F.time(rt.timeH)], ['Ascent / descent', `${F.height(rt.ascentM)} / ${F.height(-rt.descentM)}`],
-          ['Max grade', `${rt.maxGradeDeg.toFixed(0)}°`], ['Slow-Go', pct(rt.slowFrac)], ['Exposed', pct(rt.exposedFrac)], ['Highest point', F.elev(rt.highestM)]);
+          ['GSP time — day', rt.gspDay ? gspRange(rt.gspDay) : '—'], ['GSP time — night', rt.gspNight ? gspRange(rt.gspNight) : '—'], ['Max grade', `${rt.maxGradeDeg.toFixed(0)}°`], ['Slow-Go', pct(rt.slowFrac)], ['Exposed', pct(rt.exposedFrac)], ['Highest point', F.elev(rt.highestM)]);
         break;
       }
       case 'avenue': {
@@ -8355,6 +8620,11 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         rows.push(['Avenue', null], ['Length', F.dist(rt.lengthM)], ['Time', F.time(rt.timeH)], ['Slow-Go', pct(rt.slowFrac || 0)]);
         break;
       }
+      case 'hls':
+        title = p.id; sub = `Helipad / landing site — ${p.use}`;
+        rows.push(['Landing site', null], ['Mean slope', `${p.meanSlopeDeg.toFixed(1)}° (limit ${p.slopeLimitDeg}°)`], ['Enemy observation', p.hidden ? 'hidden' : 'SEEN'],
+          ['Landform', p.landform.split(' (')[0]], ['From own position', p.distOwnM === null ? '—' : F.dist(p.distOwnM)], ['Access', p.accessH === null ? '—' : F.time(p.accessH)]);
+        break;
       case 'cp': icon = UI.symbolHTML(UI.SYM.cp(ref.idx + 1), 20); title = `CKP ${ref.idx + 1}`; sub = `Checkpoint — km ${(p.d / 1000).toFixed(1)}`; break;
       case 'point': title = 'Location'; sub = 'Inspected point'; break;
       default: title = ref.kind;
@@ -8382,16 +8652,17 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       S.key.passes.forEach((p, k) => add('key', null, 'Pass / col', `Col ${k + 1}`, p, '', { kind: 'key', idx: k, sub: 'pass' }, p.z));
     }
     if (S.posts) S.posts.posts.forEach((p, k) => add('posts', S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon), S.posts.mode === 'op' ? 'Observation post' : 'Defended post', p.id, p,
-      `sees ${F.area(p.visibleKm2)} · ${pct(p.valueShare, 1)} of approaches`, { kind: 'post', idx: k }, p.z));
+      `${p.strongPoint ? 'STRONG POINT · ' : ''}${p.tier || ''} · sees ${F.area(p.visibleKm2)} · ${pct(p.valueShare, 1)} of approaches`, { kind: 'post', idx: k }, p.z));
     S.weapons.forEach((res, wi) => res.sites.forEach((s, k) => add('weapons:' + wi, UI.SYM.weapon(res.weapon), `Weapon — ${res.weapon.short}`, s.id, s,
       s.cat === 'indirect' ? `${F.dist(s.rangeToTargetM)} to target · QE ${s.qeDeg === null ? '—' : F.angle(s.qeDeg)} · crest ${pct(s.clearShare)}`
         : `arc ${F.bearing(s.sector.left, s.r, s.c, true)}–${F.bearing(s.sector.right, s.r, s.c)} · ${pct(s.valueShare, 1)}`, { kind: 'weapon', idx: wi, sub: k }, s.z)));
     if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `gap ${F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
     if (S.avenues) S.avenues.routes.forEach((rt, k) => add('avenues', null, 'Enemy avenue', `AA${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)}`, { kind: 'avenue', idx: k }));
     if (S.routes) {
-      S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · ${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
+      S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · GSP ${rt.gspDay ? gspRange(S.routes.night ? rt.gspNight : rt.gspDay) : '—'} · ↑${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
       S.routes.routes[S.routes.sel || 0].checkpoints.forEach((cp, k) => add('routes', UI.SYM.cp(k + 1), 'Checkpoint', `CKP ${k + 1}`, cp, `km ${(cp.d / 1000).toFixed(1)}`, { kind: 'cp', idx: k }));
     }
+    if (S.helipads) S.helipads.pads.forEach((p, k) => add('helipads', null, 'Helipad (HLS)', p.id, p, `${p.use} · ${p.meanSlopeDeg.toFixed(1)}° · ${p.hidden ? 'hidden' : 'seen'}`, { kind: 'hls', idx: k }, p.z));
     if (S.picquets) S.picquets.picquets.forEach((p, k) => add('picquets', UI.SYM.picquet(), 'Picquet', p.id, p, `km ${p.routeFromKm === null ? '—' : p.routeFromKm.toFixed(1) + '–' + p.routeToKm.toFixed(1)} · climb ${F.time(p.climbH)}`, { kind: 'picquet', idx: k }, p.z));
     return rows;
   };
@@ -8458,11 +8729,41 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     UI.download(fileName('features.csv'), '﻿' + lines.join('\r\n'), 'text/csv');
   };
 
+  // =================================================================== route card (GSP Annex E)
+  const routeCardRows = () => {
+    if (!S.routes) return [];
+    const rt = S.routes.routes[S.routes.sel || 0];
+    if (!rt || !rt.card) return [];
+    const decl = F.declination();
+    return rt.card.map((l, k) => {
+      const mag = l.bearingDeg + F.convergence(l.from[1], l.from[0]) - decl;
+      return { leg: k + 1, from: F.listRef(l.from[1], l.from[0]), to: F.listRef(l.to[1], l.to[0]), mag: F.angle(((mag % 360) + 360) % 360), hEnd: F.elev(l.heightEndM),
+        hDiff: F.height(l.heightDiffM), dist: F.dist(l.distM), time: `${Math.round(l.minMin)}–${Math.round(l.maxMin)} min` };
+    });
+  };
+  const CARD_COLS = [['leg', 'Leg'], ['from', 'From'], ['to', 'To'], ['mag', 'Magnetic bearing'], ['hEnd', 'Height at end'], ['hDiff', 'Height diff'], ['dist', 'Distance'], ['time', 'Time (GSP)']];
+  const renderRouteCard = () => {
+    const rows = routeCardRows();
+    const tbl = $('cardTable');
+    if (!rows.length) { tbl.innerHTML = '<tbody><tr><td class="wrap">Run Least-Time Route to make a route card.</td></tr></tbody>'; return; }
+    const rt = S.routes.routes[S.routes.sel || 0];
+    const tot = S.routes.night ? rt.gspNight : rt.gspDay;
+    tbl.innerHTML = `<thead><tr>${CARD_COLS.map(([, t]) => `<th>${t}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${CARD_COLS.map(([k]) => `<td class="${k === 'from' || k === 'to' || k === 'mag' ? 'm' : ''}">${esc(r[k])}</td>`).join('')}</tr>`).join('')}
+      <tr class="sel"><td colspan="6">Total — route R${(S.routes.sel || 0) + 1} (${S.routes.night ? 'night' : 'day'}) · ↑${esc(F.height(rt.ascentM))} ↓${esc(F.height(rt.descentM))}</td><td>${esc(F.dist(rt.lengthM))}</td><td>${esc(gspRange(tot))}</td></tr></tbody>`;
+  };
+  const exportRouteCard = () => {
+    const rows = routeCardRows();
+    if (!rows.length) { toast('No route card — run Least-Time Route first.', true); return; }
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    UI.download(fileName('route_card.csv'), '\ufeff' + [CARD_COLS.map(([, t]) => q(t)).join(',')].concat(rows.map((r) => CARD_COLS.map(([k]) => q(r[k])).join(','))).join('\r\n'), 'text/csv');
+  };
+
   // =================================================================== dock / profile
   const showDockTab = (tab) => {
     document.querySelectorAll('.dock-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.dock === tab));
     document.querySelectorAll('[data-dockpanel]').forEach((p) => (p.hidden = p.dataset.dockpanel !== tab));
     document.querySelector('[data-dockpanel-tools]').hidden = tab !== 'table';
+    if (tab === 'card') renderRouteCard();
     if (tab === 'profile' && S.drawerData) UI.drawProfile($('chart'), S.drawerData);
   };
   const setDock = (open) => { $('dock').classList.toggle('collapsed', !open); $('dockToggle').textContent = open ? '▾' : '▴'; saveLayout(); updateRibbonState(); };
@@ -8610,7 +8911,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       format: 'mtnai-plan', version: M.VERSION, created: new Date().toISOString(), grid: M.gridMeta(S.grid),
       markers: S.markers, obstacles: S.obstacles, tracks: S.tracks, threatType: S.threatType, ownEchelon: S.ownEchelon, snowLine: S.snowLine,
       key: S.key, posts: strip(S.posts, ['cover', 'dead']), weapons: S.weapons.map((w) => strip(w, ['cover'])),
-      mfd: S.mfd, avenues: S.avenues, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
+      mfd: S.mfd, avenues: S.avenues, helipads: S.helipads, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
     };
   };
   const linePath = (line) => {
@@ -8636,7 +8937,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     for (const k in p.markers || {}) if (inGrid(p.markers[k])) S.markers[k] = { c: Math.round(p.markers[k].c), r: Math.round(p.markers[k].r) };
     Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0 });
     if (!opts.silent || plan.grid.name === S.grid.name) {
-      Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null });
+      Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null, helipads: p.helipads || null });
       S.weapons = (p.weapons || []).map((w) => Object.assign(w, { weapon: weaponOf(w.weapon.id) }));
       S.routes = p.routes || null;
       if (S.routes) {
@@ -8762,6 +9063,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     contours: { t: 'Contours', rb: 'Contours', check: true, run: () => Settings.set('map.contours', !cfg('map.contours')), on: () => cfg('map.contours') },
     labels: { t: 'Labels', rb: 'Labels', check: true, run: () => Settings.set('sym.labels', !cfg('sym.labels')), on: () => cfg('sym.labels') },
     theme: { t: 'Theme', rb: 'Theme', icon: 'panel', menu: () => [['dark', 'Dark'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red)']].map(([k, n]) => ({ t: n, checked: cfg('ui.theme') === k, run: () => Settings.set('ui.theme', k) })) },
+    routeCard: { t: 'Route card (GSP Annex E)', rb: 'Route Card', icon: 'doc', need, run: () => { setDock(true); showDockTab('card'); } },
+    doctrine: { t: 'Doctrine — GSP Mountain Warfare', rb: 'Doctrine', icon: 'doc', run: () => openHelp('doctrine') },
     swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; renderAll(); refresh(); } },
     clearObstacles: { t: 'Delete digitised obstacles and tracks', rb: 'Delete All', icon: 'err', need, run: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } },
     goto: { t: 'Go to XY (any reference)', k: 'Ctrl+G', need, run: () => { showRibbonTab('map'); $('gotoBox').focus(); } },
@@ -8779,7 +9082,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   for (const [id, tool] of Object.entries(GP.TOOLS)) {
     if (!CMD['gp:' + id]) CMD['gp:' + id] = { t: `${tool.name} (geoprocessing)`, rb: tool.name.replace(/ \(.*\)$/, '').replace(/^Suggest /, ''), icon: tool.icon, need: ['downloadDEM', 'convert'].includes(id) ? undefined : need, run: () => openGP(id) };
   }
-  CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
+  CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:helipads'].rb = 'Helipads'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
   CMD['gp:avenues'].rb = 'Avenues'; CMD['gp:posts'].rb = 'Posts / OPs'; CMD['gp:weapons'].rb = 'Weapon Sites'; CMD['gp:mfd'].rb = 'Minefields'; CMD['gp:convert'].rb = 'Convert Coords';
   CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:los'].rb = 'LOS Tool';
   for (const sec of Settings.SCHEMA) CMD['settings:' + sec.id] = { t: `Settings — ${sec.title}`, run: () => Settings.open(sec.id) };
@@ -8814,7 +9117,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
       ['Visibility', ['gp:viewshed', 'gp:los', 'gp:hostile']],
       ['Tactical Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
-      ['Routing', ['*gp:route', 'gp:picquets', 'gp:fly', 'swapAB']],
+      ['Routing & Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'swapAB', 'routeCard']],
     ] },
     { id: 'edit', name: 'Edit', groups: [
       ['Create', ['*tool:poly', '*tool:line', 'clearObstacles']],
@@ -8839,7 +9142,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       ['Options', ['*settings']],
     ] },
     { id: 'help', name: 'Help', groups: [
-      ['Help', ['*help', '*shortcuts', 'about']],
+      ['Help', ['*help', '*doctrine', '*shortcuts', 'about']],
     ] },
   ];
   const rbIcon = (c, large) => (c.sym ? `<span class="rb-sym${large ? ' lg' : ''}" data-sym="${c.sym}"></span>` : c.check ? '<span class="rb-chk"></span>' : UI.icon(c.icon || 'command', large ? 24 : 15));
@@ -8914,7 +9217,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer };
+    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure };
     UI.applyIcons();
     map.resize();
     renderRibbon();
@@ -8933,6 +9236,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     $('vtCRS').onclick = () => Settings.open('crs');
     document.querySelectorAll('[data-rtab]').forEach((b) => b.addEventListener('click', () => showRightTab(b.dataset.rtab)));
     $('logClear').onclick = () => { $('log').tBodies[0].innerHTML = ''; };
+    $('cardCsv').onclick = exportRouteCard;
+    renderRouteCard();
     document.querySelectorAll('.dock-tabs button').forEach((b) => b.addEventListener('click', () => { setDock(true); showDockTab(b.dataset.dock); }));
     $('dockToggle').onclick = () => setDock($('dock').classList.contains('collapsed'));
     $('attrFilter').addEventListener('input', renderAttrTable);
