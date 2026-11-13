@@ -337,7 +337,7 @@ button.link:hover { text-decoration: underline; }
 #dock.collapsed .dock-body, #dock.collapsed .dock-tools { display: none !important; }
 .dock-head { height: 28px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 6px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
 .dock-tabs { display: flex; height: 100%; }
-.dock-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 12px; color: var(--muted); cursor: default; }
+.dock-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 0 12px; color: var(--muted); cursor: default; white-space: nowrap; }
 .dock-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
 .dock-tabs button i { font-style: normal; color: var(--muted); font-size: 11px; }
 .dock-tools { display: flex; gap: 6px; align-items: center; margin-left: auto; }

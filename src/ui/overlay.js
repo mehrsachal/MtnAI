@@ -360,6 +360,57 @@
       ctx.restore();
     }
 
+    // ---------------------------------------------------------- sector planning
+    const X = S.sec || {};
+    const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)') => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg }); };
+    if (sh.nullahs !== false && X.terr) X.terr.nullahs.forEach((q) => {
+      ctx.save(); ctx.strokeStyle = q.type === 'valley' ? '#1f6fd1' : '#5fa8ff'; ctx.lineWidth = (q.type === 'valley' ? 2.6 : 1.4) * lw; ctx.lineJoin = 'round';
+      path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
+    });
+    if (sh.ridges !== false && X.terr) X.terr.ridges.forEach((q, k) => {
+      ctx.save(); ctx.strokeStyle = '#5b3a1a'; ctx.lineWidth = (k < 5 ? 3.2 : k < 15 ? 2.2 : 1.3) * lw; ctx.lineJoin = 'round';
+      path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
+      if (k < 8 && sh.labels) labelAt(q.line[Math.floor(q.line.length / 2)], q.id, '#5b3a1a');
+    });
+    if (sh.secArea !== false && S.sector) {
+      ctx.save(); path(ctx, S.sector, P, true); ctx.lineWidth = 3.5 * lw; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.setLineDash([12 * lw, 6 * lw]); ctx.lineWidth = 2 * lw; ctx.strokeStyle = '#000'; ctx.stroke(); ctx.restore();
+    }
+    if (sh.secArea !== false && S.border) {
+      ctx.save(); path(ctx, S.border, P, false); ctx.lineWidth = 5 * lw; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.stroke();
+      ctx.setLineDash([16 * lw, 5 * lw, 3 * lw, 5 * lw]); ctx.lineWidth = 3 * lw; ctx.strokeStyle = '#d00000'; ctx.stroke(); ctx.restore();
+      if (sh.labels) labelAt(S.border[Math.floor(S.border.length / 2)], 'LoC', '#d00000');
+    }
+    if (sh.itgs !== false && X.itg) X.itg.itgs.forEach((q, k) => {
+      const sel = S.sel && S.sel.kind === 'sec' && S.sel.layer === 'itgs' && S.sel.idx === k;
+      ctx.save(); path(ctx, q.outline, P, true);
+      ctx.fillStyle = q.rating === 'Good' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.14)'; ctx.fill();
+      ctx.lineWidth = (sel ? 3.5 : 2.2) * lw; ctx.strokeStyle = sel ? selC : '#000'; ctx.setLineDash(q.rating === 'Good' ? [] : [6 * lw, 4 * lw]); ctx.stroke(); ctx.restore();
+      if (sh.labels) { const [x, y] = P.xy(q.c, q.r); UI.haloText(ctx, `${q.id} · ${q.rating}`, x, y + 16 * lw, { align: 'center', font: lblFont(11), color: '#000', halo: 'rgba(255,255,255,0.9)' }); }
+    });
+    const arrowLine = (line, color, width, dash) => {
+      if (!line || line.length < 2) return;
+      cased(ctx, line, P, color, width, dash);
+      const n = line.length;
+      arrowHead(ctx, P.xy(...line[n - 2]), P.xy(...line[n - 1]), 12 * lw, color);
+    };
+    if (sh.eappr !== false && X.appr) X.appr.approaches.forEach((a) => { arrowLine(a.line, '#ff4136', 2.4, [9, 5]); if (sh.labels) labelAt(a.line[Math.floor(a.line.length * 0.35)], a.id, '#c00000'); });
+    if (sh.infil !== false && X.infil) X.infil.routes.forEach((a) => { arrowLine(a.line, '#8b0000', 2, [2, 4]); if (sh.labels) labelAt(a.line[Math.floor(a.line.length * 0.5)], `${a.id} (${a.threat})`, '#8b0000'); });
+    if (sh.eopts !== false && X.opts) X.opts.options.forEach((o) => {
+      o.lines.forEach((ln, j) => arrowLine(ln, '#c00000', j ? 3 : 5, j ? [12, 6] : null));
+      if (sh.labels) { const [x, y] = P.xy(o.objectiveRef.c, o.objectiveRef.r); UI.haloText(ctx, `${o.id}${o.label ? ` — ${o.label}` : ''}`, x, y - 22 * lw, { align: 'center', font: lblFont(12, 700), color: '#c00000', halo: 'rgba(255,255,255,0.9)' }); }
+    });
+    if (sh.bwatch !== false && X.watch) X.watch.gaps.forEach((q) => {
+      ctx.save(); ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 6 * lw; ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(...P.xy(q.from.c, q.from.r)); ctx.lineTo(...P.xy(q.to.c, q.to.r)); ctx.stroke(); ctx.restore();
+      if (sh.labels) labelAt([q.c, q.r], `${q.id} ${Math.round(q.lengthM)} m`, '#a000a0');
+    });
+    if (sh.firegaps !== false && X.fire) X.fire.gaps.forEach((q) => {
+      const [x, y] = P.xy(q.c, q.r);
+      ctx.save(); ctx.strokeStyle = '#000'; ctx.fillStyle = '#ffd400'; ctx.lineWidth = 1.5 * lw;
+      ctx.beginPath(); ctx.moveTo(x, y - 7 * lw); ctx.lineTo(x + 7 * lw, y); ctx.lineTo(x, y + 7 * lw); ctx.lineTo(x - 7 * lw, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    });
+
     if (sh.helipads !== false && S.helipads) {
       S.helipads.pads.forEach((q, k) => {
         const [x, y] = P.xy(q.c, q.r);
@@ -488,6 +539,11 @@
       const rt = S.routes.routes[S.routes.sel || 0];
       if (rt) rt.checkpoints.forEach((cp, k) => items.push({ c: cp.c, r: cp.r, spec: UI.SYM.cp(k + 1), small: true }));
     }
+    if (UI._secItems) UI._secItems().forEach((x) => {
+      if (!x.sym || sh[x.layer] === false) return;
+      items.push({ c: x.c, r: x.r, spec: x.sym, label: x.id, small: x.type.startsWith('Border post') || x.type.startsWith('Extra OP'), ref: { kind: 'sec', layer: x.layer, idx: x.idx },
+        sel: !!S.sel && S.sel.kind === 'sec' && S.sel.layer === x.layer && S.sel.idx === x.idx });
+    });
     if (sh.markers === false) return items;
     if (mk.target) items.push({ c: mk.target.c, r: mk.target.r, spec: UI.SYM.target(), label: 'TGT', ref: { kind: 'marker', idx: 'target' }, sel: isSel('marker', 'target') });
     if (mk.threat) items.push({ c: mk.threat.c, r: mk.threat.r, spec: UI.SYM.threat(S.threatType), label: 'ENY', ref: { kind: 'marker', idx: 'threat' }, sel: isSel('marker', 'threat') });

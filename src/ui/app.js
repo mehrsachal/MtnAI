@@ -21,12 +21,16 @@
       wcover: { name: 'Fields of fire', legend: 'wcover', opacity: 1 },
       dead: { name: 'Dead ground', legend: 'dead', opacity: 1 },
       viewshed: { name: 'Viewshed', legend: 'viewshed', opacity: 1 },
+      dominance: { name: 'Terrain value (dominance)', legend: 'dominance', opacity: 0.8 },
+      firecov: { name: 'Fire coverage (weapons per square)', legend: 'firecov', opacity: 0.9 },
     },
+    sector: null, border: null, sec: {},
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
     key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
     mobStats: {}, snowLine: 0, generalize: false,
-    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true },
+    show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true,
+      secArea: true, ridges: true, nullahs: true, itgs: true, plan: true, eappr: true, infil: true, eopts: true, bwatch: true, firegaps: true },
     tool: null, draft: null, sel: null, view: '2d', baseCanvas: null, texCanvas: null, texDirty: true,
     sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: {},
   });
@@ -97,6 +101,7 @@
   const syncSettings = () => engine.call('settings', {
     own: S.markers.own || null, threat: S.markers.threat || null, target: S.markers.target || null, threatProfile: S.threatType,
     obstacles: S.obstacles, tracks: S.tracks, profiles: cfg('profiles') || {}, snowLine: S.snowLine, generalize: S.generalize,
+    sector: S.sector, border: S.border,
   });
   const weaponOf = (id) => M.weapon(id, (cfg('weapons') || {})[id]);
   const profileOf = (id) => Object.assign({}, M.MOVEMENT_PROFILES[id], (cfg('profiles') || {})[id] || {});
@@ -129,7 +134,8 @@
       if (opts.full) S.fullGrid = opts.full;
       Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
       for (const o of Object.values(S.overlays)) { o.data = null; o.rgba = null; o.visible = false; }
-      if (!opts.keepPlan) { S.markers = {}; S.obstacles = []; S.tracks = opts.tracks || []; }
+      S.sec = {};
+      if (!opts.keepPlan) { S.markers = {}; S.obstacles = []; S.tracks = opts.tracks || []; S.sector = opts.sector || null; S.border = opts.border || null; }
       if (opts.markers) for (const k in opts.markers) S.markers[k] = snapLowSlope(opts.markers[k]);
       await recomputeHillshade(true);
       progress(0.9, 'Contours');
@@ -156,7 +162,7 @@
     setTimeout(async () => {
       try {
         const syn = M.syntheticTerrain();
-        await loadGrid(syn.grid, { markers: syn.markers, full: syn.grid, tracks: syn.tracks });
+        await loadGrid(syn.grid, { markers: syn.markers, full: syn.grid, tracks: syn.tracks, sector: syn.sector, border: syn.border });
         toast('Synthetic training area loaded (fictional terrain, UTM 43N). Own, enemy and target positions are pre-placed.');
       } catch (e) { /* reported */ } finally { busy(false); }
     }, 20);
@@ -354,10 +360,12 @@
       case 'wcover': o.rgba = UI.colorMask(o.data, rgb('ovl.fireColor'), 0.38); break;
       case 'dead': o.rgba = UI.colorMask(o.data, rgb('ovl.deadColor'), 0.5); break;
       case 'viewshed': o.rgba = UI.colorMask(o.data, rgb('ovl.viewshedColor'), 0.42); break;
+      case 'dominance': o.rgba = UI.colorDominance(o.data); break;
+      case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
     }
     return o.rgba;
   };
-  const OVERLAY_ORDER = ['mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'viewshed'];
+  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'viewshed'];
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -488,7 +496,24 @@
     ];
     const base = [{ id: 'dem', name: S.grid.name, sub: BASE_NAMES[S.base], legend: rasterLegend(S.base, baseInfo()), raster: true, isBase: true,
       visible: () => true, setVisible: () => {}, settings: 'map' }];
+    const X = S.sec, secL = [];
+    const sl = (id, name, count, legend, remove) => secL.push(Object.assign({ id, name, count, table: true, legend, remove }, showFlag(id)));
+    if (X.opts) sl('eopts', 'Enemy courses of action', X.opts.options.length, swatches([[lineSw('#c00000'), 'Main thrust'], [lineSw('#c00000', true), 'Supporting thrust']]), () => { delete X.opts; });
+    if (X.infil) sl('infil', 'Infiltration routes', X.infil.routes.length, swatches([[lineSw('#8b0000', true), 'Hidden route (threat)']]), () => { delete X.infil; });
+    if (X.appr) sl('eappr', 'Enemy approaches (across the border)', X.appr.approaches.length, swatches([[lineSw('#ff4136', true), 'Approach to an ITG']]), () => { delete X.appr; delete X.opts; });
+    if (X.watch) sl('bwatch', `Border watch — ${Math.round(X.watch.observedShare * 100)}% observed`, X.watch.gaps.length + X.watch.extraOPs.length, swatches([[lineSw('#ff00ff'), 'Unwatched stretch'], [symSw(UI.SYM.op(), 12), 'Extra OP (suggested)']]), () => { delete X.watch; });
+    if (X.fire) sl('firegaps', 'Fire gaps on approaches', X.fire.gaps.length, swatches([['<span class="lg-txt">◇</span>', 'Under-covered stretch']]), () => { delete X.fire; clearOverlay('firecov'); });
+    if (X.plan) sl('plan', `Deployment — ${X.plan.modeName}`, X.plan.platoons.length + X.plan.borderPosts.length + X.plan.companies.length + 1,
+      swatches([[symSw(UI.SYM.post('platoon')), 'Platoon post'], [symSw(UI.SYM.op(), 12), 'Border post'], [symSw(UI.SYM.own('company'), 12), 'Company / Bn HQ'], [symSw(UI.SYM.weapon(M.WEAPONS.mor60), 12), 'Mortar']]), () => { delete X.plan; delete X.fire; delete X.watch; clearOverlay('firecov'); });
+    if (X.itg) sl('itgs', 'ITGs (Important Terrain Grounds)', X.itg.itgs.length, swatches([[polySw('rgba(255,255,255,0.25)', '#000'), 'ITG extent — label shows rating']]), () => { delete X.itg; delete X.plan; });
+    if (X.terr) {
+      sl('ridges', 'Ridgelines', X.terr.ridges.length, swatches([[lineSw('#5b3a1a'), 'Ridgeline (thicker = higher value)']]), () => { X.terr.ridges = []; });
+      secL.push(Object.assign({ id: 'nullahs', name: 'Nullahs and valleys', count: X.terr.nullahs.length, legend: swatches([[lineSw('#1f6fd1'), 'Valley'], [lineSw('#5fa8ff'), 'Nullah']]), remove: () => { X.terr.nullahs = []; } }, showFlag('nullahs')));
+    }
+    if (S.sector || S.border) secL.push(Object.assign({ id: 'secArea', name: 'Sector boundary & border line', legend: swatches([[polySw('transparent', '#000'), 'Sector (area of interest)'], [lineSw('#d00000'), 'Border line (LoC)']]),
+      remove: () => { S.sector = null; S.border = null; safe(onSectorChanged)(); } }, showFlag('secArea')));
     return [
+      { id: 'grpSector', name: 'Sector plan', layers: secL },
       { id: 'grpFeat', name: 'Situation & plan', layers: feat },
       { id: 'grpRas', name: 'Analysis rasters', layers: ras },
       { id: 'grpGrid', name: 'Map grids & annotation', layers: grids },
@@ -555,6 +580,9 @@
     else if (id === 'avenues') lines(S.avenues.routes.map((r) => r.line));
     else if (id === 'key') { S.key.peaks.forEach(add); S.key.passes.forEach(add); }
     else if (id === 'los') { add(S.los.a); add(S.los.b); }
+    else if (id === 'secArea') { lines([S.sector || [], S.border || []]); }
+    else if (id === 'nullahs' || id === 'ridges') lines((S.sec.terr[id] || []).slice(0, 30).map((x) => x.line));
+    else secItems().filter((x) => x.layer === id).forEach(add);
     return pts.length ? pts : null;
   };
   const zoomToLayer = (id) => {
@@ -682,6 +710,8 @@
 
   // =================================================================== map tools
   const TOOL_HINTS = {
+    sector: 'Sector boundary — click the corners of your area of interest · double-click or Enter to finish · Backspace undo · Esc cancel',
+    border: 'Border line (LoC) — click along the line from one end to the other · double-click or Enter to finish · Backspace undo · Esc cancel',
     own: 'Click own position (defended locality / HQ) · Esc to cancel', threat: 'Click the enemy position · Esc to cancel',
     target: 'Click the target area for indirect fire · Esc to cancel', a: 'Click route start (A) · Esc to cancel', b: 'Click route end (B) · Esc to cancel',
     poly: 'No-Go area — click vertices · double-click or Enter to finish · Backspace undo · Esc cancel', line: 'Track — click vertices · double-click or Enter to finish · Backspace undo · Esc cancel',
@@ -694,7 +724,8 @@
     if (S.tool === tool && tool !== 'pick') tool = null;
     if (tool !== 'pick') pickCb = null;
     S.tool = tool;
-    S.draft = tool && ['poly', 'line', 'los', 'measure', 'aoi'].includes(tool) ? { kind: tool, pts: [] } : null;
+    S.draft = tool && ['poly', 'line', 'los', 'measure', 'aoi'].includes(tool) ? { kind: tool, pts: [] }
+      : tool === 'sector' ? { kind: 'poly', purpose: 'sector', pts: [] } : tool === 'border' ? { kind: 'line', purpose: 'border', pts: [] } : null;
     document.querySelectorAll('[data-cmd^="tool:"]').forEach((b) => b.classList.toggle('active', b.dataset.cmd === 'tool:' + tool));
     document.querySelectorAll('[data-cmd="explore"]').forEach((b) => b.classList.toggle('active', !tool));
     $('stage').classList.toggle('tool', !!tool);
@@ -721,11 +752,23 @@
     const d = S.draft;
     if (!d) return;
     const pts = d.pts.filter((p, k) => k === 0 || Math.hypot(p[0] - d.pts[k - 1][0], p[1] - d.pts[k - 1][1]) > 0.5);
+    if (d.purpose === 'sector' && pts.length >= 3) { S.sector = pts; setTool(null); safe(onSectorChanged)(); return; }
+    if (d.purpose === 'border' && pts.length >= 2) { S.border = pts; setTool(null); safe(onSectorChanged)(); return; }
+    if (d.purpose) { toast('Not enough vertices.', true); setTool(null); return; }
     if (d.kind === 'poly' && pts.length >= 3) S.obstacles.push(pts);
     else if (d.kind === 'line' && pts.length >= 2) S.tracks.push(pts);
     else { toast('Not enough vertices.', true); setTool(null); return; }
     setTool(null);
     safe(onObstaclesChanged)();
+  };
+  /** Sector or border redrawn: earlier sector results no longer apply. */
+  const onSectorChanged = async () => {
+    S.sec = {};
+    clearOverlay('dominance'); clearOverlay('firecov');
+    await syncSettings();
+    renderAll(); refresh({ base: true });
+    if (GP.current()) GP.render();
+    toast(S.border ? 'Sector updated — run Sector tools (Sector tab).' : 'Sector boundary set. Draw the border line (LoC) next.');
   };
   const onObstaclesChanged = async () => {
     await syncSettings();
@@ -776,7 +819,7 @@
     const cell = { c: Math.round(c), r: Math.round(r) };
     if (tool === 'pick') { const cb = pickCb; setTool(null); if (cb) cb(cell); return; }
     if (['own', 'threat', 'target', 'a', 'b'].includes(tool)) { setTool(null); await placeMarker(tool, cell); return; }
-    if (tool === 'poly' || tool === 'line') { S.draft.pts.push([c, r]); redrawDraft(); return; }
+    if (tool === 'poly' || tool === 'line' || tool === 'sector' || tool === 'border') { S.draft.pts.push([c, r]); redrawDraft(); return; }
     if (tool === 'aoi' || tool === 'measure' || tool === 'los') {
       S.draft.pts.push([c, r]);
       if (S.draft.pts.length < 2) { redrawDraft(); return; }
@@ -1020,6 +1063,140 @@
     }
     return rows.map(([k, x]) => `${k}: ${x}`).join('\n');
   };
+  // ---------------------------------------------------------------- sector planning
+  const needBorder = () => { needGrid(); if (!S.border) throw new Error('Draw the border line (LoC) first: Sector tab ▸ Border Line.'); };
+  const rateCount = (items) => { const c = { Good: 0, Marginal: 0, 'Not good': 0 }; items.forEach((x) => x.rating && c[x.rating]++); return `${c.Good} Good · ${c.Marginal} Marginal · ${c['Not good']} Not good`; };
+  const secDone = (layers, base) => { Object.assign(S.show, layers); renderAll(); refresh({ base: !!base }); };
+  H.sectorTerrain = async (v) => {
+    needGrid();
+    await syncSettings();
+    const r = await run('Terrain Value & Ridgelines', 'sectorTerrain', v, (x) => `${x.ridges.length} ridgelines · ${x.nullahs.length} nullahs / valleys`);
+    S.sec = { terr: { ridges: r.ridges, nullahs: r.nullahs } };
+    setOverlay('dominance', r.dominance, { name: 'Terrain value' });
+    secDone({ ridges: true, nullahs: true }, true);
+    const v2 = r.nullahs.filter((x) => x.type === 'valley').length;
+    return `${r.ridges.length} ridgelines, ${r.nullahs.length - v2} nullahs, ${v2} valley segments.\nBest ridgelines: ` + r.ridges.slice(0, 4).map((x) => `${x.id} ${F.dist(x.lengthM)} (value ${Math.round(x.meanDominance)})`).join(', ') + (r.hasBorder ? '' : '\nTip: draw the border line (LoC) so own / enemy sides are known.');
+  };
+  H.itgs = async (v) => {
+    needGrid();
+    await syncSettings();
+    const r = await run('ITGs', 'itgs', v, (x) => `${x.itgs.length} ITGs`);
+    S.sec.itg = r; delete S.sec.plan; delete S.sec.fire; delete S.sec.watch;
+    secDone({ itgs: true });
+    return `${r.itgs.length} ITGs — ${rateCount(r.itgs)}\n` + r.itgs.map((x) => `${x.id}  ${F.listRef(x.r, x.c)}  ${F.elev(x.z)} · ${x.areaHa.toFixed(1)} ha · needs ${x.force.echelon} · ${x.rating}`).join('\n');
+  };
+  H.deploy = async (v) => {
+    needGrid();
+    await syncSettings();
+    const r = await run(`Deployment Plan — ${M.DEPLOY_MODES[v.mode].name}`, 'deploy', v, (x) => `${x.platoons.length} platoons · ${x.borderPosts.length} border posts`);
+    S.sec.plan = r; delete S.sec.fire; delete S.sec.watch; clearOverlay('firecov');
+    if (!S.sec.itg) S.sec.itg = await engine.call('itgs', null);
+    secDone({ plan: true, itgs: true }, true);
+    const all = r.platoons.concat(r.borderPosts, r.companies.map((c) => c.hq), r.companies.map((c) => c.mortar).filter(Boolean), [r.bnHq, r.bnMortar].filter(Boolean));
+    return `${r.modeName}: ${r.borderPosts.length} border posts, ${r.platoons.length} platoon posts, ${r.companies.length} company HQs, Bn HQ, ${r.companies.filter((c) => c.mortar).length + (r.bnMortar ? 1 : 0)} mortar positions — about ${r.troops} troops.\nRatings: ${rateCount(all)}\n` + r.notes.join('\n');
+  };
+  H.enemyApproaches = async (v) => {
+    needBorder();
+    await syncSettings();
+    const r = await run('Enemy Approaches', 'enemyApproaches', v, (x) => `${x.approaches.length} approaches`);
+    S.sec.appr = r; delete S.sec.opts;
+    if (!S.sec.itg) S.sec.itg = await engine.call('itgs', null);
+    secDone({ eappr: true });
+    return `${r.approaches.length} approaches from ${r.entries.length} entry points.\n` + r.approaches.map((a) => `${a.id} → ${a.objective}: ${a.type}, ${F.dist(a.lengthM)}, ${F.time(a.timeH)}, ${Math.round(a.exposure * 100)}% watched · threat ${a.threat}`).join('\n');
+  };
+  H.infiltration = async (v) => {
+    needBorder();
+    await syncSettings();
+    const r = await run('Infiltration Routes', 'infiltration', v, (x) => `${x.routes.length} routes`);
+    S.sec.infil = r;
+    secDone({ infil: true });
+    return r.routes.map((a) => `${a.id}: ${a.type} to ${a.target} · ${F.dist(a.lengthM)}, ${F.time(a.timeH)} · ${Math.round(a.detectShare * 100)}% watched · threat ${a.threat}`).join('\n') + (S.sec.plan ? '' : '\nTip: run Deployment Plan first — routes are then judged against your posts.');
+  };
+  H.fireCoverage = async (v) => {
+    needGrid();
+    const extra = v.useWeaponSites ? S.weapons.flatMap((res) => res.sites.map((x) => ({ r: x.r, c: x.c, id: x.id, kind: res.weapon.cat === 'indirect' ? 'mortar' : 'direct', obsH: res.weapon.obsH || 1, tgtH: 1, maxR: x.maxR, minR: x.minR || 0 }))) : [];
+    const r = await run('Fire Coverage & Interlocking', 'fireCoverage', { opts: v, extraWeapons: extra }, (x) => `${x.weapons.length} weapons · ${x.gaps.length} gaps`);
+    S.sec.fire = { postCover: r.postCover, gaps: r.gaps, weapons: r.weapons, approachCover: r.approachCover };
+    setOverlay('firecov', r.count, { name: 'Fire coverage' }, true);
+    secDone({ firegaps: true }, true);
+    return `${r.weapons.length} weapons. Interlocking: ${rateCount(r.postCover)}.\n` + (r.approachCover.length ? 'Approaches under fire (own side + 1 km): ' + r.approachCover.map((a) => `${a.id} ${Math.round(a.share * 100)}%`).join(', ') + '\n' : '') +
+      (r.gaps.length ? `${r.gaps.length} fire gaps: ` + r.gaps.map((x) => `${x.id} on ${x.approach} ${F.dist(x.lengthM)}`).join(', ') : 'No fire gaps on the approaches.');
+  };
+  H.borderWatch = async (v) => {
+    needBorder();
+    const extra = v.includePosts && S.posts ? S.posts.posts.map((q) => ({ r: q.r, c: q.c })) : [];
+    const r = await run('Border Surveillance', 'borderWatch', { opts: v, extraObservers: extra }, (x) => `${Math.round(x.observedShare * 100)}% observed`);
+    S.sec.watch = { observedShare: r.observedShare, lengthM: r.lengthM, rating: r.rating, gaps: r.gaps, extraOPs: r.extraOPs };
+    secDone({ bwatch: true });
+    return `${Math.round(r.observedShare * 100)}% of ${F.dist(r.lengthM)} of border observed — ${r.rating}.\n${r.gaps.length} gaps: ` + r.gaps.map((x) => `${x.id} ${F.dist(x.lengthM)}`).join(', ') +
+      (r.extraOPs.length ? '\nExtra OPs: ' + r.extraOPs.map((x) => `${x.id} ${F.listRef(x.r, x.c)} (${x.reasons[0]})`).join('; ') : '');
+  };
+  H.enemyOptions = async (v) => {
+    needBorder();
+    if (!S.sec.appr) await H.enemyApproaches(GP.values('enemyApproaches'));
+    const r = await run('Enemy Courses of Action', 'enemyOptions', v, (x) => `${x.options.length} options`);
+    S.sec.opts = r;
+    secDone({ eopts: true });
+    return r.options.map((o) => `${o.id}${o.label ? ` (${o.label})` : ''} — threat ${o.threat}\n  ${o.summary}\n  Recommendation: ${o.recommendation}`).join('\n');
+  };
+  H.sectorAll = async (v) => {
+    needBorder();
+    const steps = [];
+    const st = (t) => steps.push(t.split('\n')[0]);
+    st(await H.sectorTerrain(GP.values('sectorTerrain')));
+    st(await H.itgs(GP.values('itgs')));
+    st(await H.deploy(Object.assign(GP.values('deploy'), { mode: v.mode, companies: v.companies, platoonsPerCompany: v.platoonsPerCompany })));
+    st(await H.enemyApproaches(Object.assign(GP.values('enemyApproaches'), { profile: v.profile })));
+    st(await H.infiltration(GP.values('infiltration')));
+    st(await H.fireCoverage(GP.values('fireCoverage')));
+    st(await H.borderWatch(GP.values('borderWatch')));
+    st(await H.enemyOptions(GP.values('enemyOptions')));
+    const items = secItems().filter((x) => x.rating);
+    return `Sector assessment complete — ${rateCount(items)} across ${items.length} items.\n` + steps.map((x, k) => `${k + 1}. ${x}`).join('\n') + '\nSee Contents ▸ Sector plan, the attribute table (Rating column) and Share ▸ Report.';
+  };
+
+  /** Every rated sector item, for the Contents pane, attribute table, Attributes pane and report. */
+  const secItems = () => {
+    const X = S.sec, out = [];
+    const add = (layer, idx, o) => out.push(Object.assign({ layer, idx }, o));
+    if (X.itg) X.itg.itgs.forEach((q, k) => add('itgs', k, { id: q.id, type: 'ITG', r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons,
+      detail: `${q.areaHa.toFixed(1)} ha · perimeter ${F.dist(q.perimeterM)} · needs ${q.force.echelon} (~${q.force.troops}) · score ${q.score.toFixed(2)}`,
+      fields: [['Dominance', `${Math.round(q.dominance)}/100`], ['Area', `${q.areaHa.toFixed(1)} ha`], ['Perimeter', F.dist(q.perimeterM)], ['Force to hold', `${q.force.echelon} (~${q.force.troops} all ranks)`],
+        ['Observation over approaches', `${Math.round(q.obsShare * 100)}%`], ['Distance from border', q.borderDistM == null ? '—' : F.dist(q.borderDistM)], ['Mean slope', `${q.meanSlope.toFixed(0)}°`], ['Score', q.score.toFixed(2)]] }));
+    if (X.plan) {
+      const P = X.plan;
+      P.borderPosts.forEach((q, k) => add('plan', `bp${k}`, { id: q.id, type: 'Border post', sym: UI.SYM.op(), r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons, detail: q.reasons.join(' · ') }));
+      P.platoons.forEach((q, k) => add('plan', `pl${k}`, { id: q.id, type: `Platoon post (${q.role})`, sym: UI.SYM.post('platoon'), r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons, detail: q.reasons.join(' · ') }));
+      P.companies.forEach((co, k) => {
+        add('plan', `hq${k}`, { id: co.hq.id, type: 'Company HQ', sym: UI.SYM.own('company'), r: co.hq.r, c: co.hq.c, z: co.hq.z, rating: co.hq.rating, reasons: co.hq.reasons, detail: `${co.platoons.map((q) => q.id).join(', ')} · ${co.hq.reasons[0]}` });
+        if (co.mortar) add('plan', `mo${k}`, { id: co.mortar.id, type: '60 mm mortar', sym: UI.SYM.weapon(M.WEAPONS.mor60), r: co.mortar.r, c: co.mortar.c, z: co.mortar.z, rating: co.mortar.rating, reasons: co.mortar.reasons, detail: co.mortar.reasons[0] });
+      });
+      if (P.bnHq) add('plan', 'bn', { id: 'Bn HQ', type: 'Battalion HQ', sym: UI.SYM.own('battalion'), r: P.bnHq.r, c: P.bnHq.c, z: P.bnHq.z, rating: P.bnHq.rating, reasons: P.bnHq.reasons, detail: P.bnHq.reasons[0] });
+      if (P.bnMortar) add('plan', 'bnm', { id: P.bnMortar.id, type: '81 mm mortar', sym: UI.SYM.weapon(M.WEAPONS.mor81), r: P.bnMortar.r, c: P.bnMortar.c, z: P.bnMortar.z, rating: P.bnMortar.rating, reasons: P.bnMortar.reasons, detail: P.bnMortar.reasons[0] });
+    }
+    if (X.fire) {
+      X.fire.postCover.forEach((q) => { const it = out.find((x) => x.id === q.id && x.layer === 'plan'); if (it) { it.reasons = it.reasons.concat(q.reasons); if (q.rating === 'Not good' && it.rating === 'Good') it.rating = 'Marginal'; } });
+      X.fire.gaps.forEach((q, k) => add('firegaps', k, { id: q.id, type: 'Fire gap', r: q.r, c: q.c, rating: q.rating, reasons: q.reasons, detail: q.reasons[0] }));
+    }
+    if (X.watch) {
+      X.watch.gaps.forEach((q, k) => add('bwatch', `g${k}`, { id: q.id, type: 'Border gap', r: q.r, c: q.c, rating: q.rating, reasons: q.reasons, detail: q.reasons[0] }));
+      X.watch.extraOPs.forEach((q, k) => add('bwatch', `x${k}`, { id: q.id, type: 'Extra OP (suggested)', sym: UI.SYM.op(), r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons, detail: q.reasons[0] }));
+    }
+    const lineRef = (a) => ({ r: a.line[Math.floor(a.line.length / 2)][1], c: a.line[Math.floor(a.line.length / 2)][0] });
+    if (X.appr) X.appr.approaches.forEach((a, k) => add('eappr', k, Object.assign(lineRef(a), { id: a.id, type: `Enemy approach (${a.type})`, rating: a.rating, reasons: a.reasons.concat([`threat ${a.threat}`]),
+      detail: `→ ${a.objective} · ${F.dist(a.lengthM)} · ${F.time(a.timeH)} · ${Math.round(a.exposure * 100)}% watched · threat ${a.threat}`,
+      fields: [['Objective', a.objective], ['Type', a.type], ['Length', F.dist(a.lengthM)], ['Time', F.time(a.timeH)], ['Climb', F.height(a.ascentM)], ['Watched by own posts', `${Math.round(a.exposure * 100)}%`], ['Threat', a.threat]] })));
+    if (X.infil) X.infil.routes.forEach((a, k) => add('infil', k, Object.assign(lineRef(a), { id: a.id, type: `Infiltration route (${a.type})`, rating: a.rating, reasons: a.reasons, detail: a.reasons.slice(0, 3).join(' · '),
+      fields: [['Target', a.target], ['Length', F.dist(a.lengthM)], ['Time on foot', F.time(a.timeH)], ['Watched (own side)', `${Math.round(a.detectShare * 100)}%`], ['In nullahs / dead ground', `${Math.round(a.nullahShare * 100)}%`], ['Threat', a.threat]] })));
+    if (X.opts) X.opts.options.forEach((o, k) => add('eopts', k, { id: o.id, type: `Enemy option${o.label ? ` — ${o.label}` : ''}`, r: o.objectiveRef.r, c: o.objectiveRef.c, rating: o.rating,
+      reasons: [o.summary, `Recommendation: ${o.recommendation}`], detail: `${o.summary} Threat ${o.threat}.`,
+      fields: [['Objective', o.objective], ['Main approach', o.main], ['Supporting', o.support || '—'], ['Threat', o.threat], ['Score', o.score.toFixed(2)]] }));
+    if (X.terr) X.terr.ridges.slice(0, 15).forEach((q, k) => add('ridges', k, Object.assign(lineRef(q), { id: q.id, type: 'Ridgeline', rating: q.rating, reasons: [`mean terrain value ${Math.round(q.meanDominance)}`, `${q.side} side`],
+      detail: `${F.dist(q.lengthM)} · value ${Math.round(q.meanDominance)} · ${q.side} side` })));
+    return out;
+  };
+  UI._secItems = secItems;
+
   for (const [id, fn] of Object.entries(H)) GP.handle(id, fn);
 
   // =================================================================== selection & Attributes pane
@@ -1037,6 +1214,7 @@
       case 'avenue': return S.avenues && S.avenues.routes[ref.idx] && { c: S.avenues.routes[ref.idx].line[0][0], r: S.avenues.routes[ref.idx].line[0][1] };
       case 'cp': return S.routes && S.routes.routes[S.routes.sel || 0].checkpoints[ref.idx];
       case 'point': return { c: ref.c, r: ref.r };
+      case 'sec': return secItems().find((x) => x.layer === ref.layer && x.idx === ref.idx) || null;
       default: return null;
     }
   };
@@ -1146,6 +1324,11 @@
         break;
       case 'cp': icon = UI.symbolHTML(UI.SYM.cp(ref.idx + 1), 20); title = `CKP ${ref.idx + 1}`; sub = `Checkpoint — km ${(p.d / 1000).toFixed(1)}`; break;
       case 'point': title = 'Location'; sub = 'Inspected point'; break;
+      case 'sec':
+        icon = p.sym ? UI.symbolHTML(p.sym, 24) : ''; title = p.id; sub = p.type;
+        rows.push(['Assessment', null], ['Rating', p.rating || '—'], ...(p.reasons || []).map((x, k) => [k ? '' : 'Why', x]));
+        if (p.fields) rows.push(['Details', null], ...p.fields);
+        break;
       default: title = ref.kind;
     }
     el.innerHTML = `<div class="sel-head">${icon}<div><div class="t">${esc(title)}</div><div class="s">${esc(sub)}</div></div></div>
@@ -1181,18 +1364,20 @@
       S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · GSP ${rt.gspDay ? gspRange(S.routes.night ? rt.gspNight : rt.gspDay) : '—'} · ↑${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
       S.routes.routes[S.routes.sel || 0].checkpoints.forEach((cp, k) => add('routes', UI.SYM.cp(k + 1), 'Checkpoint', `CKP ${k + 1}`, cp, `km ${(cp.d / 1000).toFixed(1)}`, { kind: 'cp', idx: k }));
     }
+    secItems().filter((x) => x.layer !== 'ridges').forEach((x) => { add(x.layer, x.sym || null, x.type, x.id, x, x.detail, { kind: 'sec', layer: x.layer, idx: x.idx }, x.z); rows[rows.length - 1].rating = x.rating; });
     if (S.helipads) S.helipads.pads.forEach((p, k) => add('helipads', null, 'Helipad (HLS)', p.id, p, `${p.use} · ${p.meanSlopeDeg.toFixed(1)}° · ${p.hidden ? 'hidden' : 'seen'}`, { kind: 'hls', idx: k }, p.z));
     if (S.picquets) S.picquets.picquets.forEach((p, k) => add('picquets', UI.SYM.picquet(), 'Picquet', p.id, p, `km ${p.routeFromKm === null ? '—' : p.routeFromKm.toFixed(1) + '–' + p.routeToKm.toFixed(1)} · climb ${F.time(p.climbH)}`, { kind: 'picquet', idx: k }, p.z));
     return rows;
   };
   const ATTR_COLS = [
     { k: 'sym', t: '' }, { k: 'type', t: 'Type' }, { k: 'id', t: 'ID' }, { k: 'ref', t: () => F.refName() }, { k: 'sec', t: () => (F.secondaryCRS() ? F.secondaryCRS().name : '') },
-    { k: 'z', t: () => `Elev (${F.elevUnit()})` }, { k: 'detail', t: 'Details' },
+    { k: 'z', t: () => `Elev (${F.elevUnit()})` }, { k: 'rating', t: 'Rating' }, { k: 'detail', t: 'Details' },
   ];
   const attrValue = (row, k) => {
     if (k === 'ref') return F.listRef(row.r, row.c);
     if (k === 'sec') return F.secondaryCell(row.r, row.c);
     if (k === 'z') return F.elevNum(row.z);
+    if (k === 'rating') return row.rating || '';
     return row[k];
   };
   const renderAttrLayers = () => {
@@ -1430,7 +1615,7 @@
       format: 'mtnai-plan', version: M.VERSION, created: new Date().toISOString(), grid: M.gridMeta(S.grid),
       markers: S.markers, obstacles: S.obstacles, tracks: S.tracks, threatType: S.threatType, ownEchelon: S.ownEchelon, snowLine: S.snowLine,
       key: S.key, posts: strip(S.posts, ['cover', 'dead']), weapons: S.weapons.map((w) => strip(w, ['cover'])),
-      mfd: S.mfd, avenues: S.avenues, helipads: S.helipads, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
+      mfd: S.mfd, avenues: S.avenues, helipads: S.helipads, sector: S.sector, border: S.border, sec: S.sec, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
     };
   };
   const linePath = (line) => {
@@ -1454,7 +1639,9 @@
     const inGrid = (m) => m && m.c >= 0 && m.r >= 0 && m.c < S.grid.w && m.r < S.grid.h;
     S.markers = {};
     for (const k in p.markers || {}) if (inGrid(p.markers[k])) S.markers[k] = { c: Math.round(p.markers[k].c), r: Math.round(p.markers[k].r) };
-    Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0 });
+    Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0,
+      sector: p.sector || null, border: p.border || null });
+    S.sec = !opts.silent || plan.grid.name === S.grid.name ? p.sec || {} : {};
     if (!opts.silent || plan.grid.name === S.grid.name) {
       Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null, helipads: p.helipads || null });
       S.weapons = (p.weapons || []).map((w) => Object.assign(w, { weapon: weaponOf(w.weapon.id) }));
@@ -1500,6 +1687,13 @@
     if (!S.grid) { toast('Load a DEM first.', true); return; }
     if (kind === 'geojson') UI.download(fileName('features.geojson'), JSON.stringify(UI.toGeoJSON(S), null, 1), 'application/geo+json');
     else if (kind === 'csv') exportCSV();
+    else if (kind === 'shp') {
+      const base = fileName('plan').replace(/[^\w-]+/g, '_');
+      const files = M.geojsonToShapefiles(UI.toGeoJSON(S), base);
+      if (!Object.keys(files).length) { toast('Nothing to export yet.', true); return; }
+      UI.download(`${base}_shapefiles.zip`, new Blob([M.zipStore(files)], { type: 'application/zip' }), 'application/zip');
+      toast(`Shapefiles exported (WGS 84): ${Object.keys(files).filter((f) => f.endsWith('.shp')).join(', ')}.`);
+    }
     else if (kind === 'png') {
       const url = S.view === '3d' ? snapshot3D() : $('map2d').toDataURL('image/png');
       UI.download(fileName(`${S.view}.png`), await (await fetch(url)).blob(), 'image/png');
@@ -1561,6 +1755,11 @@
     reproject: { t: 'Re-analyse terrain (apply projection / scale settings)', rb: 'Re-analyse', icon: 'terrain', need, run: safe(() => reloadTerrain('manual')) },
     loadPlan: { t: 'Open plan…', rb: 'Open Plan', icon: 'open', need, run: () => $('planFile').click() },
     savePlan: { t: 'Save plan', rb: 'Save Plan', icon: 'save', k: 'Ctrl+S', need, run: () => doExport('plan') },
+    shapefile: { t: 'Export features — Shapefile (zipped)', rb: 'Shapefile', icon: 'download', need, run: () => doExport('shp') },
+    'tool:sector': { t: 'Draw the sector boundary (area of interest)', rb: 'Sector Boundary', icon: 'crop', need, run: () => setTool('sector'), on: () => S.tool === 'sector' },
+    'tool:border': { t: 'Draw the border line (LoC)', rb: 'Border Line', icon: 'track', need, run: () => setTool('border'), on: () => S.tool === 'border' },
+    clearSector: { t: 'Clear sector boundary, border line and sector results', rb: 'Clear Sector', icon: 'err', need, run: () => { S.sector = null; S.border = null; safe(onSectorChanged)(); } },
+    secReport: { t: 'Sector assessment report', rb: 'Report', icon: 'doc', need, run: () => doExport('report') },
     geojson: { t: 'Export features — GeoJSON', rb: 'GeoJSON', icon: 'download', need, run: () => doExport('geojson') },
     csv: { t: 'Export attribute table — CSV', rb: 'Table (CSV)', icon: 'download', need, run: () => doExport('csv') },
     raster: { t: 'Export raster — GeoTIFF / ASCII grid…', rb: 'Raster', icon: 'download', need, run: () => openGP('exportRaster') },
@@ -1601,6 +1800,8 @@
   for (const [id, tool] of Object.entries(GP.TOOLS)) {
     if (!CMD['gp:' + id]) CMD['gp:' + id] = { t: `${tool.name} (geoprocessing)`, rb: tool.name.replace(/ \(.*\)$/, '').replace(/^Suggest /, ''), icon: tool.icon, need: ['downloadDEM', 'convert'].includes(id) ? undefined : need, run: () => openGP(id) };
   }
+  CMD['gp:sectorAll'].rb = 'Run All'; CMD['gp:sectorTerrain'].rb = 'Terrain Value'; CMD['gp:itgs'].rb = 'ITGs'; CMD['gp:deploy'].rb = 'Deployment';
+  CMD['gp:fireCoverage'].rb = 'Fire Coverage'; CMD['gp:borderWatch'].rb = 'Border Watch'; CMD['gp:enemyApproaches'].rb = 'Approaches'; CMD['gp:infiltration'].rb = 'Infiltration'; CMD['gp:enemyOptions'].rb = 'Enemy Options';
   CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:helipads'].rb = 'Helipads'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
   CMD['gp:avenues'].rb = 'Avenues'; CMD['gp:posts'].rb = 'Posts / OPs'; CMD['gp:weapons'].rb = 'Weapon Sites'; CMD['gp:mfd'].rb = 'Minefields'; CMD['gp:convert'].rb = 'Convert Coords';
   CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:los'].rb = 'LOS Tool';
@@ -1631,6 +1832,14 @@
       ['Inquiry', ['*tool:measure', 'tool:los', 'tool:vs', 'gp:convert']],
       ['Situation', ['*tool:own', '*tool:threat', 'tool:target', 'tool:a', 'tool:b']],
     ] },
+    { id: 'sector', name: 'Sector', groups: [
+      ['Area', ['*tool:sector', '*tool:border', 'clearSector']],
+      ['Assess', ['*gp:sectorAll']],
+      ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
+      ['Own Forces', ['*gp:deploy', 'gp:fireCoverage', 'gp:borderWatch']],
+      ['Enemy', ['*gp:enemyApproaches', 'gp:infiltration', 'gp:enemyOptions']],
+      ['Output', ['*secReport', 'shapefile', 'geojson', 'csv']],
+    ] },
     { id: 'analysis', name: 'Analysis', groups: [
       ['Geoprocessing', ['*gpTools', '*history']],
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
@@ -1653,7 +1862,7 @@
     ] },
     { id: 'share', name: 'Share', groups: [
       ['Project', ['*loadPlan', '*savePlan']],
-      ['Export', ['geojson', 'csv', 'raster', '|', 'png']],
+      ['Export', ['geojson', 'shapefile', 'csv', '|', 'raster', 'png']],
       ['Output', ['*report']],
     ] },
     { id: 'settings', name: 'Settings', groups: [

@@ -1,0 +1,3 @@
+{ "name": "Neelum valley (Keran area) — notional LoC", "center": "34.64, 73.95", "widthKm": 16, "heightKm": 16, "zoom": 12, "mode": "forward",
+  "own": [34.61, 73.88],
+  "border": [[34.56, 73.85], [34.60, 73.89], [34.63, 73.93], [34.655, 73.96], [34.68, 74.00], [34.72, 74.04]] }

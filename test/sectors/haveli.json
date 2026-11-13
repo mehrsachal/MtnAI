@@ -1,0 +1,3 @@
+{ "name": "Haveli / Kahuta area — notional LoC", "center": "33.92, 74.10", "widthKm": 16, "heightKm": 16, "zoom": 12, "mode": "strongpoint",
+  "own": [33.90, 74.05],
+  "border": [[33.99, 74.14], [33.95, 74.155], [33.91, 74.165], [33.87, 74.17], [33.84, 74.17]] }

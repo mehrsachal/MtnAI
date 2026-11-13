@@ -29,6 +29,7 @@
         ['Artillery & AD (Sec 22)', 'High-angle weapons beat crest clearance; light guns and mortars on reverse slopes and in valleys. Harass passes and defiles. AD covers defiles, gun areas and logistic sites from dominating features.', 'Indirect fire: crest clearance, defilade; AD air corridors'],
         ['Advance (Sec 6)', 'The axis runs through valleys and defiles dominated by flanking heights — picquet the heights for the main body and the supply route.', 'Route Picquets'],
         ['Helicopters (Sec 22)', 'Landing sites ≤ 4° for repeated use; emergency 4–10° light, 4–20° cargo. Conceal the site and its approach; hard ground, rock or grass.', 'Helipad Sites (HLS)'],
+        ['Sector defence (Sec 12–13, 15)', 'Hold the dominating features astride the axis; cover gaps by fire, mines and OPs; strong points with staying power; guard every approach against infiltration.', 'Sector tab: ITGs, Deployment Plan, Fire Coverage, Border Watch, Infiltration, Enemy Options'],
         ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
       ];
       return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnAI applies GSP Mountain Warfare</h2>

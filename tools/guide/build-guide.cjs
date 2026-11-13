@@ -108,6 +108,10 @@ const INDEX_TERMS = [
   ['Settings', ['Settings']], ['Shortcuts', ['Ctrl+']], ['Sight setting (uphill / downhill fire)', ['sight setting', 'slant range']],
   ['Snow line', ['snow line']], ['Strong point', ['strong point']], ['Tiered defence', ['tier']], ['Track (drawing)', ['Track']],
   ['Viewshed', ['Viewshed']], ['Weapon sites', ['Weapon Sites', 'weapon']],
+  ['ITG (Important Terrain Ground)', ['ITG']], ['Border line (LoC)', ['LoC', 'border line']], ['Border surveillance', ['Border surveillance', 'unwatched']],
+  ['Deployment plan (modes)', ['Deployment plan', 'Strong point defence', 'Forward defence']], ['Enemy courses of action', ['courses of action', 'Most likely']],
+  ['Infiltration routes', ['infiltration']], ['Interlocking fire', ['interlocking', 'mutually supported']], ['Ratings (Good / Marginal / Not good)', ['Marginal']],
+  ['Ridgelines', ['ridgeline']], ['Sector planning', ['Sector planning', 'Sector tab']], ['Shapefile', ['Shapefile']], ['Terrain value', ['terrain value']],
 ];
 
 const makeDoc = (PAGES) => {
@@ -135,7 +139,7 @@ add(h1('1. What MtnAI is'),
   bullet('the best **route** from A to B, how long it takes, and a **route card**.'),
   para('It runs **fully offline** in a web browser. Nothing leaves the computer. The only optional internet use is the Download DEM tool.'),
   para('It looks and works like **ArcGIS Pro**: a ribbon at the top, layers on the left, tools on the right, map in the middle.'),
-  para('**Doctrine.** The rules in GSP Mountain Warfare are built into the tools: march times, ridge routes, tiered defence, strong points, OPs at many heights, minefields in valleys, uphill / downhill fire, picquets and helipad slopes (Section 13 lists them all).'),
+  para('**Doctrine.** The rules in GSP Mountain Warfare are built into the tools: march times, ridge routes, tiered defence, strong points, OPs at many heights, minefields in valleys, uphill / downhill fire, picquets and helipad slopes (Section 14 lists them all).'),
   para('**Important.** MtnAI suggests; it does not decide. Always confirm on the ground, as the pamphlet directs.'),
 );
 
@@ -327,7 +331,74 @@ add(h1('10. Movement tools'),
 );
 
 // 11
-add(h1('11. Layers, tables and saving'),
+add(h1('11. Sector planning (border sectors)'),
+  para('Sector planning answers the questions for a defended sector on a border such as the LoC: **which ground matters, how many troops it needs, where the posts, HQs and mortars go, what the border posts can see, and how the enemy could attack or infiltrate.** Every answer is rated **Good**, **Marginal** or **Not good**, with the reasons.'),
+  shot('22_sector_ribbon', 'The Sector tab of the ribbon.'),
+  h2('11.1 How to run it'),
+  ...steps([
+    'Load the DEM of the sector (Add Data or Download DEM).',
+    'Sector tab ▸ **Sector Boundary** (optional): click the corners of your area; double-click to finish. Without it, the whole DEM is used.',
+    'Sector tab ▸ **Border Line**: click along the LoC from one end to the other; double-click to finish. Place **Own Posn** on your side (Map tab) so MtnAI knows which side is yours.',
+    'Sector tab ▸ **Run All**, choose the mode (Forward, Normal or Strong point) and click **Run**. Each tool can also be run on its own.',
+    'Read the result message, then the **Contents ▸ Sector plan** layers, the **Attribute table** (Rating column) and **Share ▸ Report**. Click any item to see why it got its rating.',
+    'Hand over: Share ▸ **Shapefile**, **GeoJSON** or **CSV**. All carry the ratings and reasons.',
+  ]),
+  flow('sector', 'sector planning, start to finish.'),
+  para('**Test sectors.** The tools were tested on the demo terrain and on three Kashmir LoC areas (Neelum valley near Keran, Leepa valley, Haveli / Kahuta) using public DEMs. The border lines used there were drawn by hand along the LoC as an approximation; always draw the surveyed line.'),
+  h2('11.2 Terrain value, ridgelines and nullahs'),
+  para('Every square gets a **terrain value from 0 to 100**: how much it stands above the ground around it, near and far, and how high it is. MtnAI also traces the **ridgeline network** (from high ground) and the **nullah and valley network** (where water would flow).'),
+  ...doctrine('sectorTerrain'),
+  shot('19_sector_terrain', 'Terrain value (brown shading), ridgelines (brown), nullahs and valleys (blue), the sector boundary and the LoC.'),
+  ...params('sectorTerrain'),
+  h2('11.3 ITGs (Important Terrain Grounds)'),
+  para('An **ITG** is a piece of key ground to hold or dominate. MtnAI finds the dominating summits on your side, draws the ground within 60 m of each top as the ITG, measures its **area** and **perimeter**, and says what force can hold it (section, platoon, company or battalion — change the planning figures to your unit\'s).'),
+  ...doctrine('itgs'),
+  flow('itgs', 'ITGs.'),
+  ...params('itgs'),
+  h2('11.4 Deployment plan (forward, normal, strong point)'),
+  table(['Mode', 'What it does'], [
+    ['Forward', 'Strong border posts every 1 km; platoons mostly on forward ITGs; little depth.'],
+    ['Normal', 'Border posts every 1.5 km; platoons tiered over forward, depth and rear ITGs (about 45 / 35 / 20 %).'],
+    ['Strong point', 'Light border posts every 2.5 km (OPs / LPs); each company holds one of the best ITGs as a strong point; gaps covered by fire, mines and patrols.'],
+  ], [2200, 7438]),
+  gap(),
+  para('Then MtnAI groups platoons into companies, and puts each **company HQ** and **60 mm mortar**, and the **battalion HQ** and **81 mm mortar**, where the enemy cannot see them and the mortars reach the posts. Each position is rated.'),
+  ...doctrine('deploy'),
+  shot('20_sector_plan', 'A normal deployment: border posts, platoon posts, HQs and mortars, with ratings in the attribute table.'),
+  flow('deploy', 'Deployment plan.'),
+  ...params('deploy'),
+  h2('11.5 Fire coverage and interlocking'),
+  para('Counts how many weapons can hit each square (platoon MGs, border-post LMGs, mortars, and any weapon sites you sited). A post is **mutually supported** when at least two other weapons cover it. Stretches of enemy approach with too little fire are marked as **fire gaps**.'),
+  ...doctrine('fireCoverage'),
+  ...params('fireCoverage'),
+  h2('11.6 Border surveillance'),
+  para('Measures how much of the border line your posts can see, lists the **unwatched stretches** and suggests **extra OPs** to close them.'),
+  ...doctrine('borderWatch'),
+  flow('border', 'Border surveillance.'),
+  ...params('borderWatch'),
+  h2('11.7 Enemy approaches, infiltration and courses of action'),
+  bullet('**Enemy approaches:** the quickest ways from across the border to each ITG, typed as valley, nullah, ridge line or spur, with how much of each your posts can see.'),
+  bullet('**Infiltration routes:** paths a party on foot would use to reach your HQs while staying out of sight — usually nullahs and dead ground. A route watched less than 15 % is a **High** threat.'),
+  bullet('**Enemy courses of action:** 3–4 options, each an objective with a main and a supporting thrust, marked **Most likely** and **Most dangerous**, with a recommendation.'),
+  ...doctrine('enemyOptions'),
+  shot('21_sector_enemy', 'Enemy courses of action and infiltration routes, with the options in the attribute table.'),
+  flow('enemy', 'enemy approaches, infiltration and courses of action.'),
+  ...params('enemyApproaches'),
+  ...params('infiltration'),
+  ...params('enemyOptions'),
+  h2('11.8 Ratings and hand-over'),
+  table(['Item', 'Good means', 'Not good means'], [
+    ['ITG', 'High value: dominating, sees the approaches, near the border', 'Low value compared with the other ITGs'],
+    ['Post / HQ / mortar', 'On its ITG, hidden from the enemy, intervisible, mortars reach their posts', 'Overlooked, isolated or out of range — move or reinforce'],
+    ['Border', '90 % or more of the line watched', 'Less than 70 % watched — add OPs / LPs, patrols'],
+    ['Enemy approach / route', 'Well watched by own posts', 'Hidden from own posts — a threat; block it'],
+    ['Enemy option', 'Low threat', 'High threat — act on the recommendation'],
+  ], [2400, 3700, 3538]),
+  gap(),
+  para('**Hand-over formats:** Shapefile (zipped points, lines and polygons in WGS 84, ready for ArcGIS / QGIS), GeoJSON (with NATO symbol codes) and CSV. The printable report has a Sector assessment chapter with every rating and reason.'),
+);
+
+add(h1('12. Layers, tables and saving'),
   h2('Contents pane'),
   bullet('Tick or untick a layer to show or hide it. Click ▸ to open its key.'),
   bullet('Right-click: **Zoom To Layer**, **Attribute Table**, **Transparency**, **Remove**, **Symbology settings**, **Properties**.'),
@@ -340,6 +411,7 @@ add(h1('11. Layers, tables and saving'),
   table(['Button', 'Gives you'], [
     ['Save Plan / Open Plan', 'A small .json file with your markers, drawings and results. Open it again later on the same DEM.'],
     ['GeoJSON', 'All features with NATO symbol codes (SIDC) for other GIS or C2 systems.'],
+    ['Shapefile', 'Points, lines and polygons (ITGs, posts, approaches, sector, LoC …) in a ZIP, WGS 84, with ratings and reasons as attributes.'],
     ['Table (CSV)', 'The attribute table for Excel.'],
     ['Raster', 'Any layer as GeoTIFF or ASCII grid.'],
     ['View (PNG)', 'A picture of the map or the 3D view.'],
@@ -349,7 +421,7 @@ add(h1('11. Layers, tables and saving'),
 );
 
 // 12
-add(h1('12. Settings'),
+add(h1('13. Settings'),
   para('Settings (Ctrl+,) are grouped. Changed settings are marked; you can search, export, import and restore defaults.'),
   table(['Group', 'What you can change'], [
     ['Coordinate systems', 'Analysis UTM zone and hemisphere; second system (Kalianpur etc.) or a custom one.'],
@@ -370,7 +442,7 @@ add(h1('12. Settings'),
 );
 
 // 13
-add(h1('13. Doctrine in MtnAI (GSP Mountain Warfare)'),
+add(h1('14. Doctrine in MtnAI (GSP Mountain Warfare)'),
   para('These rules from the pamphlet are built into the tools. Help ▸ **Doctrine** shows the same table inside the app.'),
   table(['Subject', 'GSP teaching', 'Where in MtnAI'], [
     ['Planning (Sec 4)', 'Measure distance in time. Map distance + ⅓ ≈ ground distance. Avoid losing height (a 3 km ridge detour beats a 600 m down-and-up). Follow ridges, not gullies. Make a route card.', 'Route: GSP time, nullah penalty, route card. Measure: GSP time.'],
@@ -384,6 +456,7 @@ add(h1('13. Doctrine in MtnAI (GSP Mountain Warfare)'),
     ['Artillery and AD (Sec 22)', 'High-angle weapons beat crests; light guns and mortars on reverse slopes and in valleys; harass passes and defiles. AD covers defiles, gun areas and logistic sites from heights.', 'Indirect fire: crest clearance, defilade. AD air corridors.'],
     ['Advance (Sec 6)', 'The axis runs through valleys and defiles under flanking heights: picquet them for the main body and supply route.', 'Route Picquets.'],
     ['Helicopters (Sec 22)', 'Landing sites ≤ 4° for regular use; emergency 4–10° light and 4–20° cargo. Hide site and approach. Hard ground, rock or grass.', 'Helipad Sites.'],
+    ['Sector defence (Sec 12–13, 15)', 'Hold the dominating features astride the axis; cover gaps by fire, mines and OPs; strong points with staying power; guard every approach against infiltration.', 'Sector Planning: ITGs, Deployment Plan, Fire Coverage, Border Surveillance, Infiltration Routes.'],
     ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, 8 under load; 65 kg in hills.', 'Mule class: SLOW-GO up to 30°.'],
   ], [2300, 4700, 2638]),
   gap(),
@@ -391,7 +464,7 @@ add(h1('13. Doctrine in MtnAI (GSP Mountain Warfare)'),
 );
 
 // 14
-add(h1('14. Shortcuts and limits'),
+add(h1('15. Shortcuts and limits'),
   table(['Keys', 'Action'], [
     ['Ctrl+O', 'Add Data'], ['Ctrl+S', 'Save plan'], ['Ctrl+P', 'Report'], ['Ctrl+,', 'Settings'], ['Ctrl+K or /', 'Command search'],
     ['Ctrl+G', 'Go To XY'], ['Ctrl+B', 'Contents pane'], ['Ctrl+T', 'Attribute table'], ['Ctrl+J', 'Bottom dock'], ['2 / 3', 'Map / Scene view'],

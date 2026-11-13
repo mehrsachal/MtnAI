@@ -41,6 +41,26 @@ Also included:
 - Exports: GeoJSON with 2525D SIDCs, CSV, **GeoTIFF** or ESRI ASCII grid + `.prj` for any raster,
   PNG, plan save / load and a printable terrain-assessment report.
 
+## Sector planning (border sectors)
+
+Sector tab: draw the **sector boundary** and the **border line (LoC)**, then **Run All** (or each tool):
+
+| Tool | Output |
+|---|---|
+| Terrain Value & Ridgelines | 0–100 dominance layer; ridgeline network; nullah and valley network |
+| ITGs | Important Terrain Grounds on the own side: extent, area, perimeter, observation over approaches, distance from the border, force needed (section → battalion) |
+| Deployment Plan | Forward / Normal (tiered) / Strong-point modes: border posts, platoon posts on ITGs, company and battalion HQs in defilade, 60 / 81 mm mortars in range |
+| Fire Coverage & Interlocking | Weapons per square, mutual support of every post, fire gaps on enemy approaches |
+| Border Surveillance | % of the border watched, unwatched stretches, suggested extra OPs |
+| Enemy Approaches | Least-time approaches across the border to each ITG, typed valley / nullah / ridge / spur, % watched |
+| Infiltration Routes | Hidden foot routes (nullahs, dead ground) to own HQs, threat High / Medium / Low |
+| Enemy Courses of Action | 3–4 options (objective + main + supporting thrust), most likely / most dangerous, recommendations |
+
+Every item is rated **Good / Marginal / Not good** with reasons, shown on the map, in the attribute table and in the report,
+and handed over as **Shapefile** (zipped, WGS 84), GeoJSON or CSV. `npm run sector` runs the whole chain in a browser;
+`node tools/sector-run.cjs <out> test/sectors/<name>.json` downloads a DEM for one of the Kashmir LoC test sectors
+(Neelum / Keran, Leepa, Haveli) and runs it. The test border lines are hand-drawn approximations of the LoC.
+
 ## Doctrine: GSP Mountain Warfare
 
 The pamphlet's teachings are built into the tools (Help ▸ Doctrine lists them in the app):

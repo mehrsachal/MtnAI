@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 export const CORE_FILES = [
   'core/util', 'core/geo', 'core/crs', 'core/grid', 'core/terrain', 'core/mobility', 'core/visibility',
-  'core/routing', 'core/weapons', 'core/tactical', 'core/synthetic', 'core/jobs', 'io/dem-io', 'io/dem-download',
+  'core/routing', 'core/weapons', 'core/tactical', 'core/synthetic', 'core/sector', 'core/jobs', 'io/dem-io', 'io/dem-download', 'io/shapefile',
 ];
 
 export function loadCore() {

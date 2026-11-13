@@ -44,10 +44,133 @@
     { name: 'Visibility', tools: ['viewshed', 'los', 'hostile'] },
     { name: 'Tactical Siting', tools: ['avenues', 'posts', 'weapons', 'mfd'] },
     { name: 'Routing & Movement', tools: ['route', 'picquets', 'helipads', 'fly'] },
+    { name: 'Sector Planning', tools: ['sectorAll', 'sectorTerrain', 'itgs', 'deploy', 'fireCoverage', 'borderWatch', 'enemyApproaches', 'infiltration', 'enemyOptions'] },
     { name: 'Conversion', tools: ['convert'] },
   ];
 
+  const SD = M.SECTOR_DEFAULTS;
+  const GEOM = [{ k: 'sector', type: 'geom' }, { k: 'border', type: 'geom' }];
+  const DEPLOY_PARAMS = [
+    { k: 'mode', label: 'Deployment mode', type: 'select', def: 'normal', options: () => Object.entries(M.DEPLOY_MODES).map(([k, m]) => [k, m.name]),
+      help: 'Forward: strength on the border posts. Normal: tiered in depth (valley, mid slope, ridge). Strong point: company strong points on the most dominating ITGs (GSP Sec 12–13).' },
+    { k: 'companies', label: 'Companies', type: 'number', def: SD.plan.companies, min: 1, max: 9, step: 1 },
+    { k: 'platoonsPerCompany', label: 'Platoons per company', type: 'number', def: SD.plan.platoonsPerCompany, min: 1, max: 4, step: 1 },
+    sec('Border posts'),
+    { k: 'borderPostSpacingM', label: 'Spacing along the border (0 = by mode)', type: 'number', def: 0, min: 0, max: 10000, step: 100, unit: 'm', help: 'Mode defaults: forward 1000 m, normal 1500 m, strong point 2500 m.' },
+    { k: 'borderPostDepthM', label: 'Maximum depth behind the border (0 = by mode)', type: 'number', def: 0, min: 0, max: 5000, step: 50, unit: 'm' },
+    { k: 'maxPostSlope', label: 'Maximum post slope', type: 'number', def: SD.plan.maxPostSlope, min: 5, max: 60, step: 1, unit: '°' },
+    sec('HQs and mortars'),
+    { k: 'hqMaxSlope', label: 'Maximum HQ / mortar slope', type: 'number', def: SD.plan.hqMaxSlope, min: 3, max: 30, step: 1, unit: '°' },
+    { k: 'hqDepthM', label: 'Company HQ depth behind its platoons', type: 'number', def: SD.plan.hqDepthM, min: 0, max: 5000, step: 100, unit: 'm' },
+    { k: 'bnDepthM', label: 'Battalion HQ minimum depth from border', type: 'number', def: SD.plan.bnDepthM, min: 0, max: 15000, step: 250, unit: 'm' },
+    { k: 'mortar60R', label: '60 mm mortar range', type: 'number', def: SD.plan.mortar60R, min: 500, max: 5000, step: 100, unit: 'm' },
+    { k: 'mortar81R', label: '81 mm mortar range', type: 'number', def: SD.plan.mortar81R, min: 1000, max: 8000, step: 100, unit: 'm' },
+    sec('Enemy observation model'),
+    { k: 'enemyOPs', label: 'Likely enemy OPs (enemy side)', type: 'number', def: SD.plan.enemyOPs, min: 0, max: 40, step: 1 },
+    { k: 'enemySearchM', label: 'Enemy OP search depth', type: 'number', def: SD.plan.enemySearchM, min: 500, max: 20000, step: 250, unit: 'm' },
+  ];
+  const ENEMY_PARAMS = [
+    { k: 'profile', label: 'Enemy movement class', type: 'select', def: SD.enemy.profile, options: profOpts },
+    { k: 'objectives', label: 'ITGs treated as enemy objectives', type: 'number', def: SD.enemy.objectives, min: 1, max: 20, step: 1 },
+    { k: 'perObjective', label: 'Approaches per objective', type: 'number', def: SD.enemy.perObjective, min: 1, max: 4, step: 1 },
+    { k: 'entrySpacingM', label: 'Spacing of entry points along the border', type: 'number', def: SD.enemy.entrySpacingM, min: 300, max: 10000, step: 100, unit: 'm' },
+    { k: 'entryDepthM', label: 'Entry points: depth on the enemy side', type: 'number', def: SD.enemy.entryDepthM, min: 200, max: 10000, step: 100, unit: 'm' },
+  ];
+
   const TOOLS = {
+    sectorAll: {
+      name: 'Sector Assessment (run all)', icon: 'tactical',
+      desc: 'Runs every sector tool in order: terrain value and ridgelines, ITGs, deployment plan, enemy approaches, infiltration routes, fire coverage, border surveillance and enemy courses of action. Rates every result Good / Marginal / Not good.',
+      gsp: 'GSP Sec 4, 7, 12–13: hold the dominating heights astride the axis, guard every approach and gap, tier the defence and expect multi-directional attacks and infiltration along nullahs.',
+      params: [...GEOM, ...DEPLOY_PARAMS.slice(0, 3), ENEMY_PARAMS[0]],
+    },
+    sectorTerrain: {
+      name: 'Terrain Value & Ridgelines', icon: 'terrain',
+      desc: 'Scores every square 0–100 for dominance (regional and local height) inside the sector, and extracts the ridgeline, nullah and valley networks.',
+      gsp: 'GSP Sec 4 para 6: dominating heights overlook the routes and give observation and control. Sec 7 para 4: valley, nullah and ridge-line approaches.',
+      params: [...GEOM,
+        { k: 'ridgeKm2', label: 'Ridge network detail (smaller = more ridges)', type: 'number', def: SD.terrain.ridgeKm2, min: 0.05, max: 20, step: 0.05, unit: 'km²' },
+        { k: 'nullahKm2', label: 'Nullah: minimum catchment', type: 'number', def: SD.terrain.nullahKm2, min: 0.05, max: 20, step: 0.05, unit: 'km²' },
+        { k: 'valleyKm2', label: 'Valley: minimum catchment', type: 'number', def: SD.terrain.valleyKm2, min: 1, max: 1000, step: 1, unit: 'km²' },
+        { k: 'minLineM', label: 'Shortest line kept', type: 'number', def: SD.terrain.minLineM, min: 50, max: 5000, step: 50, unit: 'm' }],
+    },
+    itgs: {
+      name: 'ITGs (Important Terrain Grounds)', icon: 'peak',
+      desc: 'Picks the key ground to hold: dominating summits inside the sector on the own side, with their extent, size, observation over approaches and nullahs, distance from the border, and the force needed to hold each.',
+      gsp: 'GSP Sec 4 para 7: at brigade level and below, objectives are the seizure or retention of specific dominating heights. Sec 12 para 9: strong points on the most dominating features.',
+      params: [...GEOM,
+        { k: 'count', label: 'Number of ITGs', type: 'number', def: SD.itg.count, min: 1, max: 40, step: 1 },
+        { k: 'minDominance', label: 'Minimum dominance (0–100)', type: 'number', def: SD.itg.minDominance, min: 0, max: 99, step: 1 },
+        { k: 'peakRadiusM', label: 'Summit search radius', type: 'number', def: SD.itg.peakRadiusM, min: 100, max: 3000, step: 50, unit: 'm' },
+        { k: 'minSepM', label: 'Minimum separation', type: 'number', def: SD.itg.minSepM, min: 100, max: 5000, step: 50, unit: 'm' },
+        sec('Extent and force'),
+        { k: 'crestDropM', label: 'ITG extent: height below the summit', type: 'number', def: SD.itg.crestDropM, min: 10, max: 300, step: 5, unit: 'm', help: 'The ITG is the connected ground within this height of its summit.' },
+        { k: 'maxRadiusM', label: 'ITG extent: maximum radius', type: 'number', def: SD.itg.maxRadiusM, min: 100, max: 5000, step: 50, unit: 'm' },
+        { k: 'sectionMaxPerimM', label: 'Section can hold a perimeter up to', type: 'number', def: SD.itg.sectionMaxPerimM, min: 50, max: 2000, step: 50, unit: 'm', help: 'Planning figures for all-round defence — replace with unit figures.' },
+        { k: 'platoonMaxPerimM', label: 'Platoon can hold a perimeter up to', type: 'number', def: SD.itg.platoonMaxPerimM, min: 100, max: 5000, step: 50, unit: 'm' },
+        { k: 'companyMaxPerimM', label: 'Company can hold a perimeter up to', type: 'number', def: SD.itg.companyMaxPerimM, min: 200, max: 10000, step: 100, unit: 'm' },
+        sec('Scoring'),
+        { k: 'obsRangeM', label: 'Observation range', type: 'number', def: SD.itg.obsRangeM, min: 500, max: 15000, step: 250, unit: 'm' },
+        { k: 'approachDepthM', label: 'Approach band beyond the border', type: 'number', def: SD.itg.approachDepthM, min: 500, max: 15000, step: 250, unit: 'm' },
+        { k: 'wDominance', label: 'Weight — dominance', type: 'number', def: SD.itg.wDominance, min: 0, max: 5, step: 0.05 },
+        { k: 'wObs', label: 'Weight — observation over approaches / nullahs', type: 'number', def: SD.itg.wObs, min: 0, max: 5, step: 0.05 },
+        { k: 'wBorder', label: 'Weight — closeness to the border', type: 'number', def: SD.itg.wBorder, min: 0, max: 5, step: 0.05 },
+        { k: 'good', label: 'Score rated Good from', type: 'number', def: SD.itg.good, min: 0, max: 1, step: 0.05 },
+        { k: 'marginal', label: 'Score rated Marginal from', type: 'number', def: SD.itg.marginal, min: 0, max: 1, step: 0.05 }],
+    },
+    deploy: {
+      name: 'Deployment Plan', icon: 'post',
+      desc: 'Places border posts, platoon posts on the ITGs, company and battalion HQs in defilade and 60 / 81 mm mortars in range of every post, in forward, normal or strong-point mode. Rates every position.',
+      gsp: 'GSP Sec 12: posts at platoon level; gaps covered by mines, fire and obstacles; tiered defence; strong point with 30 days\u2019 staying power on the most dominating feature; HQs and reserves where the enemy cannot see them.',
+      params: [...GEOM, ...DEPLOY_PARAMS],
+    },
+    fireCoverage: {
+      name: 'Fire Coverage & Interlocking', icon: 'tactical',
+      desc: 'Counts how many weapons (platoon MGs, border-post LMGs, 60 / 81 mm mortars and any weapon sites you sited) can fire on every square, checks that every post is covered by other posts (interlocking) and finds stretches of enemy approach under too little fire.',
+      gsp: 'GSP Sec 4 para 16: dead space at short range is covered by mortars, mines and obstacles. Sec 12: positions mutually supporting; all approaches and gaps covered by fire.',
+      params: [
+        { k: 'mgRangeM', label: 'Platoon MG effective range', type: 'number', def: SD.fire.mgRangeM, min: 200, max: 3000, step: 50, unit: 'm' },
+        { k: 'lmgRangeM', label: 'Border post LMG effective range', type: 'number', def: SD.fire.lmgRangeM, min: 200, max: 2000, step: 50, unit: 'm' },
+        { k: 'minCover', label: 'Weapons needed for "covered"', type: 'number', def: SD.fire.minCover, min: 1, max: 6, step: 1 },
+        { k: 'useWeaponSites', label: 'Include weapon sites from Suggest Weapon Sites', type: 'bool', def: true }],
+    },
+    borderWatch: {
+      name: 'Border Surveillance', icon: 'eye',
+      desc: 'Measures how much of the border line (and a band beyond it) your posts can see, lists the unwatched stretches and suggests extra OPs to close them.',
+      gsp: 'GSP Sec 4 para 23 and Sec 15: every approach must be guarded; gaps watched by OPs, LPs and patrols against infiltration.',
+      params: [GEOM[1],
+        { k: 'bandM', label: 'Band watched beyond the border', type: 'number', def: SD.border.bandM, min: 0, max: 5000, step: 50, unit: 'm' },
+        { k: 'obsRangeM', label: 'Observation range', type: 'number', def: SD.border.obsRangeM, min: 500, max: 15000, step: 250, unit: 'm' },
+        { k: 'minGapM', label: 'Report gaps longer than', type: 'number', def: SD.border.minGapM, min: 25, max: 5000, step: 25, unit: 'm' },
+        { k: 'maxExtraOPs', label: 'Extra OPs to suggest', type: 'number', def: SD.border.maxExtraOPs, min: 0, max: 20, step: 1 },
+        { k: 'opSearchM', label: 'Search radius for extra OPs', type: 'number', def: SD.border.opSearchM, min: 200, max: 10000, step: 100, unit: 'm' },
+        { k: 'good', label: 'Observed share rated Good from', type: 'number', def: SD.border.good, min: 0, max: 1, step: 0.05 },
+        { k: 'marginal', label: 'Observed share rated Marginal from', type: 'number', def: SD.border.marginal, min: 0, max: 1, step: 0.05 },
+        { k: 'includePosts', label: 'Also use posts from Suggest Posts / OPs', type: 'bool', def: true }],
+    },
+    enemyApproaches: {
+      name: 'Enemy Approaches', icon: 'axis',
+      desc: 'Finds how the enemy can come across the border to each ITG: entry points along the border, least-time paths, approach type (valley, nullah, ridge line, spur) and how much of each is under own observation.',
+      gsp: 'GSP Sec 7 para 4: valley approaches are obvious and covered; nullahs suit infiltration and ambush; ridge lines are easy to fight on but hard to maintain.',
+      params: [GEOM[1], ...ENEMY_PARAMS,
+        { k: 'separationM', label: 'Separation between approaches', type: 'number', def: SD.enemy.separationM, min: 50, max: 5000, step: 50, unit: 'm' }],
+    },
+    infiltration: {
+      name: 'Infiltration Routes', icon: 'route',
+      desc: 'Finds the routes an infiltrating party on foot would use to reach your HQs and depth while staying out of sight of your posts — through nullahs and dead ground.',
+      gsp: 'GSP Sec 10 and Sec 15: infiltration uses nullahs, dead ground, darkness and gaps; block likely routes with OPs, LPs, ambushes, mines and patrols.',
+      params: [GEOM[1],
+        { k: 'infilCount', label: 'Routes to report', type: 'number', def: SD.enemy.infilCount, min: 1, max: 20, step: 1 },
+        { k: 'detectW', label: 'Penalty for ground seen by own posts', type: 'number', def: SD.enemy.detectW, min: 0, max: 50, step: 0.5, unit: '×' },
+        { k: 'nullahBonus', label: 'Preference for nullahs / dead ground (0–0.9)', type: 'number', def: SD.enemy.nullahBonus, min: 0, max: 0.9, step: 0.05 },
+        { k: 'entrySpacingM', label: 'Spacing of entry points', type: 'number', def: SD.enemy.entrySpacingM, min: 300, max: 10000, step: 100, unit: 'm' }],
+    },
+    enemyOptions: {
+      name: 'Enemy Courses of Action', icon: 'axis',
+      desc: 'Combines objectives (ITGs) and enemy approaches into 3–4 enemy options, each with a main and supporting thrust, scored for cover, speed, multi-direction and the value of the objective. Marks the most likely and most dangerous.',
+      gsp: 'GSP Sec 7 para 13: attacks in mountains develop multiple threats — isolation, infiltration and multi-directional assault using nullahs and folds.',
+      params: [{ k: 'options', label: 'Options to present', type: 'number', def: SD.enemy.options, min: 1, max: 6, step: 1 }],
+    },
     downloadDEM: {
       name: 'Download DEM', icon: 'download',
       desc: 'Downloads an elevation model for an area from the internet and loads it. This is the only tool that uses the network; save a GeoTIFF copy to work offline later.',
@@ -360,7 +483,7 @@
   /** Current flat values of a tool (stored or defaults). */
   const flatValues = (id) => {
     const t = TOOLS[id], s = store[id] || {}, v = {};
-    for (const p of t.params) if (p.k && p.type !== 'section' && p.type !== 'marker' && p.type !== 'info') v[p.k] = p.k in s ? s[p.k] : defOf(p);
+    for (const p of t.params) if (p.k && p.type !== 'section' && p.type !== 'marker' && p.type !== 'geom' && p.type !== 'info') v[p.k] = p.k in s ? s[p.k] : defOf(p);
     // dynamic and weapon-bound values
     for (const p of t.params) {
       if (p.dynamic && (v[p.k] === null || v[p.k] === undefined)) v[p.k] = p.dynamic(v);
@@ -452,6 +575,12 @@
         const isCol = secId in collapsed ? collapsed[secId] : p.collapsed;
         html += `<div class="gp-sec${isCol ? ' col' : ''}"><button class="gp-sec-h" data-sec="${esc(secId)}">${esc(p.label)}</button>`;
         inSec = true;
+        continue;
+      }
+      if (p.type === 'geom') {
+        const g = UI.S[p.k];
+        const nm = p.k === 'sector' ? 'Sector boundary (optional — else whole DEM)' : 'Border line (LoC)';
+        html += `<div class="gp-p marker"><label>${nm}</label><div class="ptrow"><code>${g && g.length ? `drawn — ${g.length} points` : `<span class="${p.k === 'border' ? 'warn' : ''}">not drawn</span>`}</code><button class="btn sm" data-marker="${p.k}">Draw on map</button></div></div>`;
         continue;
       }
       if (p.type === 'marker') {

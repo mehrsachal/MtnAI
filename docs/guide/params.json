@@ -1,4 +1,497 @@
 {
+ "sectorAll": {
+  "name": "Sector Assessment (run all)",
+  "desc": "Runs every sector tool in order: terrain value and ridgelines, ITGs, deployment plan, enemy approaches, infiltration routes, fire coverage, border surveillance and enemy courses of action. Rates every result Good / Marginal / Not good.",
+  "gsp": "GSP Sec 4, 7, 12–13: hold the dominating heights astride the axis, guard every approach and gap, tier the defence and expect multi-directional attacks and infiltration along nullahs.",
+  "rows": [
+   {
+    "label": "Sector boundary",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Deployment mode",
+    "def": "Normal defence (tiered)",
+    "help": "Forward: strength on the border posts. Normal: tiered in depth (valley, mid slope, ridge). Strong point: company strong points on the most dominating ITGs (GSP Sec 12–13).",
+    "only": ""
+   },
+   {
+    "label": "Companies",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Platoons per company",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Enemy movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "sectorTerrain": {
+  "name": "Terrain Value & Ridgelines",
+  "desc": "Scores every square 0–100 for dominance (regional and local height) inside the sector, and extracts the ridgeline, nullah and valley networks.",
+  "gsp": "GSP Sec 4 para 6: dominating heights overlook the routes and give observation and control. Sec 7 para 4: valley, nullah and ridge-line approaches.",
+  "rows": [
+   {
+    "label": "Sector boundary",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Ridge network detail (smaller = more ridges)",
+    "def": "0.6 km²",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Nullah: minimum catchment",
+    "def": "0.4 km²",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Valley: minimum catchment",
+    "def": "15 km²",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Shortest line kept",
+    "def": "400 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "itgs": {
+  "name": "ITGs (Important Terrain Grounds)",
+  "desc": "Picks the key ground to hold: dominating summits inside the sector on the own side, with their extent, size, observation over approaches and nullahs, distance from the border, and the force needed to hold each.",
+  "gsp": "GSP Sec 4 para 7: at brigade level and below, objectives are the seizure or retention of specific dominating heights. Sec 12 para 9: strong points on the most dominating features.",
+  "rows": [
+   {
+    "label": "Sector boundary",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Number of ITGs",
+    "def": "15",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum dominance (0–100)",
+    "def": "60",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Summit search radius",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Minimum separation",
+    "def": "700 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Extent and force"
+   },
+   {
+    "label": "ITG extent: height below the summit",
+    "def": "60 m",
+    "help": "The ITG is the connected ground within this height of its summit.",
+    "only": ""
+   },
+   {
+    "label": "ITG extent: maximum radius",
+    "def": "900 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Section can hold a perimeter up to",
+    "def": "400 m",
+    "help": "Planning figures for all-round defence — replace with unit figures.",
+    "only": ""
+   },
+   {
+    "label": "Platoon can hold a perimeter up to",
+    "def": "1100 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Company can hold a perimeter up to",
+    "def": "2600 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Scoring"
+   },
+   {
+    "label": "Observation range",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Approach band beyond the border",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight — dominance",
+    "def": "0.4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight — observation over approaches / nullahs",
+    "def": "0.35",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weight — closeness to the border",
+    "def": "0.25",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Score rated Good from",
+    "def": "0.72",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Score rated Marginal from",
+    "def": "0.58",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "deploy": {
+  "name": "Deployment Plan",
+  "desc": "Places border posts, platoon posts on the ITGs, company and battalion HQs in defilade and 60 / 81 mm mortars in range of every post, in forward, normal or strong-point mode. Rates every position.",
+  "gsp": "GSP Sec 12: posts at platoon level; gaps covered by mines, fire and obstacles; tiered defence; strong point with 30 days’ staying power on the most dominating feature; HQs and reserves where the enemy cannot see them.",
+  "rows": [
+   {
+    "label": "Sector boundary",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Deployment mode",
+    "def": "Normal defence (tiered)",
+    "help": "Forward: strength on the border posts. Normal: tiered in depth (valley, mid slope, ridge). Strong point: company strong points on the most dominating ITGs (GSP Sec 12–13).",
+    "only": ""
+   },
+   {
+    "label": "Companies",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Platoons per company",
+    "def": "3",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Border posts"
+   },
+   {
+    "label": "Spacing along the border (0 = by mode)",
+    "def": "0 m",
+    "help": "Mode defaults: forward 1000 m, normal 1500 m, strong point 2500 m.",
+    "only": ""
+   },
+   {
+    "label": "Maximum depth behind the border (0 = by mode)",
+    "def": "0 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Maximum post slope",
+    "def": "35 °",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "HQs and mortars"
+   },
+   {
+    "label": "Maximum HQ / mortar slope",
+    "def": "15 °",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Company HQ depth behind its platoons",
+    "def": "1200 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Battalion HQ minimum depth from border",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "60 mm mortar range",
+    "def": "2500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "81 mm mortar range",
+    "def": "5600 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "section": "Enemy observation model"
+   },
+   {
+    "label": "Likely enemy OPs (enemy side)",
+    "def": "8",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Enemy OP search depth",
+    "def": "4000 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "fireCoverage": {
+  "name": "Fire Coverage & Interlocking",
+  "desc": "Counts how many weapons (platoon MGs, border-post LMGs, 60 / 81 mm mortars and any weapon sites you sited) can fire on every square, checks that every post is covered by other posts (interlocking) and finds stretches of enemy approach under too little fire.",
+  "gsp": "GSP Sec 4 para 16: dead space at short range is covered by mortars, mines and obstacles. Sec 12: positions mutually supporting; all approaches and gaps covered by fire.",
+  "rows": [
+   {
+    "label": "Platoon MG effective range",
+    "def": "1200 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Border post LMG effective range",
+    "def": "800 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Weapons needed for \"covered\"",
+    "def": "2",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Include weapon sites from Suggest Weapon Sites",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "borderWatch": {
+  "name": "Border Surveillance",
+  "desc": "Measures how much of the border line (and a band beyond it) your posts can see, lists the unwatched stretches and suggests extra OPs to close them.",
+  "gsp": "GSP Sec 4 para 23 and Sec 15: every approach must be guarded; gaps watched by OPs, LPs and patrols against infiltration.",
+  "rows": [
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Band watched beyond the border",
+    "def": "500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observation range",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Report gaps longer than",
+    "def": "300 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Extra OPs to suggest",
+    "def": "4",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Search radius for extra OPs",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observed share rated Good from",
+    "def": "0.9",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Observed share rated Marginal from",
+    "def": "0.7",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Also use posts from Suggest Posts / OPs",
+    "def": "Yes",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "enemyApproaches": {
+  "name": "Enemy Approaches",
+  "desc": "Finds how the enemy can come across the border to each ITG: entry points along the border, least-time paths, approach type (valley, nullah, ridge line, spur) and how much of each is under own observation.",
+  "gsp": "GSP Sec 7 para 4: valley approaches are obvious and covered; nullahs suit infiltration and ambush; ridge lines are easy to fight on but hard to maintain.",
+  "rows": [
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Enemy movement class",
+    "def": "Infantry (dismounted, laden)",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "ITGs treated as enemy objectives",
+    "def": "6",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Approaches per objective",
+    "def": "2",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Spacing of entry points along the border",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Entry points: depth on the enemy side",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Separation between approaches",
+    "def": "400 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "infiltration": {
+  "name": "Infiltration Routes",
+  "desc": "Finds the routes an infiltrating party on foot would use to reach your HQs and depth while staying out of sight of your posts — through nullahs and dead ground.",
+  "gsp": "GSP Sec 10 and Sec 15: infiltration uses nullahs, dead ground, darkness and gaps; block likely routes with OPs, LPs, ambushes, mines and patrols.",
+  "rows": [
+   {
+    "label": "Border line (LoC)",
+    "def": "draw on the map",
+    "marker": true
+   },
+   {
+    "label": "Routes to report",
+    "def": "5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Penalty for ground seen by own posts",
+    "def": "6 ×",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Preference for nullahs / dead ground (0–0.9)",
+    "def": "0.25",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Spacing of entry points",
+    "def": "1500 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
+ "enemyOptions": {
+  "name": "Enemy Courses of Action",
+  "desc": "Combines objectives (ITGs) and enemy approaches into 3–4 enemy options, each with a main and supporting thrust, scored for cover, speed, multi-direction and the value of the objective. Marks the most likely and most dangerous.",
+  "gsp": "GSP Sec 7 para 13: attacks in mountains develop multiple threats — isolation, infiltration and multi-directional assault using nullahs and folds.",
+  "rows": [
+   {
+    "label": "Options to present",
+    "def": "4",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
  "downloadDEM": {
   "name": "Download DEM",
   "desc": "Downloads an elevation model for an area from the internet and loads it. This is the only tool that uses the network; save a GeoTIFF copy to work offline later.",

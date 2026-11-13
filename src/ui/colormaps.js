@@ -102,6 +102,16 @@
   };
 
   /** Mask (non-zero) -> single colour. */
+  /** Terrain value 0-100: transparent below 50, then light to dark brown. */
+  UI.colorDominance = (v) => {
+    const out = new Uint8ClampedArray(v.length * 4);
+    for (let i = 0; i < v.length; i++) {
+      const t = (v[i] - 50) / 50;
+      if (t <= 0) continue;
+      out[i * 4] = 140 - 60 * t; out[i * 4 + 1] = 90 - 50 * t; out[i * 4 + 2] = 30; out[i * 4 + 3] = 40 + 150 * t;
+    }
+    return out;
+  };
   UI.colorMask = (mask, rgb, alpha) => {
     const out = new Uint8ClampedArray(mask.length * 4);
     for (let i = 0; i < mask.length; i++) {
@@ -157,6 +167,8 @@
       case 'wcover': return `<h4>Fields of fire</h4>` + sw([[col('ovl.fireColor', 0.7), 'Covered by suggested weapons']]);
       case 'hostile': return `<h4>Enemy observation</h4>` + sw([[col('ovl.hostileColor', 0.7), 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
       case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([[col('sym.avenueColor', 0.75), 'Least-time approach corridors']]);
+      case 'dominance': return `<h4>Terrain value</h4><div class="ramp" style="background:linear-gradient(90deg,rgba(140,90,30,0.15),rgba(80,40,30,0.75))"></div><div class="ends"><span>50</span><span>100 (most dominating)</span></div>`;
+      case 'firecov': return `<h4>Fire coverage</h4>` + sw([['rgba(255,214,110,.6)', '1 weapon'], ['rgba(245,150,40,.7)', '2 weapons'], ['rgba(210,70,20,.8)', '3 or more']]);
       default: return '';
     }
   };

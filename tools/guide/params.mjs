@@ -20,6 +20,7 @@ for (const [id, t] of Object.entries(UI.GP.TOOLS)) {
   const rows = [];
   for (const p of t.params) {
     if (p.type === 'section') { rows.push({ section: p.label }); continue; }
+    if (p.type === 'geom') { rows.push({ label: p.k === 'sector' ? 'Sector boundary' : 'Border line (LoC)', def: 'draw on the map', marker: true }); continue; }
     if (p.type === 'marker') { rows.push({ label: { own: 'Own position', threat: 'Enemy position', target: 'Target area', a: 'Start A', b: 'End B' }[p.k], def: 'set on the map', marker: true }); continue; }
     let def = typeof p.def === 'function' ? p.def() : p.def;
     if (p.dynamic) def = 'from movement class';

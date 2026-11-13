@@ -112,8 +112,15 @@
     const muleTrack = [C(0.47, vc(0.47))];
     for (let k = 1; k <= 6; k++) muleTrack.push(C(0.47 + (k % 2 ? 0.012 : -0.012), vc(0.47) + (k / 6.5) * 0.045));
     muleTrack.push(C(own[0], own[1]));
+    // notional border line between own and enemy (south), and the own sector north of it
+    const ownP = P(0.47, vc(0.47) + 0.045), thrP = P(0.41, vs(0.41) - 0.01);
+    const midV = ((ownP.r + thrP.r) / 2 + thrP.r) / 2 / (n - 1);
+    const border = [];
+    for (let u = 0; u <= 1.0001; u += 0.05) border.push(C(u, midV + 0.025 * Math.sin(u * 7)));
+    const sector = [C(0.02, 0.06), C(0.98, 0.06)].concat(border.slice().reverse().map(([c, r]) => [Math.min(n - 1, Math.max(0, c)), r]));
     return {
       grid,
+      border, sector,
       tracks: [valleyTrack, muleTrack],
       markers: {
         own: P(0.47, vc(0.47) + 0.045),

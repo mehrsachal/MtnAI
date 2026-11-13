@@ -7,9 +7,9 @@
   'use strict';
 
   M.createSession = () => {
-    const S = { g: null, L: null, mobCache: new Map(), avCache: new Map(), hostile: null, settings: {} };
+    const S = { g: null, L: null, mobCache: new Map(), avCache: new Map(), hostile: null, settings: {}, sec: {} };
 
-    const resetCaches = () => { S.mobCache.clear(); S.avCache.clear(); S.hostile = null; };
+    const resetCaches = () => { S.mobCache.clear(); S.avCache.clear(); S.hostile = null; S.sec = {}; };
 
     const masks = () => {
       const g = S.g;
@@ -50,6 +50,24 @@
     });
 
     const need = () => { if (!S.g) throw new Error('Load a DEM first.'); };
+
+    // ---------------------------------------------------------------- sector planning (cached chain)
+    const sectorCtx = () => {
+      const T = tctx();
+      if (!S.sec.frame) S.sec.frame = M.sectorFrame(S.g, S.settings.sector, S.settings.border, S.settings.own);
+      T.frame = S.sec.frame;
+      return T;
+    };
+    const secTerrain = (o) => { const T = sectorCtx(); if (!S.sec.terr || o) { S.sec.terr = M.sectorTerrain(T, o || {}); S.sec.itg = null; } return S.sec.terr; };
+    const secITG = (o, progress) => { const T = sectorCtx(); const terr = secTerrain(); if (!S.sec.itg || o) { S.sec.itg = M.findITGs(T, terr, o || {}, progress); S.sec.plan = null; } return S.sec.itg; };
+    /** Ground seen by own posts (plan, else ITG summits). */
+    const ownSeen = () => {
+      if (S.sec.ownSeen) return S.sec.ownSeen;
+      const obs = S.sec.plan ? M.planObservers(S.sec.plan) : (S.sec.itg ? S.sec.itg.itgs.map((q) => ({ r: q.r, c: q.c })) : []);
+      S.sec.ownSeen = obs.length ? M.viewshedCount(S.g, obs, { obsH: 2, tgtH: 1.5, radiusM: 3000 }) : null;
+      return S.sec.ownSeen;
+    };
+    const stripPaths = (arr) => arr.map((a) => { const c = Object.assign({}, a); delete c.path; return c; });
     const cellIdx = (p) => Math.round(p.r) * S.g.w + Math.round(p.c);
 
     const J = {
@@ -98,7 +116,9 @@
           JSON.stringify([S.settings.obstacles, S.settings.tracks, S.settings.profiles, S.settings.snowLine, S.settings.generalize]);
         const markersChanged = JSON.stringify([st.own, st.threat, st.threatProfile]) !==
           JSON.stringify([S.settings.own, S.settings.threat, S.settings.threatProfile]);
+        const sectorChanged = JSON.stringify([st.sector, st.border, st.own]) !== JSON.stringify([S.settings.sector, S.settings.border, S.settings.own]);
         S.settings = Object.assign({}, S.settings, st);
+        if (sectorChanged) S.sec = {};
         if (geomChanged) { S.masks = null; resetCaches(); }
         else if (markersChanged) { S.avCache.clear(); S.hostile = null; }
         return { ok: true };
@@ -199,6 +219,58 @@
       picquets(opts, progress) {
         need();
         return M.sitePicquets(tctx(), Int32Array.from(opts.path), Object.assign({}, opts, { path: undefined }), progress);
+      },
+
+      // ---------------------------------------------------------- sector planning
+      sectorTerrain(opts) {
+        need();
+        const t = secTerrain(opts || {});
+        return { dominance: t.dominance.slice(), ridges: t.ridges, nullahs: t.nullahs, params: t.params, hasBorder: S.sec.frame.hasBorder };
+      },
+      itgs(opts, progress) {
+        need();
+        return secITG(opts === null ? undefined : opts || {}, progress); // null = cached result
+      },
+      deploy(opts, progress) {
+        need();
+        const T = sectorCtx();
+        const plan = M.deploymentPlan(T, secTerrain(), secITG(), opts || {}, progress);
+        S.sec.plan = plan; S.sec.ownSeen = null;
+        return plan;
+      },
+      enemyApproaches(opts, progress) {
+        need();
+        const T = sectorCtx();
+        const res = M.enemyApproaches(T, secTerrain(), secITG().itgs, ownSeen(), opts || {}, progress);
+        S.sec.appr = res;
+        return Object.assign({}, res, { approaches: stripPaths(res.approaches) });
+      },
+      infiltration(opts, progress) {
+        need();
+        const T = sectorCtx();
+        const plan = S.sec.plan, itgs = secITG().itgs;
+        const targets = plan ? [plan.bnHq, ...plan.companies.map((c) => c.hq)].filter(Boolean)
+          : itgs.slice().sort((a, b) => (b.borderDistM || 0) - (a.borderDistM || 0)).slice(0, 3);
+        const res = M.infiltrationRoutes(T, secTerrain(), targets, ownSeen(), opts || {}, progress);
+        S.sec.infil = res;
+        return Object.assign({}, res, { routes: stripPaths(res.routes) });
+      },
+      fireCoverage({ opts, extraWeapons } = {}) {
+        need();
+        if (!S.sec.plan) throw new Error('Run Deployment Plan first.');
+        const res = M.fireCoverage(sectorCtx(), S.sec.plan, opts || {}, extraWeapons || [], S.sec.appr ? S.sec.appr.approaches : []);
+        return Object.assign({}, res, { approachCover: S.sec.appr ? S.sec.appr.approaches.map((a) => ({ id: a.id, share: a.fireCoverShare })) : [] });
+      },
+      borderWatch({ opts, extraObservers } = {}, progress) {
+        need();
+        const obs = M.planObservers(S.sec.plan, extraObservers || []);
+        if (!obs.length) throw new Error('Run Deployment Plan (or site posts) first — no own observers.');
+        return M.borderSurveillance(sectorCtx(), obs, opts || {}, progress);
+      },
+      enemyOptions(opts) {
+        need();
+        if (!S.sec.appr) throw new Error('Run Enemy Approaches first.');
+        return M.enemyOptions(sectorCtx(), secITG().itgs, S.sec.appr, opts || {});
       },
 
       crestClearance({ site, target, weaponId, weaponOverrides }) {

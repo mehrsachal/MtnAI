@@ -85,6 +85,24 @@
     if (S.picquets) S.picquets.picquets.forEach((p) => pt(p.c, p.r, { kind: 'picquet', id: p.id, route_from_km: p.routeFromKm, route_to_km: p.routeToKm, climb_h: +p.climbH.toFixed(2), sidc: UI.sidcFor.post('section') }));
     if (S.hostile) S.hostile.observers.filter((o) => !o.isThreat).forEach((o) => pt(o.c, o.r, { kind: 'likely_enemy_op' }));
     S.obstacles.forEach((p, k) => poly(p, { kind: 'obstacle_nogo', index: k + 1 }));
+    const X = S.sec || {};
+    if (S.sector) poly(S.sector, { kind: 'sector_boundary' });
+    if (S.border) line(S.border, { kind: 'border_line' });
+    const sid = (x) => ({ id: x.id, type: x.type, rating: x.rating || '', reasons: (x.reasons || []).join('; '), detail: x.detail || '' });
+    if (UI._secItems) UI._secItems().forEach((x) => {
+      if (['eappr', 'infil', 'ridges'].includes(x.layer)) return; // drawn as lines below
+      if (x.layer === 'itgs') { const q = X.itg.itgs[x.idx]; poly(q.outline, Object.assign({ kind: 'itg', area_ha: +q.areaHa.toFixed(2), perimeter_m: Math.round(q.perimeterM), force: q.force.echelon, score: +q.score.toFixed(3) }, sid(x))); }
+      pt(x.c, x.r, Object.assign({ kind: x.layer === 'itgs' ? 'itg_summit' : x.layer }, sid(x)));
+    });
+    if (X.terr) {
+      X.terr.ridges.forEach((q) => line(q.line, { kind: 'ridgeline', id: q.id, length_m: Math.round(q.lengthM), value: Math.round(q.meanDominance), side: q.side, rating: q.rating }));
+      X.terr.nullahs.forEach((q) => line(q.line, { kind: q.type, id: q.id, length_m: Math.round(q.lengthM), catchment_km2: +q.catchKm2.toFixed(2), side: q.side }));
+    }
+    if (X.appr) X.appr.approaches.forEach((a) => line(a.line, { kind: 'enemy_approach', id: a.id, objective: a.objective, type: a.type, length_m: Math.round(a.lengthM), time_h: +a.timeH.toFixed(2),
+      watched_pct: Math.round(a.exposure * 100), threat: a.threat, rating: a.rating }));
+    if (X.infil) X.infil.routes.forEach((a) => line(a.line, { kind: 'infiltration_route', id: a.id, target: a.target, type: a.type, length_m: Math.round(a.lengthM), time_h: +a.timeH.toFixed(2),
+      watched_pct: Math.round(a.detectShare * 100), threat: a.threat, rating: a.rating }));
+    if (X.opts) X.opts.options.forEach((o) => o.lines.forEach((ln, j) => line(ln, { kind: 'enemy_option', id: o.id, thrust: j ? 'supporting' : 'main', objective: o.objective, label: o.label, threat: o.threat, summary: o.summary, recommendation: o.recommendation })));
     S.tracks.forEach((t, k) => line(t, { kind: 'track', index: k + 1 }));
     return {
       type: 'FeatureCollection',
@@ -120,7 +138,7 @@
       if (from.zone !== to.zone) { const ll = M.fromUTM(E, N, from.zone, from.north); const u = M.toUTM(ll.lat, ll.lon, to.zone); e = u.E; n = u.N; }
       return [(e - to.x0) / to.cs - 0.5, (to.y0 - n) / to.cs - 0.5];
     };
-    const LINE_KEYS = new Set(['line', 'poly', 'obstacles', 'tracks']);
+    const LINE_KEYS = new Set(['line', 'poly', 'obstacles', 'tracks', 'sector', 'border', 'outline', 'lines']);
     const walk = (o, key) => {
       if (Array.isArray(o)) {
         if (LINE_KEYS.has(key) && o.length && Array.isArray(o[0]) && typeof o[0][0] === 'number') return o.map(([c, r]) => map(c, r));
@@ -227,6 +245,28 @@
     if (S.picquets) html += tbl(['Picquet', 'Grid ref', 'Elevation', 'Protects (km)', 'Climb from route'], S.picquets.picquets.map((p) => [
       p.id, mg(p), F.elev(p.z), p.routeFromKm === null ? '—' : `${p.routeFromKm.toFixed(1)}–${p.routeToKm.toFixed(1)}`, F.time(p.climbH)])) +
       `<p class="note">Route observed by picquets: ${Math.round(S.picquets.routeCoverage * 100)}%.</p>`;
+    const X = S.sec || {};
+    if (X.itg || X.plan || X.appr) {
+      const items = UI._secItems ? UI._secItems() : [];
+      const cnt = (arr) => { const c = { Good: 0, Marginal: 0, 'Not good': 0 }; arr.forEach((x) => x.rating && c[x.rating]++); return c; };
+      const all = cnt(items);
+      const rt = (x) => `<b>${esc(x.rating || '—')}</b>`;
+      html += `<h2>8. Sector assessment</h2><div class="kv">
+        <b>Sector</b><span>${S.sector ? 'boundary drawn' : 'whole DEM'} · border line ${S.border ? 'drawn' : 'not drawn'}</span>
+        <b>Overall</b><span>${all.Good} Good · ${all.Marginal} Marginal · ${all['Not good']} Not good (${items.filter((x) => x.rating).length} rated items)</span>
+        ${X.plan ? `<b>Deployment</b><span>${esc(X.plan.modeName)} — ${X.plan.borderPosts.length} border posts, ${X.plan.platoons.length} platoon posts, ${X.plan.companies.length} companies, about ${X.plan.troops} troops</span>` : ''}
+        ${X.watch ? `<b>Border watched</b><span>${Math.round(X.watch.observedShare * 100)}% of ${km(X.watch.lengthM)} — ${esc(X.watch.rating)}</span>` : ''}</div>`;
+      if (X.plan && X.plan.notes.length) html += `<p class="note">${X.plan.notes.map(esc).join('<br>')}</p>`;
+      const block = (title, layer, cols, row) => { const its = items.filter((x) => x.layer === layer); if (its.length) html += `<h3>${title}</h3>` + tbl(cols, its.map(row)); };
+      block('Important Terrain Grounds (ITGs)', 'itgs', ['ITG', 'Grid ref', 'Elevation', 'Details', 'Rating'], (x) => [x.id, mg(x), F.elev(x.z), esc(x.detail), rt(x)]);
+      block('Deployment', 'plan', ['Position', 'Type', 'Grid ref', 'Why', 'Rating'], (x) => [x.sym ? sym(x.sym) + ' ' + esc(x.id) : esc(x.id), esc(x.type), mg(x), esc(x.reasons.join('; ')), rt(x)]);
+      block('Border surveillance — gaps and extra OPs', 'bwatch', ['Item', 'Grid ref', 'Details', 'Rating'], (x) => [esc(x.id), mg(x), esc(x.detail), rt(x)]);
+      block('Fire gaps on enemy approaches', 'firegaps', ['Gap', 'Starts at', 'Details', 'Rating'], (x) => [esc(x.id), mg(x), esc(x.detail), rt(x)]);
+      block('Enemy approaches', 'eappr', ['Approach', 'Mid point', 'Details', 'Rating (our watch)'], (x) => [esc(x.id), mg(x), esc(x.detail), rt(x)]);
+      block('Infiltration routes', 'infil', ['Route', 'Mid point', 'Details', 'Rating (for us)'], (x) => [esc(x.id), mg(x), esc(x.detail), rt(x)]);
+      if (X.opts) html += `<h3>Enemy courses of action</h3>` + tbl(['Option', 'Objective', 'Summary', 'Threat', 'Recommendation'], X.opts.options.map((o) => [
+        `${esc(o.id)}${o.label ? `<br><i>${esc(o.label)}</i>` : ''}`, esc(o.objective), esc(o.summary), esc(o.threat), esc(o.recommendation)]));
+    }
     html += `<h2>Notes</h2><p class="note">Analysis is derived from the elevation model only (resolution ${g.cs} m). Vegetation, snow cover, soil, water,
       built-up areas and man-made obstacles are not represented unless digitised. Weapon ranges are indicative open-source figures and crest
       clearance uses a simplified trajectory model. All suggestions are decision aids and must be confirmed by reconnaissance and unit data.</p>
