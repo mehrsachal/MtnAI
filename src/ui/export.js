@@ -71,7 +71,7 @@
     }))));
     if (S.mfd) {
       S.mfd.fields.forEach((f) => poly(f.poly, {
-        kind: 'minefield', id: f.id, type: f.type, front_m: Math.round(f.frontM), depth_m: Math.round(f.depthM), gap_m: Math.round(f.gapM),
+        kind: 'minefield', id: f.id, type: f.type, front_m: Math.round(f.frontM), depth_m: Math.round(f.depthM), gap_m: f.gapM == null ? null : Math.round(f.gapM), delay_min: f.delayMin == null ? null : Math.round(f.delayMin), forces_breach: !!f.forcesBreach, rating: f.rating || '',
         est_mines: f.estMines, on_avenues: f.onAvenues.join(','), covered_by_observation: f.covered, mgrs: f.mgrs, sidc: UI.sidcFor.minefield(),
       }));
     }
@@ -231,7 +231,7 @@
     }
     html += `<h2>6. Minefields (Mfd)</h2>`;
     html += S.mfd ? tbl(['', 'Mfd', 'Type', 'Centre', 'Gap', 'Front × depth', 'Est. mines', 'On avenue', 'Observed'], S.mfd.fields.map((f) => [
-      sym(UI.SYM.mine(f.type)), f.id, f.type, mg(f), km(f.gapM), `${km(f.frontM)} × ${km(f.depthM)}`, f.estMines,
+      sym(UI.SYM.mine(f.type)), f.id, f.type, mg(f), f.gapM == null ? 'not tied in' : km(f.gapM), `${km(f.frontM)} × ${km(f.depthM)}`, f.estMines,
       f.onAvenues.length ? 'AA ' + f.onAvenues.join(', ') : '—', f.covered ? 'yes' : 'NO — site OP / weapons'])) : '<p class="na">Not computed.</p>';
     html += `<h2>7. Routes</h2>`;
     if (S.routes) {

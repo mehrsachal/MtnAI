@@ -19,6 +19,7 @@
   const G = 9.80665;
   const idxOf = (g, p) => Math.round(p.r) * g.w + Math.round(p.c);
   const dCells = (a, b) => Math.hypot(a.r - b.r, a.c - b.c);
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
   const stride = (g) => Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 260000)));
   /** Landform classes 0..5: valley, lower, flat, mid, upper, ridge. */
   const LF = (arr) => arr.slice(0, 6);
@@ -46,9 +47,9 @@
     indirect: { count: 3, minSepM: 400, candidates: 160, targetSpreadM: 400, marginM: 15, requireDefilade: false, requireAccess: true, maxAccessH: 0,
       idealRangeFrac: 0.55, minRangeFrac: 0.15, maxRangeFrac: 0.92, forwardLimit: 0.25,
       wClear: 0.35, wDefilade: 0.3, wRange: 0.15, wFlat: 0.1, wAccess: 0.1, lfWeights: [0.7, 0.9, 1.0, 0.6, 0.35, 0.15] },
-    mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 300, maxDistOwnM: 3000, minSepM: 400,
-      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15,
-      maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
+    mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 0, maxDistOwnM: 0, minSepM: 400,
+      avenues: 3, orientations: 8, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.3, rearFactor: 0.2, outOfRangeFactor: 0.3, candidates: 20, breachH: null, minDelayMin: 5,
+      apFrontM: 150, maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
     helipads: { use: 'regular', count: 3, padRadiusM: 30, minSepM: 500, maxDistOwnM: 5000, requireConcealed: true, requireAccess: true,
       accessProfile: 'foot', maxAccessH: 0, avoidCrest: true, candidates: 400, wFlat: 0.4, wHidden: 0.35, wNear: 0.25 },
     picquets: { rangeM: 1500, count: 0, kmPerPicquet: 2.5, maxCount: 12, minSepM: 500, maxOffsetM: 2000, minLandform: 4, maxSlope: 38, maxClimbH: 4,
@@ -506,34 +507,63 @@
   };
 
   // =====================================================================
-  // Minefields (Mfd) at defiles on enemy avenues of approach
+  // Minefields (Mfd): an obstacle plan judged by the delay it imposes
   // =====================================================================
+  /*
+   * A minefield is only worth its mines if the enemy cannot simply walk or drive round it
+   * (GSP Sec 12: gaps covered by mines, fire and obstacles; obstacles must be covered by fire).
+   * 1. Threat routes: the enemy's least-time avenues (plus sector approaches / infiltration paths
+   *    passed in), for the movement class the mines stop (AT: vehicles, AP: men on foot).
+   * 2. Candidates: defiles on those routes — places where NO-GO ground closes in from both sides
+   *    within the maximum gap — inside a distance band in front of own position.
+   * 3. Each candidate is drawn as a field (front across the gap, tied into NO-GO ground, depth
+   *    along the route) and TESTED: the enemy's best route from his position to ours is searched
+   *    again with the field in place. He may detour round it, or breach it (breach time per field).
+   *    The extra time he needs is the field's value.
+   * 4. Fields are chosen one at a time (each test already includes the fields chosen before), so
+   *    a second field that a detour round the first would use is valued correctly, and a field that
+   *    only pushes the enemy onto an open avenue is worth nothing.
+   * 5. Value is weighted for observation / fire cover and ground (slope, snow, valley floor).
+   */
   M.siteMinefields = (T, o = {}, progress) => {
-    const { g } = T;
+    const { g, L } = T;
     const type = o.type || 'AT';
     const p = opt('mfd', Object.assign({ tieM: M.CFG.mfdTieM }, o));
     p.maxGapM = p.maxGapM || (type === 'AT' ? 600 : 300);
     p.depthM = p.depthM || (type === 'AT' ? 100 : 40);
     p.densityPerM = p.densityPerM || (type === 'AT' ? 1 : 3);
+    p.breachH = p.breachH || (type === 'AT' ? 1.5 : 0.75);
+    // AT = barrier (far enough forward to stop vehicles, judged by delay); AP = protective (close in
+    // front of posts and across infiltration nullahs, judged by fire cover — men can walk round defiles)
+    const protective = type === 'AP';
+    p.minDistOwnM = p.minDistOwnM || (protective ? 80 : 300);
+    p.maxDistOwnM = p.maxDistOwnM || (protective ? 800 : 3000);
+    if (protective && o.minDelayMin == null) p.minDelayMin = 0;
+    const anchors = [T.own].concat(o.protect || []); // own position and posts to protect
     const profId = o.profile || (type === 'AP' ? 'foot' : T.threatProfile === 'foot' ? 'tracked' : T.threatProfile);
     const mob = T.mob(profId);
     const cls = mob.cls;
-    const maxGap = p.maxGapM / g.cs;
-    const depth = p.depthM / g.cs;
-    const tie = Math.max(0, p.tieM / g.cs);
+    const maxGap = p.maxGapM / g.cs, depth = p.depthM / g.cs, tie = Math.max(0, p.tieM / g.cs);
     const minSep = Math.max(3, p.minSepM / g.cs);
     if (!T.threat || !T.own) throw new Error('Place own and enemy positions first — minefields are sited on enemy avenues of approach.');
-    progress && progress(0.1, 'Avenues of approach');
+    progress && progress(0.05, 'Avenues of approach');
     const aven = T.avenues(profId, { k: p.avenues });
     if (!aven || !aven.routes.length) {
       throw new Error(`No ${mob.prof.name} avenue links the enemy to own position — the threat cannot move by this means; consider ${type === 'AT' ? 'AP' : 'AT'} minefields.`);
     }
+    // the enemy's reference trip: his position -> ours
+    const start = M.nearestPassable(g, cls, T.threat), goal = M.nearestPassable(g, cls, T.own);
+    const ctx0 = { cls, slope: L.slope, prof: mob.prof, trackMask: mob.trackMask };
+    const pen = new Float32Array(g.w * g.h).fill(1);
+    const trip = () => M.astar(g, Object.assign({}, ctx0, { penalty: pen }), start, goal);
+    const base = start >= 0 && goal >= 0 ? trip() : null;
+    if (!base) throw new Error(`The enemy (${mob.prof.name}) cannot reach own position at all — no minefield is needed for this movement class.`);
+    const baseS = base.cost;
+
+    // 1-2. defiles on the threat routes
     const nDir = Math.max(4, Math.min(32, p.orientations | 0));
     const dirs = [];
-    for (let k = 0; k < nDir; k++) {
-      const deg = (k * 180) / nDir, th = M.rad(deg);
-      dirs.push({ deg, dc: Math.sin(th), dr: -Math.cos(th) });
-    }
+    for (let k = 0; k < nDir; k++) { const deg = (k * 180) / nDir, th = M.rad(deg); dirs.push({ deg, dc: Math.sin(th), dr: -Math.cos(th) }); }
     const march = (r, c, dr, dc) => {
       for (let s = 1; s * 0.5 <= maxGap; s++) {
         const rr = Math.round(r + dr * s * 0.5), cc = Math.round(c + dc * s * 0.5);
@@ -549,74 +579,140 @@
         if (a < 0) continue;
         const b = march(r, c, -d.dr, -d.dc);
         if (b < 0) continue;
-        const wdt = a + b;
-        if (wdt <= maxGap && (!best || wdt < best.width)) best = { width: wdt, a, b, dir: d };
+        if (a + b <= maxGap && (!best || a + b < best.width)) best = { width: a + b, a, b, dir: d };
       }
       return best;
     };
-    const candCells = [];
-    const pathOf = new Map();
-    aven.routes.forEach((rt, k) => {
-      for (let q = 0; q < rt.path.length; q++) {
-        const c = rt.path[q];
-        if (!pathOf.has(c)) pathOf.set(c, new Set());
-        pathOf.get(c).add(k);
-        candCells.push(c);
-      }
-    });
-    const ownVS = M.viewshed(g, T.own.r, T.own.c, { obsH: 3, tgtH: 1, radiusM: p.maxDistOwnM }).mask;
+    const routes = aven.routes.map((rt) => rt.path).concat(o.extraPaths || []);
+    const onRoute = new Map(), dirAt = new Map();
+    routes.forEach((path, k) => path.forEach((c, i) => {
+      if (!onRoute.has(c)) onRoute.set(c, new Set());
+      onRoute.get(c).add(k);
+      if (!dirAt.has(c)) { const a = path[Math.max(0, i - 3)], b = path[Math.min(path.length - 1, i + 3)]; dirAt.set(c, [(b % g.w) - (a % g.w), ((b / g.w) | 0) - ((a / g.w) | 0)]); }
+    }));
+    const frontAP = (p.apFrontM || 150) / g.cs;
+    /** Protective field with no defile: a set frontage laid straight across the approach (not tied in). */
+    const across = (cell) => {
+      const [vc, vr] = dirAt.get(cell), L2 = Math.hypot(vc, vr) || 1;
+      const dc = -vr / L2, dr = vc / L2;
+      const deg = ((M.deg(Math.atan2(dc, -dr)) % 180) + 180) % 180;
+      return { width: frontAP, a: frontAP / 2, b: frontAP / 2, dir: { deg, dc, dr }, untied: true };
+    };
+    const ownVS = o.cover ? null : M.viewshed(g, T.own.r, T.own.c, { obsH: 3, tgtH: 1, radiusM: p.maxDistOwnM }).mask;
     const corridor = M.threatCorridor(g, T.threat, T.own, o.value);
     const items = [];
-    const seen = new Set();
-    candCells.forEach((cell, j) => {
-      if (seen.has(cell)) return;
-      seen.add(cell);
+    let j = 0;
+    for (const [cell, set] of onRoute) {
+      if (progress && ++j % 2000 === 0) progress(0.1 + (0.2 * j) / onRoute.size, 'Finding defiles');
       const r = (cell / g.w) | 0, c = cell % g.w;
-      const df = defile(r, c);
-      if (!df) return;
+      let dm = Infinity;
+      for (const q of anchors) dm = Math.min(dm, Math.hypot(r - q.r, c - q.c) * g.cs);
+      const band = dm < p.minDistOwnM || dm > p.maxDistOwnM ? (protective ? 0 : p.outOfRangeFactor) : 1; // protective fields stay close in
+      if (!band) continue;
+      const df = defile(r, c) || (protective ? across(cell) : null);
+      if (!df) continue;
       const covered = o.cover ? !!o.cover[cell] : !!ownVS[cell];
-      if (p.requireCovered && !covered) return;
-      const narrow = 1 - p.narrowWeight + p.narrowWeight * (1 - df.width / maxGap);
-      const nAv = pathOf.get(cell).size;
-      const avW = 0.5 + 0.5 * (nAv / aven.routes.length);
-      const dm = Math.hypot(r - T.own.r, c - T.own.c) * g.cs;
-      const distW = dm < p.minDistOwnM ? p.outOfRangeFactor : dm > p.maxDistOwnM ? Math.max(p.outOfRangeFactor, 1 - (dm - p.maxDistOwnM) / p.maxDistOwnM) : 1;
-      const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
-      // GSP Sec 12 para 4k / 6, Sec 13 para 4e: mines are thickest in valleys / foothills; on steep
-      // or rocky slopes they wash away (use wire there) and heavy snow reduces their effect.
-      const sl = T.L.slope[cell], lf = T.L.landform[cell];
+      if (p.requireCovered && !covered) continue;
+      const sl = L.slope[cell], lf = L.landform[cell];
       const steep = sl > p.maxSiteSlope, snowy = p.snowLine > 0 && g.z[cell] > p.snowLine;
-      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1);
-      items.push({ r, c, score: narrow * avW * distW * fwd * ground * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered, steep, snowy, sl });
-      if (progress && j % 2000 === 0) progress(0.2 + (0.7 * j) / candCells.length, 'Defile analysis');
-    });
-    if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches — increase the maximum gap width.');
-    const picked = [];
-    if (p.onePerAvenue) {
-      aven.routes.forEach((_, k) => {
-        const best = items.filter((it) => it.routes.includes(k)).sort((a, b) => b.score - a.score).find((it) => !picked.some((q) => dCells(q, it) < minSep));
-        if (best) picked.push(best);
-      });
+      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1) * band;
+      const narrow = df.untied ? 1 - p.narrowWeight : 1 - p.narrowWeight + p.narrowWeight * (1 - df.width / maxGap);
+      const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
+      const pre = narrow * (0.5 + 0.5 * set.size / routes.length) * fwd * ground * (covered ? 1 : p.uncoveredFactor);
+      items.push({ r, c, score: pre, df, routes: [...set], covered, steep, snowy, sl, ground, fwd, inBand: band === 1 });
     }
-    for (const it of M.nms(items, minSep, p.count)) {
-      if (picked.length >= p.count) break;
-      if (!picked.some((q) => dCells(q, it) < minSep)) picked.push(it);
-    }
-    const fields = picked.slice(0, p.count).map((it, k) => {
+    if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches inside the distance band — widen the gap or the band.');
+    // sites inside the distance band (under own fire, not out by the enemy) first; outside it only as a fallback
+    const inBand = items.filter((it) => it.inBand);
+    const cands = M.nms(inBand.length ? inBand : items, minSep, p.candidates);
+
+    // 3. draw each candidate as a field and rasterise it
+    const tAcross = g.cs / Math.max(0.3, mob.prof.speed / 3.6); // s to cross one cell at cross-country speed
+    cands.forEach((it) => {
       const { dir, a, b } = it.df;
-      const e1 = [it.c + dir.dc * (a + tie), it.r + dir.dr * (a + tie)];
-      const e2 = [it.c - dir.dc * (b + tie), it.r - dir.dr * (b + tie)];
+      const t = it.df.untied ? 0 : tie;
+      const e1 = [it.c + dir.dc * (a + t), it.r + dir.dr * (a + t)], e2 = [it.c - dir.dc * (b + t), it.r - dir.dr * (b + t)];
       const pc = (-dir.dr * depth) / 2, pr = (dir.dc * depth) / 2;
-      const poly = [[e2[0] - pc, e2[1] - pr], [e1[0] - pc, e1[1] - pr], [e1[0] + pc, e1[1] + pr], [e2[0] + pc, e2[1] + pr]];
-      const front = (a + b + 2 * tie) * g.cs;
+      it.poly = [[e2[0] - pc, e2[1] - pr], [e1[0] - pc, e1[1] - pr], [e1[0] + pc, e1[1] + pr], [e2[0] + pc, e2[1] + pr]];
+      // the test footprint is at least 3 cells deep so the route search cannot step over it diagonally
+      const dT = Math.max(depth, 3) / 2, tc = (-dir.dr * dT), tr = (dir.dc * dT);
+      const m = M.rasterPolys(g, [[[e2[0] - tc, e2[1] - tr], [e1[0] - tc, e1[1] - tr], [e1[0] + tc, e1[1] + tr], [e2[0] + tc, e2[1] + tr]]], null, 1);
+      it.cells = [];
+      for (let i = 0; i < m.length; i++) if (m[i] && cls[i] !== 2) it.cells.push(i);
+      // a breach costs breachH whichever way it is crossed: spread it over the field's depth
+      it.mult = 1 + (p.breachH * 3600) / (Math.max(depth, 3) * tAcross);
+    });
+    // 4. greedy obstacle plan, lazily re-tested
+    const test = (it) => {
+      const old = it.cells.map((i) => pen[i]);
+      for (const i of it.cells) pen[i] = Math.max(pen[i], it.mult);
+      const res = trip();
+      it.cells.forEach((i, k) => (pen[i] = old[k]));
+      return res;
+    };
+    let curS = baseS, curPath = base.path, totalS = 0;
+    const chosen = [];
+    const value = (it, delayS) => (protective ? it.score * (0.6 + 0.4 * clamp01(delayS / (p.breachH * 3600))) : clamp01(delayS / (p.breachH * 3600)) * (it.covered ? 1 : p.uncoveredFactor) * it.ground * it.fwd);
+    cands.forEach((it, k) => {
+      progress && progress(0.35 + (0.35 * k) / cands.length, `Testing field ${k + 1}/${cands.length}`);
+      const res = test(it);
+      it.delayS = (res ? res.cost : Infinity) - curS; it.val = value(it, it.delayS); it.stale = 0;
+    });
+    for (let round = 1; chosen.length < p.count; round++) {
+      progress && progress(0.7 + (0.25 * chosen.length) / p.count, `Obstacle plan: field ${chosen.length + 1}`);
+      const pool = cands.filter((it) => !it.used && !chosen.some((q) => dCells(q, it) < minSep));
+      if (!pool.length) break;
+      let best = null;
+      for (;;) {
+        pool.sort((a, b) => b.val - a.val);
+        const top = pool[0];
+        if (top.stale === round) { best = top; break; }
+        const res = test(top);
+        top.delayS = (res ? res.cost : Infinity) - curS; top.val = value(top, top.delayS); top.stale = round; top.after = res;
+        if (pool.length === 1 || top.val >= pool[1].val) { best = top; break; }
+      }
+      if (!best || best.delayS < p.minDelayMin * 60 || best.val <= 0) break;
+      best.used = true;
+      for (const i of best.cells) pen[i] = Math.max(pen[i], best.mult);
+      const res = best.after && best.stale === round ? best.after : trip();
+      // did the enemy go round, or through? (a breach costs at most the breach time)
+      const crossed = res.path.some((i) => best.cells.includes(i));
+      best.forcesBreach = crossed;
+      best.addedS = crossed ? Math.min(res.cost - curS, p.breachH * 3600) : res.cost - curS;
+      totalS += best.addedS;
+      curS = res.cost; curPath = res.path;
+      chosen.push(best);
+    }
+    if (!chosen.length) throw new Error(`No field on the ${mob.prof.name} avenues delays the enemy by ${p.minDelayMin} min or more — he can bypass every defile. Consider obstacles in depth, or AP mines on the foot approaches.`);
+
+    // 5. output
+    const pathStats = (path) => M.routeStats(g, ctx0, Array.from(path), {});
+    const before = pathStats(base.path), after = pathStats(curPath);
+    const fields = chosen.map((it, k) => {
+      const front = (it.df.a + it.df.b + (it.df.untied ? 0 : 2 * tie)) * g.cs;
+      const addedMin = it.addedS / 60;
+      const share = clamp01(it.addedS / (p.breachH * 3600));
+      const reasons = [it.forcesBreach ? `no bypass — the enemy must breach (+${Math.round(addedMin)} min)` : `the enemy can bypass it, but the detour costs +${Math.round(addedMin)} min`,
+        it.df.untied ? `${Math.round(front)} m frontage across the approach — not tied into NO-GO ground, so it must be covered by fire` : `gap ${Math.round(it.df.width * g.cs)} m between NO-GO ground`, it.covered ? 'observed / under own fire' : 'NOT observed — an obstacle not covered by fire can be breached at leisure'];
+      if (!it.inBand) reasons.push(`outside the ${(p.minDistOwnM / 1000).toFixed(1)}–${(p.maxDistOwnM / 1000).toFixed(1)} km band from own troops (no defile closer) — hard to cover by fire`);
+      if (it.steep) reasons.push('steep / rocky — mines may wash away: add wire');
+      if (it.snowy) reasons.push('above snow line — mine effect reduced');
+      const rating = protective ? (it.covered && it.fwd === 1 && !it.steep ? 'Good' : it.covered ? 'Marginal' : 'Not good')
+        : share >= 0.6 && it.covered && it.inBand ? 'Good' : share >= 0.25 ? 'Marginal' : 'Not good';
+      if (protective) reasons.unshift(`protective field ${Math.round(Math.min(...anchors.map((q) => Math.hypot(it.r - q.r, it.c - q.c))) * g.cs)} m in front of own troops`);
       return Object.assign(siteInfo(g, it), {
-        id: `Mfd ${k + 1}`, type, profile: profId, poly, frontM: front, depthM: depth * g.cs,
-        gapM: it.df.width * g.cs, orientationDeg: dir.deg, estMines: Math.round(front * p.densityPerM),
-        onAvenues: it.routes.map((x) => x + 1), covered: it.covered, score: it.score,
-        siteSlopeDeg: it.sl, note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
+        id: `Mfd ${k + 1}`, type, profile: profId, poly: it.poly, frontM: front, depthM: depth * g.cs, gapM: it.df.untied ? null : it.df.width * g.cs, tiedIn: !it.df.untied, orientationDeg: it.df.dir.deg,
+        estMines: Math.round(front * p.densityPerM), onAvenues: it.routes.filter((x) => x < aven.routes.length).map((x) => x + 1), covered: it.covered, score: it.val,
+        delayMin: addedMin, forcesBreach: it.forcesBreach, rating, reasons, siteSlopeDeg: it.sl,
+        note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
       });
     });
-    return { fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })), params: p };
+    return {
+      fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })),
+      enemyBefore: { line: before.line, timeH: baseS / 3600, lengthM: before.lengthM },
+      enemyAfter: { line: after.line, timeH: (baseS + totalS) / 3600, lengthM: after.lengthM },
+      totalDelayMin: totalS / 60, tested: cands.length, outOfBand: !inBand.length, purpose: protective ? 'protective' : 'barrier', params: p,
+    };
   };
 
   // =====================================================================

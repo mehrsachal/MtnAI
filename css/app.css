@@ -460,3 +460,22 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   #status > span:nth-child(n+4):not(.st-right) { display: none; }
 }
 @media print { body { display: none; } }
+
+/* ---------------------------------------------------------------- breathing room */
+.toc-l { padding: 2px 6px 3px 0; margin-top: 1px; }
+.toc-lh { min-height: 24px; }
+.toc-gh { padding: 6px 6px 4px; margin-top: 4px; text-transform: uppercase; letter-spacing: .4px; font-size: 10.5px; color: var(--muted); }
+.toc-c { margin-left: 4px; }
+.gp-p { margin: 9px 0; }
+.gp-form { padding: 6px 14px 18px; }
+.gp-msg div { line-height: 1.5; }
+.pgrid td { padding: 4px 8px; }
+.grid-table td { padding: 4px 8px; }
+.grid-table td.det { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.grid-table td.rt { font-weight: 600; }
+.grid-table td.rt-Notgood { color: var(--danger); }
+.grid-table td.rt-Marginal { color: var(--warn); }
+.grid-table td.rt-Good { color: var(--ok); }
+.rb-group { padding: 0 6px; }
+.rb-l { min-width: 54px; }
+#toolHint { max-width: 70%; white-space: normal; text-align: center; }

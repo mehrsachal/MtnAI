@@ -351,13 +351,15 @@
       }
       if (!S.show.symbols) return;
       const items = UI.symbolItems(S);
+      UI.labelsBegin();
       UI.drawSymbols(ctx, items, (c, r) => {
         const w = [this.wx(c), this.hAt(c, r) + 2, this.wz(r)];
         const p = this.project(w);
         if (!p || p.x < -50 || p.y < -50 || p.x > this.W + 50 || p.y > this.H + 50) return null;
         p.hidden = this._occluded(w);
         return p;
-      }, { size: +UI.cfg('sym.size') * 0.9, labels: S.show.labels && UI.cfg('sym.labels'), lift: +UI.cfg('v3.lift') });
+      }, { size: +UI.cfg('sym.size') * 0.9, labels: S.show.labels && UI.cfg('sym.labels'), lift: +UI.cfg('v3.lift'), view: { w: this.W, h: this.H } });
+      UI.labelsEnd(ctx);
       // compass
       const yaw = this.cam.yaw;
       ctx.save();

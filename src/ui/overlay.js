@@ -38,7 +38,36 @@
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
   };
+  // ------------------------------------------------------------ label declutter
+  // While a frame is drawn, labels are queued instead of painted; at the end they are placed by
+  // priority and any label that would overlap a placed label or a symbol is dropped.
+  let labelQ = null, symBoxes = null;
+  UI.labelsBegin = () => { labelQ = []; symBoxes = []; };
+  UI.labelsEnd = (ctx) => {
+    if (!labelQ) return;
+    const q = labelQ, syms = symBoxes;
+    labelQ = null; symBoxes = null;
+    const placed = [];
+    const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    q.sort((a, b) => b.prio - a.prio || a.order - b.order);
+    for (const L of q) {
+      ctx.save();
+      ctx.font = L.opts.font || `600 12px ${FONT}`;
+      const w = ctx.measureText(L.text).width, h = parseFloat(/(\d+(\.\d+)?)px/.exec(ctx.font)?.[1] || 12);
+      ctx.restore();
+      const al = L.opts.align || 'left';
+      const x0 = al === 'center' ? L.x - w / 2 : al === 'right' ? L.x - w : L.x;
+      const box = { x0: x0 - 2, x1: x0 + w + 2, y0: L.y - h / 2 - 1, y1: L.y + h / 2 + 1 };
+      if (placed.some((b) => hit(b, box)) || syms.some((b) => b.owner !== L.owner && hit(b, box))) continue;
+      placed.push(box);
+      drawHalo(ctx, L.text, L.x, L.y, L.opts);
+    }
+  };
   UI.haloText = (ctx, text, x, y, opts = {}) => {
+    if (labelQ && !opts.now) { labelQ.push({ text, x, y, opts, prio: opts.prio || 1, owner: opts.owner, order: labelQ.length }); return; }
+    drawHalo(ctx, text, x, y, opts);
+  };
+  const drawHalo = (ctx, text, x, y, opts = {}) => {
     ctx.save();
     ctx.font = opts.font || `600 12px ${FONT}`;
     ctx.textAlign = opts.align || 'left'; ctx.textBaseline = opts.base || 'middle';
@@ -235,6 +264,11 @@
       });
     }
 
+    if (sh.mfd && S.mfd && S.mfd.enemyAfter && S.mfd.purpose === 'barrier') {
+      cased(ctx, S.mfd.enemyAfter.line, P, 'rgba(255,65,54,0.9)', 2, [3, 5]);
+      const ln = S.mfd.enemyAfter.line;
+      if (sh.labels && ln.length > 2) { const [x, y] = P.xy(...ln[Math.floor(ln.length / 2)]); UI.haloText(ctx, `enemy best route with Mfd: ${UI.F.time(S.mfd.enemyAfter.timeH)}`, x + 8, y, { font: lblFont(11), color: '#ff8a80', prio: 2 }); }
+    }
     if (sh.mfd && S.mfd) {
       S.mfd.fields.forEach((f, k) => {
         const sel = S.sel && S.sel.kind === 'mfd' && S.sel.idx === k;
@@ -362,15 +396,15 @@
 
     // ---------------------------------------------------------- sector planning
     const X = S.sec || {};
-    const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)') => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg }); };
+    const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)', prio = 1) => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg, prio }); };
     if (sh.nullahs !== false && X.terr) X.terr.nullahs.forEach((q) => {
-      ctx.save(); ctx.strokeStyle = q.type === 'valley' ? '#1f6fd1' : '#5fa8ff'; ctx.lineWidth = (q.type === 'valley' ? 2.6 : 1.4) * lw; ctx.lineJoin = 'round';
+      ctx.save(); ctx.globalAlpha = q.type === 'valley' ? 0.85 : 0.6; ctx.strokeStyle = q.type === 'valley' ? '#1f6fd1' : '#5fa8ff'; ctx.lineWidth = (q.type === 'valley' ? 2.2 : 1.1) * lw; ctx.lineJoin = 'round';
       path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
     });
     if (sh.ridges !== false && X.terr) X.terr.ridges.forEach((q, k) => {
       ctx.save(); ctx.strokeStyle = '#5b3a1a'; ctx.lineWidth = (k < 5 ? 3.2 : k < 15 ? 2.2 : 1.3) * lw; ctx.lineJoin = 'round';
       path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
-      if (k < 8 && sh.labels) labelAt(q.line[Math.floor(q.line.length / 2)], q.id, '#5b3a1a');
+      if (k < 5 && sh.labels) labelAt(q.line[Math.floor(q.line.length / 2)], q.id, '#5b3a1a', undefined, 0.8);
     });
     if (sh.secArea !== false && S.sector) {
       ctx.save(); path(ctx, S.sector, P, true); ctx.lineWidth = 3.5 * lw; ctx.strokeStyle = '#fff'; ctx.stroke();
@@ -386,7 +420,7 @@
       ctx.save(); path(ctx, q.outline, P, true);
       ctx.fillStyle = q.rating === 'Good' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.14)'; ctx.fill();
       ctx.lineWidth = (sel ? 3.5 : 2.2) * lw; ctx.strokeStyle = sel ? selC : '#000'; ctx.setLineDash(q.rating === 'Good' ? [] : [6 * lw, 4 * lw]); ctx.stroke(); ctx.restore();
-      if (sh.labels) { const [x, y] = P.xy(q.c, q.r); UI.haloText(ctx, `${q.id} · ${q.rating}`, x, y + 16 * lw, { align: 'center', font: lblFont(11), color: '#000', halo: 'rgba(255,255,255,0.9)' }); }
+      if (sh.labels) { const [x, y] = P.xy(q.c, q.r); UI.haloText(ctx, q.rating === 'Good' ? q.id : `${q.id} (${q.rating.toLowerCase()})`, x, y + 16 * lw, { align: 'center', font: lblFont(11), color: '#000', halo: 'rgba(255,255,255,0.9)', prio: 4 }); }
     });
     const arrowLine = (line, color, width, dash) => {
       if (!line || line.length < 2) return;
@@ -398,7 +432,7 @@
     if (sh.infil !== false && X.infil) X.infil.routes.forEach((a) => { arrowLine(a.line, '#8b0000', 2, [2, 4]); if (sh.labels) labelAt(a.line[Math.floor(a.line.length * 0.5)], `${a.id} (${a.threat})`, '#8b0000'); });
     if (sh.eopts !== false && X.opts) X.opts.options.forEach((o) => {
       o.lines.forEach((ln, j) => arrowLine(ln, '#c00000', j ? 3 : 5, j ? [12, 6] : null));
-      if (sh.labels) { const [x, y] = P.xy(o.objectiveRef.c, o.objectiveRef.r); UI.haloText(ctx, `${o.id}${o.label ? ` — ${o.label}` : ''}`, x, y - 22 * lw, { align: 'center', font: lblFont(12, 700), color: '#c00000', halo: 'rgba(255,255,255,0.9)' }); }
+      if (sh.labels) { const [x, y] = P.xy(o.objectiveRef.c, o.objectiveRef.r); UI.haloText(ctx, `${o.id}${o.label ? ` — ${o.label}` : ''}`, x, y - 22 * lw, { align: 'center', font: lblFont(12, 700), color: '#c00000', halo: 'rgba(255,255,255,0.9)', prio: 6 }); }
     });
     if (sh.bwatch !== false && X.watch) X.watch.gaps.forEach((q) => {
       ctx.save(); ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 6 * lw; ctx.globalAlpha = 0.8;
@@ -434,12 +468,12 @@
         ctx.beginPath(); ctx.moveTo(x, y - 6 * lw); ctx.lineTo(x + 5 * lw, y + 3.5 * lw); ctx.lineTo(x - 5 * lw, y + 3.5 * lw); ctx.closePath();
         ctx.stroke(); ctx.fill();
         ctx.restore();
-        if (sh.labels) UI.haloText(ctx, String(F.elevNum(pk.z)), x + 7 * lw, y, { font: lblFont(11) });
+        if (sh.labels) UI.haloText(ctx, String(F.elevNum(pk.z)), x + 7 * lw, y, { font: lblFont(11), prio: 0.5 });
       }
       for (const ps of S.key.passes) {
         const [x, y] = P.xy(ps.c, ps.r);
-        UI.haloText(ctx, ')(', x, y, { align: 'center', font: `700 ${Math.round(15 * lw)}px Georgia, serif`, color: '#ffe9a8' });
-        if (sh.labels) UI.haloText(ctx, `Col ${F.elevNum(ps.z)}`, x + 10 * lw, y + 1, { font: lblFont(11, 400), color: '#ffe9a8' });
+        UI.haloText(ctx, ')(', x, y, { align: 'center', font: `700 ${Math.round(15 * lw)}px Georgia, serif`, color: '#ffe9a8', now: true });
+        if (sh.labels) UI.haloText(ctx, `Col ${F.elevNum(ps.z)}`, x + 10 * lw, y + 1, { font: lblFont(11, 400), color: '#ffe9a8', prio: 0.5 });
       }
     }
   };
@@ -502,7 +536,7 @@
         const g = S.grid;
         const dc = pts[1][0] - pts[0][0], dr = pts[1][1] - pts[0][1];
         const [x, y] = xy(pts[1]);
-        UI.haloText(ctx, `${UI.F.dist(Math.hypot(dc, dr) * g.cs)} · ${UI.F.bearing(M.bearing(dc, -dr), pts[0][1], pts[0][0])}`, x + 10, y - 10, { font: `600 12px ${MONO}` });
+        UI.haloText(ctx, `${UI.F.dist(Math.hypot(dc, dr) * g.cs)} · ${UI.F.bearing(M.bearing(dc, -dr), pts[0][1], pts[0][0])}`, x + 10, y - 10, { font: `600 12px ${MONO}`, now: true });
       }
     }
     ctx.restore();
@@ -558,7 +592,13 @@
    * opts: {size, labels, lift (px leader line for 3D)}
    */
   UI.drawSymbols = (ctx, items, project, opts = {}) => {
-    const size = opts.size || 30;
+    let size = opts.size || 30;
+    // many symbols on screen: shrink them (down to 60 %) so the map stays readable
+    if (opts.view) {
+      let n = 0;
+      for (const it of items) { const p = project(it.c, it.r); if (p && p.x >= 0 && p.y >= 0 && p.x <= opts.view.w && p.y <= opts.view.h) n++; }
+      size *= Math.max(0.6, Math.min(1, Math.sqrt((opts.view.w * opts.view.h) / Math.max(1, n * (size * 4.5) ** 2))));
+    }
     const lpx = +cfg('sym.labelSize');
     const selC = accent();
     for (const it of items) {
@@ -581,9 +621,12 @@
         ctx.strokeRect(x - s.ax - 4, y - s.ay - 4, s.w + 8, s.h + 8);
       }
       ctx.drawImage(s.img, x - s.ax, y - s.ay, s.w, s.h);
+      const owner = it;
+      if (symBoxes) symBoxes.push({ x0: x - s.ax, x1: x - s.ax + s.w, y0: y - s.ay, y1: y - s.ay + s.h, owner });
       if (opts.labels && it.label) {
-        UI.haloText(ctx, it.label, x + s.w - s.ax + 3, y - (it.sub ? lpx * 0.55 : 0), { font: `700 ${lpx}px ${FONT}` });
-        if (it.sub) UI.haloText(ctx, it.sub, x + s.w - s.ax + 3, y + lpx * 0.6, { font: `${lpx - 1}px ${FONT}`, color: '#d6e2d6' });
+        const prio = it.sel ? 9 : it.small ? 2 : 3;
+        UI.haloText(ctx, it.label, x + s.w - s.ax + 3, y - (it.sub ? lpx * 0.55 : 0), { font: `700 ${lpx}px ${FONT}`, prio, owner });
+        if (it.sub && !it.small) UI.haloText(ctx, it.sub, x + s.w - s.ax + 3, y + lpx * 0.6, { font: `${lpx - 1}px ${FONT}`, color: '#d6e2d6', prio: prio - 1.5, owner });
       }
       ctx.restore();
     }

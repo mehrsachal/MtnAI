@@ -533,7 +533,7 @@
       const col = !!S.tocCollapsed[g.id];
       return `<div class="toc-grp${col ? ' col' : ''}"><div class="toc-gh" data-grp="${g.id}"><span class="tw">${col ? '▸' : '▾'}</span>${esc(g.name)}</div>
         ${layers.map((l) => {
-          const lc = !!S.tocCollapsed[l.id];
+          const lc = l.id in S.tocCollapsed ? !!S.tocCollapsed[l.id] : !l.isBase;
           return `<div class="toc-l${S.tocSel === l.id ? ' sel' : ''}${l.visible() ? '' : ' off'}" data-layer="${esc(l.id)}">
             <div class="toc-lh"><span class="tw" data-tw="${esc(l.id)}">${l.legend ? (lc ? '▸' : '▾') : ''}</span><input type="checkbox" data-vis="${esc(l.id)}" ${l.visible() ? 'checked' : ''} ${l.isBase || l.id === 'los' ? 'disabled' : ''}>
             <span class="toc-n" title="${esc(l.name)}">${esc(l.name)}</span>${l.count !== undefined ? `<i class="toc-c">${l.count}</i>` : ''}</div>
@@ -541,7 +541,7 @@
         }).join('')}</div>`;
     }).join('');
     el.querySelectorAll('[data-grp]').forEach((h) => h.addEventListener('click', () => { S.tocCollapsed[h.dataset.grp] = !S.tocCollapsed[h.dataset.grp]; renderTOC(); }));
-    el.querySelectorAll('[data-tw]').forEach((h) => h.addEventListener('click', (e) => { e.stopPropagation(); S.tocCollapsed[h.dataset.tw] = !S.tocCollapsed[h.dataset.tw]; renderTOC(); }));
+    el.querySelectorAll('[data-tw]').forEach((h) => h.addEventListener('click', (e) => { e.stopPropagation(); const l = findLayer(h.dataset.tw); const cur = h.dataset.tw in S.tocCollapsed ? !!S.tocCollapsed[h.dataset.tw] : !(l && l.isBase); S.tocCollapsed[h.dataset.tw] = !cur; renderTOC(); }));
     el.querySelectorAll('[data-vis]').forEach((cb) => cb.addEventListener('change', (e) => { e.stopPropagation(); const l = findLayer(cb.dataset.vis); if (l) l.setVisible(cb.checked); renderTOC(); }));
     el.querySelectorAll('[data-layer]').forEach((n) => {
       n.addEventListener('click', (e) => { if (e.target.matches('input')) return; S.tocSel = n.dataset.layer; renderTOC(); });
@@ -995,13 +995,18 @@
     let cover = null;
     const parts = [S.overlays.cover.data, S.overlays.wcover.data].filter(Boolean);
     if (parts.length) { cover = new Uint8Array(parts[0].length); for (const p of parts) for (let i = 0; i < p.length; i++) if (p[i]) cover[i] = 1; }
-    const opts = Object.assign({}, v, { profile: v.profile === 'auto' ? undefined : v.profile, cover });
-    const res = await run(`Minefields — ${v.type}`, 'minefields', opts, (r) => r.fields.map((f) => `${f.id} gap ${F.dist(f.gapM)} · ≈${f.estMines} mines`).join('\n'));
+    const protect = (S.posts ? S.posts.posts : []).concat(...S.weapons.map((w) => w.sites)).map((q) => ({ r: q.r, c: q.c }));
+    const opts = Object.assign({}, v, { profile: v.profile === 'auto' ? undefined : v.profile, cover, protect });
+    const res = await run(`Minefields — ${v.type}`, 'minefields', opts, (r) => `${r.fields.length} fields · enemy +${Math.round(r.totalDelayMin)} min`);
     S.mfd = res;
     if (!S.avenues) S.avenues = { routes: res.avenues };
+    S.show.mfd = true;
     renderAll(); refresh();
-    return `${res.fields.length} ${v.type} minefields${cover ? '' : ' (no posts / weapons sited yet — observation not assessed)'}\n` +
-      refLines(res.fields, (f) => `gap ${F.dist(f.gapM)} · ${F.dist(f.frontM)} × ${F.dist(f.depthM)} · ≈${f.estMines} mines${f.covered ? '' : ' · NOT observed'}`);
+    const head = res.purpose === 'barrier'
+      ? `${res.fields.length} AT fields (barrier). Enemy's best time to own position: ${F.time(res.enemyBefore.timeH)} → ${F.time(res.enemyAfter.timeH)} (+${Math.round(res.totalDelayMin)} min). ${res.tested} defiles tested.`
+      : `${res.fields.length} AP fields (protective, in front of own troops). ${res.tested} sites tested.`;
+    return `${head}${res.outOfBand ? `\nWARNING: no suitable defile within ${F.dist(res.params.minDistOwnM)}–${F.dist(res.params.maxDistOwnM)} of own troops — fields placed farther out; widen the band or the maximum gap.` : ''}${cover ? '' : '\nNo posts / weapons sited yet — fire cover judged from own position only.'}\n` +
+      res.fields.map((f) => `${f.id}  ${F.listRef(f.r, f.c)}  ${f.rating} · ${f.reasons[0]}${f.covered ? '' : ' · NOT observed'}`).join('\n');
   };
   H.route = async (v) => {
     needMarkers('a', 'b');
@@ -1151,8 +1156,12 @@
     st(await H.fireCoverage(GP.values('fireCoverage')));
     st(await H.borderWatch(GP.values('borderWatch')));
     st(await H.enemyOptions(GP.values('enemyOptions')));
+    // keep the map readable: plan, ITGs, approaches and border gaps on; the rest one tick away in Contents
+    Object.assign(S.show, { ridges: false, nullahs: false, infil: false, eopts: false, firegaps: false, itgs: true, plan: true, eappr: true, bwatch: true });
+    S.overlays.dominance.visible = false; S.overlays.firecov.visible = false;
+    refresh({ base: true });
     const items = secItems().filter((x) => x.rating);
-    return `Sector assessment complete — ${rateCount(items)} across ${items.length} items.\n` + steps.map((x, k) => `${k + 1}. ${x}`).join('\n') + '\nSee Contents ▸ Sector plan, the attribute table (Rating column) and Share ▸ Report.';
+    return `Sector assessment complete — ${rateCount(items)} across ${items.length} items.\n` + steps.map((x, k) => `${k + 1}. ${x}`).join('\n') + '\nOther layers (infiltration routes, enemy options, ridgelines, nullahs, fire gaps) are one tick away in Contents ▸ Sector plan. Ratings: attribute table; full write-up: Share ▸ Report.';
   };
 
   /** Every rated sector item, for the Contents pane, attribute table, Attributes pane and report. */
@@ -1292,7 +1301,9 @@
       }
       case 'mfd':
         icon = UI.symbolHTML(UI.SYM.mine(p.type), 22); title = p.id; sub = `${p.type === 'AT' ? 'Anti-tank' : 'Anti-personnel'} minefield (planned)`;
-        rows.push(['Obstacle', null], ['Gap at defile', F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
+        rows.push(['Assessment', null], ['Rating', p.rating || '—'], ...(p.reasons || []).map((x, k) => [k ? '' : 'Why', x]),
+          ['Delay imposed', p.delayMin === undefined ? '—' : `${Math.round(p.delayMin)} min (${p.forcesBreach ? 'must breach' : 'detour'})`]);
+        rows.push(['Obstacle', null], ['Gap at defile', p.gapM == null ? 'none — not tied in' : F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
           ['Est. mines', `≈ ${p.estMines}`], ['Site slope', p.siteSlopeDeg === undefined ? '—' : `${p.siteSlopeDeg.toFixed(0)}°`], ['Ground note (GSP)', p.note || 'suitable'], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
         break;
       case 'picquet':
@@ -1358,7 +1369,7 @@
     S.weapons.forEach((res, wi) => res.sites.forEach((s, k) => add('weapons:' + wi, UI.SYM.weapon(res.weapon), `Weapon — ${res.weapon.short}`, s.id, s,
       s.cat === 'indirect' ? `${F.dist(s.rangeToTargetM)} to target · QE ${s.qeDeg === null ? '—' : F.angle(s.qeDeg)} · crest ${pct(s.clearShare)}`
         : `arc ${F.bearing(s.sector.left, s.r, s.c, true)}–${F.bearing(s.sector.right, s.r, s.c)} · ${pct(s.valueShare, 1)}`, { kind: 'weapon', idx: wi, sub: k }, s.z)));
-    if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `gap ${F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
+    if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `${f.gapM == null ? 'not tied in' : 'gap ' + F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
     if (S.avenues) S.avenues.routes.forEach((rt, k) => add('avenues', null, 'Enemy avenue', `AA${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)}`, { kind: 'avenue', idx: k }));
     if (S.routes) {
       S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · GSP ${rt.gspDay ? gspRange(S.routes.night ? rt.gspNight : rt.gspDay) : '—'} · ↑${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
@@ -1405,7 +1416,7 @@
     $('attrCount').textContent = `(${rows.length})`;
     tbl.innerHTML = `<thead><tr>${cols.map((c) => `<th data-col="${c.k}" class="${sc.col === c.k ? 'sort' + (sc.desc ? ' desc' : '') : ''}">${esc(typeof c.t === 'function' ? c.t() : c.t)}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="${S.sel && r.ref && JSON.stringify(S.sel) === JSON.stringify(r.ref) ? 'sel' : ''}">${cols.map((c) => c.k === 'sym'
-        ? `<td>${r.sym ? UI.symbolHTML(r.sym, 12) : ''}</td>` : `<td class="${['ref', 'sec', 'z'].includes(c.k) ? 'm' : c.k === 'detail' ? 'wrap' : ''}">${esc(attrValue(r, c.k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+        ? `<td>${r.sym ? UI.symbolHTML(r.sym, 12) : ''}</td>` : `<td class="${['ref', 'sec', 'z'].includes(c.k) ? 'm' : c.k === 'detail' ? 'det' : c.k === 'rating' ? `rt rt-${String(r.rating || '').replace(' ', '')}` : ''}"${c.k === 'detail' ? ` title="${esc(attrValue(r, c.k))}"` : ''}>${esc(attrValue(r, c.k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
     tbl.querySelectorAll('th[data-col]').forEach((th) => th.addEventListener('click', () => {
       if (th.dataset.col === 'sym') return;
       S.sort = { col: th.dataset.col, desc: S.sort.col === th.dataset.col ? !S.sort.desc : false };

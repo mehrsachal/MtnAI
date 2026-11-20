@@ -183,7 +183,15 @@
 
       minefields(opts, progress) {
         need();
-        return M.siteMinefields(tctx(), opts, progress);
+        // sector results feed the obstacle plan: approaches / infiltration paths and posts to protect
+        const o = Object.assign({}, opts);
+        const sec = S.sec || {};
+        const ap = (opts && opts.type) === 'AP';
+        o.extraPaths = (o.extraPaths || []).concat(
+          sec.appr && (ap ? sec.appr.params.profile === 'foot' : sec.appr.params.profile !== 'foot') ? sec.appr.approaches.map((a) => a.path) : [],
+          ap && sec.infil ? sec.infil.routes.map((r) => r.path) : []);
+        if (sec.plan) o.protect = (o.protect || []).concat(sec.plan.platoons, sec.plan.borderPosts).map((q) => ({ r: q.r, c: q.c }));
+        return M.siteMinefields(tctx(), o, progress);
       },
 
       route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM, nullahW, legEveryM, night }, progress) {

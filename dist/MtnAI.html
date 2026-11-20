@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- MtnAI 1.0.0 — single-file offline build generated 2026-11-13 -->
+<!-- MtnAI 1.0.0 — single-file offline build generated 2026-11-20 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MtnAI — Mountain Terrain Analysis</title>
@@ -469,6 +469,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   #status > span:nth-child(n+4):not(.st-right) { display: none; }
 }
 @media print { body { display: none; } }
+
+/* ---------------------------------------------------------------- breathing room */
+.toc-l { padding: 2px 6px 3px 0; margin-top: 1px; }
+.toc-lh { min-height: 24px; }
+.toc-gh { padding: 6px 6px 4px; margin-top: 4px; text-transform: uppercase; letter-spacing: .4px; font-size: 10.5px; color: var(--muted); }
+.toc-c { margin-left: 4px; }
+.gp-p { margin: 9px 0; }
+.gp-form { padding: 6px 14px 18px; }
+.gp-msg div { line-height: 1.5; }
+.pgrid td { padding: 4px 8px; }
+.grid-table td { padding: 4px 8px; }
+.grid-table td.det { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.grid-table td.rt { font-weight: 600; }
+.grid-table td.rt-Notgood { color: var(--danger); }
+.grid-table td.rt-Marginal { color: var(--warn); }
+.grid-table td.rt-Good { color: var(--ok); }
+.rb-group { padding: 0 6px; }
+.rb-l { min-width: 54px; }
+#toolHint { max-width: 70%; white-space: normal; text-align: center; }
 
 </style>
 </head>
@@ -2372,6 +2391,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   const G = 9.80665;
   const idxOf = (g, p) => Math.round(p.r) * g.w + Math.round(p.c);
   const dCells = (a, b) => Math.hypot(a.r - b.r, a.c - b.c);
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
   const stride = (g) => Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 260000)));
   /** Landform classes 0..5: valley, lower, flat, mid, upper, ridge. */
   const LF = (arr) => arr.slice(0, 6);
@@ -2399,9 +2419,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     indirect: { count: 3, minSepM: 400, candidates: 160, targetSpreadM: 400, marginM: 15, requireDefilade: false, requireAccess: true, maxAccessH: 0,
       idealRangeFrac: 0.55, minRangeFrac: 0.15, maxRangeFrac: 0.92, forwardLimit: 0.25,
       wClear: 0.35, wDefilade: 0.3, wRange: 0.15, wFlat: 0.1, wAccess: 0.1, lfWeights: [0.7, 0.9, 1.0, 0.6, 0.35, 0.15] },
-    mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 300, maxDistOwnM: 3000, minSepM: 400,
-      avenues: 3, orientations: 8, onePerAvenue: true, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.45, rearFactor: 0.2, outOfRangeFactor: 0.15,
-      maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
+    mfd: { type: 'AT', count: 4, maxGapM: null, depthM: null, densityPerM: null, tieM: 30, minDistOwnM: 0, maxDistOwnM: 0, minSepM: 400,
+      avenues: 3, orientations: 8, requireCovered: false, narrowWeight: 0.7, uncoveredFactor: 0.3, rearFactor: 0.2, outOfRangeFactor: 0.3, candidates: 20, breachH: null, minDelayMin: 5,
+      apFrontM: 150, maxSiteSlope: 30, steepFactor: 0.35, snowLine: 0, snowFactor: 0.4, valleyBonus: 0.25 },
     helipads: { use: 'regular', count: 3, padRadiusM: 30, minSepM: 500, maxDistOwnM: 5000, requireConcealed: true, requireAccess: true,
       accessProfile: 'foot', maxAccessH: 0, avoidCrest: true, candidates: 400, wFlat: 0.4, wHidden: 0.35, wNear: 0.25 },
     picquets: { rangeM: 1500, count: 0, kmPerPicquet: 2.5, maxCount: 12, minSepM: 500, maxOffsetM: 2000, minLandform: 4, maxSlope: 38, maxClimbH: 4,
@@ -2859,34 +2879,63 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
   };
 
   // =====================================================================
-  // Minefields (Mfd) at defiles on enemy avenues of approach
+  // Minefields (Mfd): an obstacle plan judged by the delay it imposes
   // =====================================================================
+  /*
+   * A minefield is only worth its mines if the enemy cannot simply walk or drive round it
+   * (GSP Sec 12: gaps covered by mines, fire and obstacles; obstacles must be covered by fire).
+   * 1. Threat routes: the enemy's least-time avenues (plus sector approaches / infiltration paths
+   *    passed in), for the movement class the mines stop (AT: vehicles, AP: men on foot).
+   * 2. Candidates: defiles on those routes — places where NO-GO ground closes in from both sides
+   *    within the maximum gap — inside a distance band in front of own position.
+   * 3. Each candidate is drawn as a field (front across the gap, tied into NO-GO ground, depth
+   *    along the route) and TESTED: the enemy's best route from his position to ours is searched
+   *    again with the field in place. He may detour round it, or breach it (breach time per field).
+   *    The extra time he needs is the field's value.
+   * 4. Fields are chosen one at a time (each test already includes the fields chosen before), so
+   *    a second field that a detour round the first would use is valued correctly, and a field that
+   *    only pushes the enemy onto an open avenue is worth nothing.
+   * 5. Value is weighted for observation / fire cover and ground (slope, snow, valley floor).
+   */
   M.siteMinefields = (T, o = {}, progress) => {
-    const { g } = T;
+    const { g, L } = T;
     const type = o.type || 'AT';
     const p = opt('mfd', Object.assign({ tieM: M.CFG.mfdTieM }, o));
     p.maxGapM = p.maxGapM || (type === 'AT' ? 600 : 300);
     p.depthM = p.depthM || (type === 'AT' ? 100 : 40);
     p.densityPerM = p.densityPerM || (type === 'AT' ? 1 : 3);
+    p.breachH = p.breachH || (type === 'AT' ? 1.5 : 0.75);
+    // AT = barrier (far enough forward to stop vehicles, judged by delay); AP = protective (close in
+    // front of posts and across infiltration nullahs, judged by fire cover — men can walk round defiles)
+    const protective = type === 'AP';
+    p.minDistOwnM = p.minDistOwnM || (protective ? 80 : 300);
+    p.maxDistOwnM = p.maxDistOwnM || (protective ? 800 : 3000);
+    if (protective && o.minDelayMin == null) p.minDelayMin = 0;
+    const anchors = [T.own].concat(o.protect || []); // own position and posts to protect
     const profId = o.profile || (type === 'AP' ? 'foot' : T.threatProfile === 'foot' ? 'tracked' : T.threatProfile);
     const mob = T.mob(profId);
     const cls = mob.cls;
-    const maxGap = p.maxGapM / g.cs;
-    const depth = p.depthM / g.cs;
-    const tie = Math.max(0, p.tieM / g.cs);
+    const maxGap = p.maxGapM / g.cs, depth = p.depthM / g.cs, tie = Math.max(0, p.tieM / g.cs);
     const minSep = Math.max(3, p.minSepM / g.cs);
     if (!T.threat || !T.own) throw new Error('Place own and enemy positions first — minefields are sited on enemy avenues of approach.');
-    progress && progress(0.1, 'Avenues of approach');
+    progress && progress(0.05, 'Avenues of approach');
     const aven = T.avenues(profId, { k: p.avenues });
     if (!aven || !aven.routes.length) {
       throw new Error(`No ${mob.prof.name} avenue links the enemy to own position — the threat cannot move by this means; consider ${type === 'AT' ? 'AP' : 'AT'} minefields.`);
     }
+    // the enemy's reference trip: his position -> ours
+    const start = M.nearestPassable(g, cls, T.threat), goal = M.nearestPassable(g, cls, T.own);
+    const ctx0 = { cls, slope: L.slope, prof: mob.prof, trackMask: mob.trackMask };
+    const pen = new Float32Array(g.w * g.h).fill(1);
+    const trip = () => M.astar(g, Object.assign({}, ctx0, { penalty: pen }), start, goal);
+    const base = start >= 0 && goal >= 0 ? trip() : null;
+    if (!base) throw new Error(`The enemy (${mob.prof.name}) cannot reach own position at all — no minefield is needed for this movement class.`);
+    const baseS = base.cost;
+
+    // 1-2. defiles on the threat routes
     const nDir = Math.max(4, Math.min(32, p.orientations | 0));
     const dirs = [];
-    for (let k = 0; k < nDir; k++) {
-      const deg = (k * 180) / nDir, th = M.rad(deg);
-      dirs.push({ deg, dc: Math.sin(th), dr: -Math.cos(th) });
-    }
+    for (let k = 0; k < nDir; k++) { const deg = (k * 180) / nDir, th = M.rad(deg); dirs.push({ deg, dc: Math.sin(th), dr: -Math.cos(th) }); }
     const march = (r, c, dr, dc) => {
       for (let s = 1; s * 0.5 <= maxGap; s++) {
         const rr = Math.round(r + dr * s * 0.5), cc = Math.round(c + dc * s * 0.5);
@@ -2902,74 +2951,140 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         if (a < 0) continue;
         const b = march(r, c, -d.dr, -d.dc);
         if (b < 0) continue;
-        const wdt = a + b;
-        if (wdt <= maxGap && (!best || wdt < best.width)) best = { width: wdt, a, b, dir: d };
+        if (a + b <= maxGap && (!best || a + b < best.width)) best = { width: a + b, a, b, dir: d };
       }
       return best;
     };
-    const candCells = [];
-    const pathOf = new Map();
-    aven.routes.forEach((rt, k) => {
-      for (let q = 0; q < rt.path.length; q++) {
-        const c = rt.path[q];
-        if (!pathOf.has(c)) pathOf.set(c, new Set());
-        pathOf.get(c).add(k);
-        candCells.push(c);
-      }
-    });
-    const ownVS = M.viewshed(g, T.own.r, T.own.c, { obsH: 3, tgtH: 1, radiusM: p.maxDistOwnM }).mask;
+    const routes = aven.routes.map((rt) => rt.path).concat(o.extraPaths || []);
+    const onRoute = new Map(), dirAt = new Map();
+    routes.forEach((path, k) => path.forEach((c, i) => {
+      if (!onRoute.has(c)) onRoute.set(c, new Set());
+      onRoute.get(c).add(k);
+      if (!dirAt.has(c)) { const a = path[Math.max(0, i - 3)], b = path[Math.min(path.length - 1, i + 3)]; dirAt.set(c, [(b % g.w) - (a % g.w), ((b / g.w) | 0) - ((a / g.w) | 0)]); }
+    }));
+    const frontAP = (p.apFrontM || 150) / g.cs;
+    /** Protective field with no defile: a set frontage laid straight across the approach (not tied in). */
+    const across = (cell) => {
+      const [vc, vr] = dirAt.get(cell), L2 = Math.hypot(vc, vr) || 1;
+      const dc = -vr / L2, dr = vc / L2;
+      const deg = ((M.deg(Math.atan2(dc, -dr)) % 180) + 180) % 180;
+      return { width: frontAP, a: frontAP / 2, b: frontAP / 2, dir: { deg, dc, dr }, untied: true };
+    };
+    const ownVS = o.cover ? null : M.viewshed(g, T.own.r, T.own.c, { obsH: 3, tgtH: 1, radiusM: p.maxDistOwnM }).mask;
     const corridor = M.threatCorridor(g, T.threat, T.own, o.value);
     const items = [];
-    const seen = new Set();
-    candCells.forEach((cell, j) => {
-      if (seen.has(cell)) return;
-      seen.add(cell);
+    let j = 0;
+    for (const [cell, set] of onRoute) {
+      if (progress && ++j % 2000 === 0) progress(0.1 + (0.2 * j) / onRoute.size, 'Finding defiles');
       const r = (cell / g.w) | 0, c = cell % g.w;
-      const df = defile(r, c);
-      if (!df) return;
+      let dm = Infinity;
+      for (const q of anchors) dm = Math.min(dm, Math.hypot(r - q.r, c - q.c) * g.cs);
+      const band = dm < p.minDistOwnM || dm > p.maxDistOwnM ? (protective ? 0 : p.outOfRangeFactor) : 1; // protective fields stay close in
+      if (!band) continue;
+      const df = defile(r, c) || (protective ? across(cell) : null);
+      if (!df) continue;
       const covered = o.cover ? !!o.cover[cell] : !!ownVS[cell];
-      if (p.requireCovered && !covered) return;
-      const narrow = 1 - p.narrowWeight + p.narrowWeight * (1 - df.width / maxGap);
-      const nAv = pathOf.get(cell).size;
-      const avW = 0.5 + 0.5 * (nAv / aven.routes.length);
-      const dm = Math.hypot(r - T.own.r, c - T.own.c) * g.cs;
-      const distW = dm < p.minDistOwnM ? p.outOfRangeFactor : dm > p.maxDistOwnM ? Math.max(p.outOfRangeFactor, 1 - (dm - p.maxDistOwnM) / p.maxDistOwnM) : 1;
-      const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
-      // GSP Sec 12 para 4k / 6, Sec 13 para 4e: mines are thickest in valleys / foothills; on steep
-      // or rocky slopes they wash away (use wire there) and heavy snow reduces their effect.
-      const sl = T.L.slope[cell], lf = T.L.landform[cell];
+      if (p.requireCovered && !covered) continue;
+      const sl = L.slope[cell], lf = L.landform[cell];
       const steep = sl > p.maxSiteSlope, snowy = p.snowLine > 0 && g.z[cell] > p.snowLine;
-      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1);
-      items.push({ r, c, score: narrow * avW * distW * fwd * ground * (covered ? 1 : p.uncoveredFactor), df, routes: [...pathOf.get(cell)], covered, steep, snowy, sl });
-      if (progress && j % 2000 === 0) progress(0.2 + (0.7 * j) / candCells.length, 'Defile analysis');
-    });
-    if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches — increase the maximum gap width.');
-    const picked = [];
-    if (p.onePerAvenue) {
-      aven.routes.forEach((_, k) => {
-        const best = items.filter((it) => it.routes.includes(k)).sort((a, b) => b.score - a.score).find((it) => !picked.some((q) => dCells(q, it) < minSep));
-        if (best) picked.push(best);
-      });
+      const ground = (steep ? p.steepFactor : 1) * (snowy ? p.snowFactor : 1) * (lf <= 2 ? 1 + p.valleyBonus : 1) * band;
+      const narrow = df.untied ? 1 - p.narrowWeight : 1 - p.narrowWeight + p.narrowWeight * (1 - df.width / maxGap);
+      const fwd = corridor.along[cell] < 1 ? 1 : p.rearFactor;
+      const pre = narrow * (0.5 + 0.5 * set.size / routes.length) * fwd * ground * (covered ? 1 : p.uncoveredFactor);
+      items.push({ r, c, score: pre, df, routes: [...set], covered, steep, snowy, sl, ground, fwd, inBand: band === 1 });
     }
-    for (const it of M.nms(items, minSep, p.count)) {
-      if (picked.length >= p.count) break;
-      if (!picked.some((q) => dCells(q, it) < minSep)) picked.push(it);
-    }
-    const fields = picked.slice(0, p.count).map((it, k) => {
+    if (!items.length) throw new Error('No defile narrower than the maximum gap was found on the approaches inside the distance band — widen the gap or the band.');
+    // sites inside the distance band (under own fire, not out by the enemy) first; outside it only as a fallback
+    const inBand = items.filter((it) => it.inBand);
+    const cands = M.nms(inBand.length ? inBand : items, minSep, p.candidates);
+
+    // 3. draw each candidate as a field and rasterise it
+    const tAcross = g.cs / Math.max(0.3, mob.prof.speed / 3.6); // s to cross one cell at cross-country speed
+    cands.forEach((it) => {
       const { dir, a, b } = it.df;
-      const e1 = [it.c + dir.dc * (a + tie), it.r + dir.dr * (a + tie)];
-      const e2 = [it.c - dir.dc * (b + tie), it.r - dir.dr * (b + tie)];
+      const t = it.df.untied ? 0 : tie;
+      const e1 = [it.c + dir.dc * (a + t), it.r + dir.dr * (a + t)], e2 = [it.c - dir.dc * (b + t), it.r - dir.dr * (b + t)];
       const pc = (-dir.dr * depth) / 2, pr = (dir.dc * depth) / 2;
-      const poly = [[e2[0] - pc, e2[1] - pr], [e1[0] - pc, e1[1] - pr], [e1[0] + pc, e1[1] + pr], [e2[0] + pc, e2[1] + pr]];
-      const front = (a + b + 2 * tie) * g.cs;
+      it.poly = [[e2[0] - pc, e2[1] - pr], [e1[0] - pc, e1[1] - pr], [e1[0] + pc, e1[1] + pr], [e2[0] + pc, e2[1] + pr]];
+      // the test footprint is at least 3 cells deep so the route search cannot step over it diagonally
+      const dT = Math.max(depth, 3) / 2, tc = (-dir.dr * dT), tr = (dir.dc * dT);
+      const m = M.rasterPolys(g, [[[e2[0] - tc, e2[1] - tr], [e1[0] - tc, e1[1] - tr], [e1[0] + tc, e1[1] + tr], [e2[0] + tc, e2[1] + tr]]], null, 1);
+      it.cells = [];
+      for (let i = 0; i < m.length; i++) if (m[i] && cls[i] !== 2) it.cells.push(i);
+      // a breach costs breachH whichever way it is crossed: spread it over the field's depth
+      it.mult = 1 + (p.breachH * 3600) / (Math.max(depth, 3) * tAcross);
+    });
+    // 4. greedy obstacle plan, lazily re-tested
+    const test = (it) => {
+      const old = it.cells.map((i) => pen[i]);
+      for (const i of it.cells) pen[i] = Math.max(pen[i], it.mult);
+      const res = trip();
+      it.cells.forEach((i, k) => (pen[i] = old[k]));
+      return res;
+    };
+    let curS = baseS, curPath = base.path, totalS = 0;
+    const chosen = [];
+    const value = (it, delayS) => (protective ? it.score * (0.6 + 0.4 * clamp01(delayS / (p.breachH * 3600))) : clamp01(delayS / (p.breachH * 3600)) * (it.covered ? 1 : p.uncoveredFactor) * it.ground * it.fwd);
+    cands.forEach((it, k) => {
+      progress && progress(0.35 + (0.35 * k) / cands.length, `Testing field ${k + 1}/${cands.length}`);
+      const res = test(it);
+      it.delayS = (res ? res.cost : Infinity) - curS; it.val = value(it, it.delayS); it.stale = 0;
+    });
+    for (let round = 1; chosen.length < p.count; round++) {
+      progress && progress(0.7 + (0.25 * chosen.length) / p.count, `Obstacle plan: field ${chosen.length + 1}`);
+      const pool = cands.filter((it) => !it.used && !chosen.some((q) => dCells(q, it) < minSep));
+      if (!pool.length) break;
+      let best = null;
+      for (;;) {
+        pool.sort((a, b) => b.val - a.val);
+        const top = pool[0];
+        if (top.stale === round) { best = top; break; }
+        const res = test(top);
+        top.delayS = (res ? res.cost : Infinity) - curS; top.val = value(top, top.delayS); top.stale = round; top.after = res;
+        if (pool.length === 1 || top.val >= pool[1].val) { best = top; break; }
+      }
+      if (!best || best.delayS < p.minDelayMin * 60 || best.val <= 0) break;
+      best.used = true;
+      for (const i of best.cells) pen[i] = Math.max(pen[i], best.mult);
+      const res = best.after && best.stale === round ? best.after : trip();
+      // did the enemy go round, or through? (a breach costs at most the breach time)
+      const crossed = res.path.some((i) => best.cells.includes(i));
+      best.forcesBreach = crossed;
+      best.addedS = crossed ? Math.min(res.cost - curS, p.breachH * 3600) : res.cost - curS;
+      totalS += best.addedS;
+      curS = res.cost; curPath = res.path;
+      chosen.push(best);
+    }
+    if (!chosen.length) throw new Error(`No field on the ${mob.prof.name} avenues delays the enemy by ${p.minDelayMin} min or more — he can bypass every defile. Consider obstacles in depth, or AP mines on the foot approaches.`);
+
+    // 5. output
+    const pathStats = (path) => M.routeStats(g, ctx0, Array.from(path), {});
+    const before = pathStats(base.path), after = pathStats(curPath);
+    const fields = chosen.map((it, k) => {
+      const front = (it.df.a + it.df.b + (it.df.untied ? 0 : 2 * tie)) * g.cs;
+      const addedMin = it.addedS / 60;
+      const share = clamp01(it.addedS / (p.breachH * 3600));
+      const reasons = [it.forcesBreach ? `no bypass — the enemy must breach (+${Math.round(addedMin)} min)` : `the enemy can bypass it, but the detour costs +${Math.round(addedMin)} min`,
+        it.df.untied ? `${Math.round(front)} m frontage across the approach — not tied into NO-GO ground, so it must be covered by fire` : `gap ${Math.round(it.df.width * g.cs)} m between NO-GO ground`, it.covered ? 'observed / under own fire' : 'NOT observed — an obstacle not covered by fire can be breached at leisure'];
+      if (!it.inBand) reasons.push(`outside the ${(p.minDistOwnM / 1000).toFixed(1)}–${(p.maxDistOwnM / 1000).toFixed(1)} km band from own troops (no defile closer) — hard to cover by fire`);
+      if (it.steep) reasons.push('steep / rocky — mines may wash away: add wire');
+      if (it.snowy) reasons.push('above snow line — mine effect reduced');
+      const rating = protective ? (it.covered && it.fwd === 1 && !it.steep ? 'Good' : it.covered ? 'Marginal' : 'Not good')
+        : share >= 0.6 && it.covered && it.inBand ? 'Good' : share >= 0.25 ? 'Marginal' : 'Not good';
+      if (protective) reasons.unshift(`protective field ${Math.round(Math.min(...anchors.map((q) => Math.hypot(it.r - q.r, it.c - q.c))) * g.cs)} m in front of own troops`);
       return Object.assign(siteInfo(g, it), {
-        id: `Mfd ${k + 1}`, type, profile: profId, poly, frontM: front, depthM: depth * g.cs,
-        gapM: it.df.width * g.cs, orientationDeg: dir.deg, estMines: Math.round(front * p.densityPerM),
-        onAvenues: it.routes.map((x) => x + 1), covered: it.covered, score: it.score,
-        siteSlopeDeg: it.sl, note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
+        id: `Mfd ${k + 1}`, type, profile: profId, poly: it.poly, frontM: front, depthM: depth * g.cs, gapM: it.df.untied ? null : it.df.width * g.cs, tiedIn: !it.df.untied, orientationDeg: it.df.dir.deg,
+        estMines: Math.round(front * p.densityPerM), onAvenues: it.routes.filter((x) => x < aven.routes.length).map((x) => x + 1), covered: it.covered, score: it.val,
+        delayMin: addedMin, forcesBreach: it.forcesBreach, rating, reasons, siteSlopeDeg: it.sl,
+        note: it.steep ? 'steep / rocky — mines may wash away: add wire' : it.snowy ? 'above snow line — mine effect reduced' : '',
       });
     });
-    return { fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })), params: p };
+    return {
+      fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })),
+      enemyBefore: { line: before.line, timeH: baseS / 3600, lengthM: before.lengthM },
+      enemyAfter: { line: after.line, timeH: (baseS + totalS) / 3600, lengthM: after.lengthM },
+      totalDelayMin: totalS / 60, tested: cands.length, outOfBand: !inBand.length, purpose: protective ? 'protective' : 'barrier', params: p,
+    };
   };
 
   // =====================================================================
@@ -4187,7 +4302,15 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
       minefields(opts, progress) {
         need();
-        return M.siteMinefields(tctx(), opts, progress);
+        // sector results feed the obstacle plan: approaches / infiltration paths and posts to protect
+        const o = Object.assign({}, opts);
+        const sec = S.sec || {};
+        const ap = (opts && opts.type) === 'AP';
+        o.extraPaths = (o.extraPaths || []).concat(
+          sec.appr && (ap ? sec.appr.params.profile === 'foot' : sec.appr.params.profile !== 'foot') ? sec.appr.approaches.map((a) => a.path) : [],
+          ap && sec.infil ? sec.infil.routes.map((r) => r.path) : []);
+        if (sec.plan) o.protect = (o.protect || []).concat(sec.plan.platoons, sec.plan.borderPosts).map((q) => ({ r: q.r, c: q.c }));
+        return M.siteMinefields(tctx(), o, progress);
       },
 
       route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM, nullahW, legEveryM, night }, progress) {
@@ -6214,7 +6337,36 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
   };
+  // ------------------------------------------------------------ label declutter
+  // While a frame is drawn, labels are queued instead of painted; at the end they are placed by
+  // priority and any label that would overlap a placed label or a symbol is dropped.
+  let labelQ = null, symBoxes = null;
+  UI.labelsBegin = () => { labelQ = []; symBoxes = []; };
+  UI.labelsEnd = (ctx) => {
+    if (!labelQ) return;
+    const q = labelQ, syms = symBoxes;
+    labelQ = null; symBoxes = null;
+    const placed = [];
+    const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    q.sort((a, b) => b.prio - a.prio || a.order - b.order);
+    for (const L of q) {
+      ctx.save();
+      ctx.font = L.opts.font || `600 12px ${FONT}`;
+      const w = ctx.measureText(L.text).width, h = parseFloat(/(\d+(\.\d+)?)px/.exec(ctx.font)?.[1] || 12);
+      ctx.restore();
+      const al = L.opts.align || 'left';
+      const x0 = al === 'center' ? L.x - w / 2 : al === 'right' ? L.x - w : L.x;
+      const box = { x0: x0 - 2, x1: x0 + w + 2, y0: L.y - h / 2 - 1, y1: L.y + h / 2 + 1 };
+      if (placed.some((b) => hit(b, box)) || syms.some((b) => b.owner !== L.owner && hit(b, box))) continue;
+      placed.push(box);
+      drawHalo(ctx, L.text, L.x, L.y, L.opts);
+    }
+  };
   UI.haloText = (ctx, text, x, y, opts = {}) => {
+    if (labelQ && !opts.now) { labelQ.push({ text, x, y, opts, prio: opts.prio || 1, owner: opts.owner, order: labelQ.length }); return; }
+    drawHalo(ctx, text, x, y, opts);
+  };
+  const drawHalo = (ctx, text, x, y, opts = {}) => {
     ctx.save();
     ctx.font = opts.font || `600 12px ${FONT}`;
     ctx.textAlign = opts.align || 'left'; ctx.textBaseline = opts.base || 'middle';
@@ -6411,6 +6563,11 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       });
     }
 
+    if (sh.mfd && S.mfd && S.mfd.enemyAfter && S.mfd.purpose === 'barrier') {
+      cased(ctx, S.mfd.enemyAfter.line, P, 'rgba(255,65,54,0.9)', 2, [3, 5]);
+      const ln = S.mfd.enemyAfter.line;
+      if (sh.labels && ln.length > 2) { const [x, y] = P.xy(...ln[Math.floor(ln.length / 2)]); UI.haloText(ctx, `enemy best route with Mfd: ${UI.F.time(S.mfd.enemyAfter.timeH)}`, x + 8, y, { font: lblFont(11), color: '#ff8a80', prio: 2 }); }
+    }
     if (sh.mfd && S.mfd) {
       S.mfd.fields.forEach((f, k) => {
         const sel = S.sel && S.sel.kind === 'mfd' && S.sel.idx === k;
@@ -6538,15 +6695,15 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
     // ---------------------------------------------------------- sector planning
     const X = S.sec || {};
-    const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)') => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg }); };
+    const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)', prio = 1) => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg, prio }); };
     if (sh.nullahs !== false && X.terr) X.terr.nullahs.forEach((q) => {
-      ctx.save(); ctx.strokeStyle = q.type === 'valley' ? '#1f6fd1' : '#5fa8ff'; ctx.lineWidth = (q.type === 'valley' ? 2.6 : 1.4) * lw; ctx.lineJoin = 'round';
+      ctx.save(); ctx.globalAlpha = q.type === 'valley' ? 0.85 : 0.6; ctx.strokeStyle = q.type === 'valley' ? '#1f6fd1' : '#5fa8ff'; ctx.lineWidth = (q.type === 'valley' ? 2.2 : 1.1) * lw; ctx.lineJoin = 'round';
       path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
     });
     if (sh.ridges !== false && X.terr) X.terr.ridges.forEach((q, k) => {
       ctx.save(); ctx.strokeStyle = '#5b3a1a'; ctx.lineWidth = (k < 5 ? 3.2 : k < 15 ? 2.2 : 1.3) * lw; ctx.lineJoin = 'round';
       path(ctx, q.line, P, false); ctx.stroke(); ctx.restore();
-      if (k < 8 && sh.labels) labelAt(q.line[Math.floor(q.line.length / 2)], q.id, '#5b3a1a');
+      if (k < 5 && sh.labels) labelAt(q.line[Math.floor(q.line.length / 2)], q.id, '#5b3a1a', undefined, 0.8);
     });
     if (sh.secArea !== false && S.sector) {
       ctx.save(); path(ctx, S.sector, P, true); ctx.lineWidth = 3.5 * lw; ctx.strokeStyle = '#fff'; ctx.stroke();
@@ -6562,7 +6719,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       ctx.save(); path(ctx, q.outline, P, true);
       ctx.fillStyle = q.rating === 'Good' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.14)'; ctx.fill();
       ctx.lineWidth = (sel ? 3.5 : 2.2) * lw; ctx.strokeStyle = sel ? selC : '#000'; ctx.setLineDash(q.rating === 'Good' ? [] : [6 * lw, 4 * lw]); ctx.stroke(); ctx.restore();
-      if (sh.labels) { const [x, y] = P.xy(q.c, q.r); UI.haloText(ctx, `${q.id} · ${q.rating}`, x, y + 16 * lw, { align: 'center', font: lblFont(11), color: '#000', halo: 'rgba(255,255,255,0.9)' }); }
+      if (sh.labels) { const [x, y] = P.xy(q.c, q.r); UI.haloText(ctx, q.rating === 'Good' ? q.id : `${q.id} (${q.rating.toLowerCase()})`, x, y + 16 * lw, { align: 'center', font: lblFont(11), color: '#000', halo: 'rgba(255,255,255,0.9)', prio: 4 }); }
     });
     const arrowLine = (line, color, width, dash) => {
       if (!line || line.length < 2) return;
@@ -6574,7 +6731,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     if (sh.infil !== false && X.infil) X.infil.routes.forEach((a) => { arrowLine(a.line, '#8b0000', 2, [2, 4]); if (sh.labels) labelAt(a.line[Math.floor(a.line.length * 0.5)], `${a.id} (${a.threat})`, '#8b0000'); });
     if (sh.eopts !== false && X.opts) X.opts.options.forEach((o) => {
       o.lines.forEach((ln, j) => arrowLine(ln, '#c00000', j ? 3 : 5, j ? [12, 6] : null));
-      if (sh.labels) { const [x, y] = P.xy(o.objectiveRef.c, o.objectiveRef.r); UI.haloText(ctx, `${o.id}${o.label ? ` — ${o.label}` : ''}`, x, y - 22 * lw, { align: 'center', font: lblFont(12, 700), color: '#c00000', halo: 'rgba(255,255,255,0.9)' }); }
+      if (sh.labels) { const [x, y] = P.xy(o.objectiveRef.c, o.objectiveRef.r); UI.haloText(ctx, `${o.id}${o.label ? ` — ${o.label}` : ''}`, x, y - 22 * lw, { align: 'center', font: lblFont(12, 700), color: '#c00000', halo: 'rgba(255,255,255,0.9)', prio: 6 }); }
     });
     if (sh.bwatch !== false && X.watch) X.watch.gaps.forEach((q) => {
       ctx.save(); ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 6 * lw; ctx.globalAlpha = 0.8;
@@ -6610,12 +6767,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         ctx.beginPath(); ctx.moveTo(x, y - 6 * lw); ctx.lineTo(x + 5 * lw, y + 3.5 * lw); ctx.lineTo(x - 5 * lw, y + 3.5 * lw); ctx.closePath();
         ctx.stroke(); ctx.fill();
         ctx.restore();
-        if (sh.labels) UI.haloText(ctx, String(F.elevNum(pk.z)), x + 7 * lw, y, { font: lblFont(11) });
+        if (sh.labels) UI.haloText(ctx, String(F.elevNum(pk.z)), x + 7 * lw, y, { font: lblFont(11), prio: 0.5 });
       }
       for (const ps of S.key.passes) {
         const [x, y] = P.xy(ps.c, ps.r);
-        UI.haloText(ctx, ')(', x, y, { align: 'center', font: `700 ${Math.round(15 * lw)}px Georgia, serif`, color: '#ffe9a8' });
-        if (sh.labels) UI.haloText(ctx, `Col ${F.elevNum(ps.z)}`, x + 10 * lw, y + 1, { font: lblFont(11, 400), color: '#ffe9a8' });
+        UI.haloText(ctx, ')(', x, y, { align: 'center', font: `700 ${Math.round(15 * lw)}px Georgia, serif`, color: '#ffe9a8', now: true });
+        if (sh.labels) UI.haloText(ctx, `Col ${F.elevNum(ps.z)}`, x + 10 * lw, y + 1, { font: lblFont(11, 400), color: '#ffe9a8', prio: 0.5 });
       }
     }
   };
@@ -6678,7 +6835,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         const g = S.grid;
         const dc = pts[1][0] - pts[0][0], dr = pts[1][1] - pts[0][1];
         const [x, y] = xy(pts[1]);
-        UI.haloText(ctx, `${UI.F.dist(Math.hypot(dc, dr) * g.cs)} · ${UI.F.bearing(M.bearing(dc, -dr), pts[0][1], pts[0][0])}`, x + 10, y - 10, { font: `600 12px ${MONO}` });
+        UI.haloText(ctx, `${UI.F.dist(Math.hypot(dc, dr) * g.cs)} · ${UI.F.bearing(M.bearing(dc, -dr), pts[0][1], pts[0][0])}`, x + 10, y - 10, { font: `600 12px ${MONO}`, now: true });
       }
     }
     ctx.restore();
@@ -6734,7 +6891,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
    * opts: {size, labels, lift (px leader line for 3D)}
    */
   UI.drawSymbols = (ctx, items, project, opts = {}) => {
-    const size = opts.size || 30;
+    let size = opts.size || 30;
+    // many symbols on screen: shrink them (down to 60 %) so the map stays readable
+    if (opts.view) {
+      let n = 0;
+      for (const it of items) { const p = project(it.c, it.r); if (p && p.x >= 0 && p.y >= 0 && p.x <= opts.view.w && p.y <= opts.view.h) n++; }
+      size *= Math.max(0.6, Math.min(1, Math.sqrt((opts.view.w * opts.view.h) / Math.max(1, n * (size * 4.5) ** 2))));
+    }
     const lpx = +cfg('sym.labelSize');
     const selC = accent();
     for (const it of items) {
@@ -6757,9 +6920,12 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         ctx.strokeRect(x - s.ax - 4, y - s.ay - 4, s.w + 8, s.h + 8);
       }
       ctx.drawImage(s.img, x - s.ax, y - s.ay, s.w, s.h);
+      const owner = it;
+      if (symBoxes) symBoxes.push({ x0: x - s.ax, x1: x - s.ax + s.w, y0: y - s.ay, y1: y - s.ay + s.h, owner });
       if (opts.labels && it.label) {
-        UI.haloText(ctx, it.label, x + s.w - s.ax + 3, y - (it.sub ? lpx * 0.55 : 0), { font: `700 ${lpx}px ${FONT}` });
-        if (it.sub) UI.haloText(ctx, it.sub, x + s.w - s.ax + 3, y + lpx * 0.6, { font: `${lpx - 1}px ${FONT}`, color: '#d6e2d6' });
+        const prio = it.sel ? 9 : it.small ? 2 : 3;
+        UI.haloText(ctx, it.label, x + s.w - s.ax + 3, y - (it.sub ? lpx * 0.55 : 0), { font: `700 ${lpx}px ${FONT}`, prio, owner });
+        if (it.sub && !it.small) UI.haloText(ctx, it.sub, x + s.w - s.ax + 3, y + lpx * 0.6, { font: `${lpx - 1}px ${FONT}`, color: '#d6e2d6', prio: prio - 1.5, owner });
       }
       ctx.restore();
     }
@@ -6844,12 +7010,14 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       const [c0, r0] = this.toCell(0, 0), [c1, r1] = this.toCell(this.W, this.H);
       UI.drawGrids(ctx, g, P, [c0, r0, c1, r1], { labels: true, viewW: this.W, viewH: this.H });
+      UI.labelsBegin();
       UI.drawFeatures(ctx, S, P);
       UI.drawDraft(ctx, S, P);
       if (S.show.symbols) {
         UI.drawSymbols(ctx, UI.symbolItems(S), (c, r) => { const [x, y] = this.toScreen(c, r); return { x, y }; },
-          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels') });
+          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels'), view: { w: this.W, h: this.H } });
       }
+      UI.labelsEnd(ctx);
       this._hud(ctx, g);
       if (this.onRender) this.onRender();
     }
@@ -7345,13 +7513,15 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       }
       if (!S.show.symbols) return;
       const items = UI.symbolItems(S);
+      UI.labelsBegin();
       UI.drawSymbols(ctx, items, (c, r) => {
         const w = [this.wx(c), this.hAt(c, r) + 2, this.wz(r)];
         const p = this.project(w);
         if (!p || p.x < -50 || p.y < -50 || p.x > this.W + 50 || p.y > this.H + 50) return null;
         p.hidden = this._occluded(w);
         return p;
-      }, { size: +UI.cfg('sym.size') * 0.9, labels: S.show.labels && UI.cfg('sym.labels'), lift: +UI.cfg('v3.lift') });
+      }, { size: +UI.cfg('sym.size') * 0.9, labels: S.show.labels && UI.cfg('sym.labels'), lift: +UI.cfg('v3.lift'), view: { w: this.W, h: this.H } });
+      UI.labelsEnd(ctx);
       // compass
       const yaw = this.cam.yaw;
       ctx.save();
@@ -7741,7 +7911,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     }))));
     if (S.mfd) {
       S.mfd.fields.forEach((f) => poly(f.poly, {
-        kind: 'minefield', id: f.id, type: f.type, front_m: Math.round(f.frontM), depth_m: Math.round(f.depthM), gap_m: Math.round(f.gapM),
+        kind: 'minefield', id: f.id, type: f.type, front_m: Math.round(f.frontM), depth_m: Math.round(f.depthM), gap_m: f.gapM == null ? null : Math.round(f.gapM), delay_min: f.delayMin == null ? null : Math.round(f.delayMin), forces_breach: !!f.forcesBreach, rating: f.rating || '',
         est_mines: f.estMines, on_avenues: f.onAvenues.join(','), covered_by_observation: f.covered, mgrs: f.mgrs, sidc: UI.sidcFor.minefield(),
       }));
     }
@@ -7901,7 +8071,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     }
     html += `<h2>6. Minefields (Mfd)</h2>`;
     html += S.mfd ? tbl(['', 'Mfd', 'Type', 'Centre', 'Gap', 'Front × depth', 'Est. mines', 'On avenue', 'Observed'], S.mfd.fields.map((f) => [
-      sym(UI.SYM.mine(f.type)), f.id, f.type, mg(f), km(f.gapM), `${km(f.frontM)} × ${km(f.depthM)}`, f.estMines,
+      sym(UI.SYM.mine(f.type)), f.id, f.type, mg(f), f.gapM == null ? 'not tied in' : km(f.gapM), `${km(f.frontM)} × ${km(f.depthM)}`, f.estMines,
       f.onAvenues.length ? 'AA ' + f.onAvenues.join(', ') : '—', f.covered ? 'yes' : 'NO — site OP / weapons'])) : '<p class="na">Not computed.</p>';
     html += `<h2>7. Routes</h2>`;
     if (S.routes) {
@@ -8431,7 +8601,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     mfd: {
       name: 'Suggest Minefields', icon: 'mine',
       gsp: 'GSP Sec 12: gaps between posts are covered by mines, fire and obstacles; density thickest in valleys and foothills. Mines lose effect in heavy snow and rocky ground and wash away on slopes — use wire there.',
-      desc: 'Sites AT / AP minefields at the narrowest defiles on enemy avenues of approach, tied into NO-GO ground and within reach of own troops.',
+      desc: 'Builds an obstacle plan. AT (barrier): fields at defiles on the vehicle avenues, each tested by re-routing the enemy round it or through it — kept only if it costs him time. AP (protective): fields close in front of posts and across infiltration nullahs, under own fire.',
       params: [
         { k: 'own', type: 'marker' }, { k: 'threat', type: 'marker' },
         { k: 'type', label: 'Minefield type', type: 'select', def: 'AT', options: [['AT', 'Anti-tank (AT)'], ['AP', 'Anti-personnel (AP)']] },
@@ -8443,12 +8613,15 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'densityPerM', label: 'Density (0 = 1 AT / 3 AP)', type: 'number', def: 0, min: 0, max: 20, step: 0.25, unit: 'mines/m' },
         { k: 'tieM', label: 'Tie-in into NO-GO ground', type: 'number', def: () => cfg('an.mfdTieM'), min: 0, max: 500, step: 5, unit: 'm' },
         sec('Siting constraints'),
-        { k: 'minDistOwnM', label: 'Minimum distance from own position', type: 'number', def: D.mfd.minDistOwnM, min: 0, max: 20000, step: 50, unit: 'm' },
-        { k: 'maxDistOwnM', label: 'Maximum distance from own position', type: 'number', def: D.mfd.maxDistOwnM, min: 100, max: 50000, step: 250, unit: 'm' },
+        { k: 'minDistOwnM', label: 'Nearest to own troops (0 = 300 AT / 80 AP)', type: 'number', def: D.mfd.minDistOwnM, min: 0, max: 20000, step: 50, unit: 'm' },
+        { k: 'maxDistOwnM', label: 'Farthest from own troops (0 = 3000 AT / 800 AP)', type: 'number', def: D.mfd.maxDistOwnM, min: 0, max: 50000, step: 250, unit: 'm', help: 'Measured from own position and from every post / platoon post — AP fields protect the posts.' },
         { k: 'minSepM', label: 'Minimum separation', type: 'number', def: D.mfd.minSepM, min: 50, max: 10000, step: 50, unit: 'm' },
         { k: 'avenues', label: 'Avenues of approach considered', type: 'number', def: D.mfd.avenues, min: 1, max: 4, step: 1 },
-        { k: 'onePerAvenue', label: 'Block every avenue at least once', type: 'bool', def: D.mfd.onePerAvenue },
         { k: 'requireCovered', label: 'Only sites under own observation / fire', type: 'bool', def: D.mfd.requireCovered },
+        sec('Delay test'),
+        { k: 'breachH', label: 'Time for the enemy to breach one field (0 = 1.5 h AT / 0.75 h AP)', type: 'number', def: 0, min: 0, max: 12, step: 0.25, unit: 'h', help: 'Each candidate field is tested: the enemy\u2019s best route is searched again with the field in place — he detours round it or breaches it. The extra time is the field\u2019s value.' },
+        { k: 'minDelayMin', label: 'Drop fields that add less than', type: 'number', def: D.mfd.minDelayMin, min: 0, max: 600, step: 1, unit: 'min', help: 'AT only — an AP field is judged by fire cover in front of the posts (men walk round defiles).' },
+        { k: 'candidates', label: 'Candidate defiles tested', type: 'number', def: D.mfd.candidates, min: 4, max: 80, step: 1, help: 'More = better plan, longer run (one route search per candidate).' },
         sec('Search & scoring'),
         { k: 'orientations', label: 'Orientations tested at each defile', type: 'select', def: D.mfd.orientations, options: [[4, '4'], [8, '8'], [16, '16'], [32, '32']] },
         { k: 'narrowWeight', label: 'Weight of narrowness (0–1)', type: 'number', def: D.mfd.narrowWeight, min: 0, max: 1, step: 0.05 },
@@ -9277,7 +9450,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       const col = !!S.tocCollapsed[g.id];
       return `<div class="toc-grp${col ? ' col' : ''}"><div class="toc-gh" data-grp="${g.id}"><span class="tw">${col ? '▸' : '▾'}</span>${esc(g.name)}</div>
         ${layers.map((l) => {
-          const lc = !!S.tocCollapsed[l.id];
+          const lc = l.id in S.tocCollapsed ? !!S.tocCollapsed[l.id] : !l.isBase;
           return `<div class="toc-l${S.tocSel === l.id ? ' sel' : ''}${l.visible() ? '' : ' off'}" data-layer="${esc(l.id)}">
             <div class="toc-lh"><span class="tw" data-tw="${esc(l.id)}">${l.legend ? (lc ? '▸' : '▾') : ''}</span><input type="checkbox" data-vis="${esc(l.id)}" ${l.visible() ? 'checked' : ''} ${l.isBase || l.id === 'los' ? 'disabled' : ''}>
             <span class="toc-n" title="${esc(l.name)}">${esc(l.name)}</span>${l.count !== undefined ? `<i class="toc-c">${l.count}</i>` : ''}</div>
@@ -9285,7 +9458,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         }).join('')}</div>`;
     }).join('');
     el.querySelectorAll('[data-grp]').forEach((h) => h.addEventListener('click', () => { S.tocCollapsed[h.dataset.grp] = !S.tocCollapsed[h.dataset.grp]; renderTOC(); }));
-    el.querySelectorAll('[data-tw]').forEach((h) => h.addEventListener('click', (e) => { e.stopPropagation(); S.tocCollapsed[h.dataset.tw] = !S.tocCollapsed[h.dataset.tw]; renderTOC(); }));
+    el.querySelectorAll('[data-tw]').forEach((h) => h.addEventListener('click', (e) => { e.stopPropagation(); const l = findLayer(h.dataset.tw); const cur = h.dataset.tw in S.tocCollapsed ? !!S.tocCollapsed[h.dataset.tw] : !(l && l.isBase); S.tocCollapsed[h.dataset.tw] = !cur; renderTOC(); }));
     el.querySelectorAll('[data-vis]').forEach((cb) => cb.addEventListener('change', (e) => { e.stopPropagation(); const l = findLayer(cb.dataset.vis); if (l) l.setVisible(cb.checked); renderTOC(); }));
     el.querySelectorAll('[data-layer]').forEach((n) => {
       n.addEventListener('click', (e) => { if (e.target.matches('input')) return; S.tocSel = n.dataset.layer; renderTOC(); });
@@ -9739,13 +9912,18 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     let cover = null;
     const parts = [S.overlays.cover.data, S.overlays.wcover.data].filter(Boolean);
     if (parts.length) { cover = new Uint8Array(parts[0].length); for (const p of parts) for (let i = 0; i < p.length; i++) if (p[i]) cover[i] = 1; }
-    const opts = Object.assign({}, v, { profile: v.profile === 'auto' ? undefined : v.profile, cover });
-    const res = await run(`Minefields — ${v.type}`, 'minefields', opts, (r) => r.fields.map((f) => `${f.id} gap ${F.dist(f.gapM)} · ≈${f.estMines} mines`).join('\n'));
+    const protect = (S.posts ? S.posts.posts : []).concat(...S.weapons.map((w) => w.sites)).map((q) => ({ r: q.r, c: q.c }));
+    const opts = Object.assign({}, v, { profile: v.profile === 'auto' ? undefined : v.profile, cover, protect });
+    const res = await run(`Minefields — ${v.type}`, 'minefields', opts, (r) => `${r.fields.length} fields · enemy +${Math.round(r.totalDelayMin)} min`);
     S.mfd = res;
     if (!S.avenues) S.avenues = { routes: res.avenues };
+    S.show.mfd = true;
     renderAll(); refresh();
-    return `${res.fields.length} ${v.type} minefields${cover ? '' : ' (no posts / weapons sited yet — observation not assessed)'}\n` +
-      refLines(res.fields, (f) => `gap ${F.dist(f.gapM)} · ${F.dist(f.frontM)} × ${F.dist(f.depthM)} · ≈${f.estMines} mines${f.covered ? '' : ' · NOT observed'}`);
+    const head = res.purpose === 'barrier'
+      ? `${res.fields.length} AT fields (barrier). Enemy's best time to own position: ${F.time(res.enemyBefore.timeH)} → ${F.time(res.enemyAfter.timeH)} (+${Math.round(res.totalDelayMin)} min). ${res.tested} defiles tested.`
+      : `${res.fields.length} AP fields (protective, in front of own troops). ${res.tested} sites tested.`;
+    return `${head}${res.outOfBand ? `\nWARNING: no suitable defile within ${F.dist(res.params.minDistOwnM)}–${F.dist(res.params.maxDistOwnM)} of own troops — fields placed farther out; widen the band or the maximum gap.` : ''}${cover ? '' : '\nNo posts / weapons sited yet — fire cover judged from own position only.'}\n` +
+      res.fields.map((f) => `${f.id}  ${F.listRef(f.r, f.c)}  ${f.rating} · ${f.reasons[0]}${f.covered ? '' : ' · NOT observed'}`).join('\n');
   };
   H.route = async (v) => {
     needMarkers('a', 'b');
@@ -9895,8 +10073,12 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     st(await H.fireCoverage(GP.values('fireCoverage')));
     st(await H.borderWatch(GP.values('borderWatch')));
     st(await H.enemyOptions(GP.values('enemyOptions')));
+    // keep the map readable: plan, ITGs, approaches and border gaps on; the rest one tick away in Contents
+    Object.assign(S.show, { ridges: false, nullahs: false, infil: false, eopts: false, firegaps: false, itgs: true, plan: true, eappr: true, bwatch: true });
+    S.overlays.dominance.visible = false; S.overlays.firecov.visible = false;
+    refresh({ base: true });
     const items = secItems().filter((x) => x.rating);
-    return `Sector assessment complete — ${rateCount(items)} across ${items.length} items.\n` + steps.map((x, k) => `${k + 1}. ${x}`).join('\n') + '\nSee Contents ▸ Sector plan, the attribute table (Rating column) and Share ▸ Report.';
+    return `Sector assessment complete — ${rateCount(items)} across ${items.length} items.\n` + steps.map((x, k) => `${k + 1}. ${x}`).join('\n') + '\nOther layers (infiltration routes, enemy options, ridgelines, nullahs, fire gaps) are one tick away in Contents ▸ Sector plan. Ratings: attribute table; full write-up: Share ▸ Report.';
   };
 
   /** Every rated sector item, for the Contents pane, attribute table, Attributes pane and report. */
@@ -10036,7 +10218,9 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       }
       case 'mfd':
         icon = UI.symbolHTML(UI.SYM.mine(p.type), 22); title = p.id; sub = `${p.type === 'AT' ? 'Anti-tank' : 'Anti-personnel'} minefield (planned)`;
-        rows.push(['Obstacle', null], ['Gap at defile', F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
+        rows.push(['Assessment', null], ['Rating', p.rating || '—'], ...(p.reasons || []).map((x, k) => [k ? '' : 'Why', x]),
+          ['Delay imposed', p.delayMin === undefined ? '—' : `${Math.round(p.delayMin)} min (${p.forcesBreach ? 'must breach' : 'detour'})`]);
+        rows.push(['Obstacle', null], ['Gap at defile', p.gapM == null ? 'none — not tied in' : F.dist(p.gapM)], ['Front × depth', `${F.dist(p.frontM)} × ${F.dist(p.depthM)}`], ['Orientation', F.bearing(p.orientationDeg, p.r, p.c)],
           ['Est. mines', `≈ ${p.estMines}`], ['Site slope', p.siteSlopeDeg === undefined ? '—' : `${p.siteSlopeDeg.toFixed(0)}°`], ['Ground note (GSP)', p.note || 'suitable'], ['On avenues', p.onAvenues.length ? 'AA ' + p.onAvenues.join(', ') : '—'], ['Observed / covered', p.covered ? 'yes' : 'NO — site an OP or weapon']);
         break;
       case 'picquet':
@@ -10102,7 +10286,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     S.weapons.forEach((res, wi) => res.sites.forEach((s, k) => add('weapons:' + wi, UI.SYM.weapon(res.weapon), `Weapon — ${res.weapon.short}`, s.id, s,
       s.cat === 'indirect' ? `${F.dist(s.rangeToTargetM)} to target · QE ${s.qeDeg === null ? '—' : F.angle(s.qeDeg)} · crest ${pct(s.clearShare)}`
         : `arc ${F.bearing(s.sector.left, s.r, s.c, true)}–${F.bearing(s.sector.right, s.r, s.c)} · ${pct(s.valueShare, 1)}`, { kind: 'weapon', idx: wi, sub: k }, s.z)));
-    if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `gap ${F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
+    if (S.mfd) S.mfd.fields.forEach((f, k) => add('mfd', UI.SYM.mine(f.type), `Minefield ${f.type}`, f.id, f, `${f.gapM == null ? 'not tied in' : 'gap ' + F.dist(f.gapM)} · front ${F.dist(f.frontM)} · ≈${f.estMines} mines`, { kind: 'mfd', idx: k }, f.z));
     if (S.avenues) S.avenues.routes.forEach((rt, k) => add('avenues', null, 'Enemy avenue', `AA${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)}`, { kind: 'avenue', idx: k }));
     if (S.routes) {
       S.routes.routes.forEach((rt, k) => add('routes', null, 'Route', `R${k + 1}`, { c: rt.line[0][0], r: rt.line[0][1] }, `${F.dist(rt.lengthM)} · ${F.time(rt.timeH)} · GSP ${rt.gspDay ? gspRange(S.routes.night ? rt.gspNight : rt.gspDay) : '—'} · ↑${F.height(rt.ascentM)}`, { kind: 'route', idx: k }));
@@ -10149,7 +10333,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     $('attrCount').textContent = `(${rows.length})`;
     tbl.innerHTML = `<thead><tr>${cols.map((c) => `<th data-col="${c.k}" class="${sc.col === c.k ? 'sort' + (sc.desc ? ' desc' : '') : ''}">${esc(typeof c.t === 'function' ? c.t() : c.t)}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="${S.sel && r.ref && JSON.stringify(S.sel) === JSON.stringify(r.ref) ? 'sel' : ''}">${cols.map((c) => c.k === 'sym'
-        ? `<td>${r.sym ? UI.symbolHTML(r.sym, 12) : ''}</td>` : `<td class="${['ref', 'sec', 'z'].includes(c.k) ? 'm' : c.k === 'detail' ? 'wrap' : ''}">${esc(attrValue(r, c.k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
+        ? `<td>${r.sym ? UI.symbolHTML(r.sym, 12) : ''}</td>` : `<td class="${['ref', 'sec', 'z'].includes(c.k) ? 'm' : c.k === 'detail' ? 'det' : c.k === 'rating' ? `rt rt-${String(r.rating || '').replace(' ', '')}` : ''}"${c.k === 'detail' ? ` title="${esc(attrValue(r, c.k))}"` : ''}>${esc(attrValue(r, c.k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
     tbl.querySelectorAll('th[data-col]').forEach((th) => th.addEventListener('click', () => {
       if (th.dataset.col === 'sym') return;
       S.sort = { col: th.dataset.col, desc: S.sort.col === th.dataset.col ? !S.sort.desc : false };

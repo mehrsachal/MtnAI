@@ -67,3 +67,23 @@ test('key terrain: maximum heights and passes are respected', () => {
   assert.ok(r.peaks.length <= 4 && r.peaks.length >= 1);
   assert.ok(r.passes.length <= 2);
 });
+
+test('minefields (AT): an obstacle plan — every field is delay-tested and the delays add up', () => {
+  const r = jobs.minefields({ type: 'AT', count: 3, candidates: 12 }, none);
+  assert.equal(r.purpose, 'barrier');
+  assert.ok(r.fields.length >= 1);
+  for (const f of r.fields) {
+    assert.ok(f.delayMin >= r.params.minDelayMin, `${f.id} adds ${f.delayMin} min`);
+    assert.ok(f.delayMin <= r.params.breachH * 60 + 1e-6 || !f.forcesBreach, 'a breach costs at most the breach time');
+    assert.ok(['Good', 'Marginal', 'Not good'].includes(f.rating) && f.reasons.length >= 3);
+  }
+  const sum = r.fields.reduce((a, f) => a + f.delayMin, 0);
+  assert.ok(Math.abs(sum - r.totalDelayMin) < 1e-6);
+  assert.ok(Math.abs(r.enemyAfter.timeH - r.enemyBefore.timeH - r.totalDelayMin / 60) < 1e-6);
+});
+
+test('minefields (AP): protective — close in front of own troops', () => {
+  const r = jobs.minefields({ type: 'AP', count: 3 }, none);
+  assert.equal(r.purpose, 'protective');
+  for (const f of r.fields) assert.ok(distM(f, own) <= 800 * 1.0 + 2 * g.cs, `${f.id} ${distM(f, own)} m`);
+});

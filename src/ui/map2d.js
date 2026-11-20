@@ -74,12 +74,14 @@
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       const [c0, r0] = this.toCell(0, 0), [c1, r1] = this.toCell(this.W, this.H);
       UI.drawGrids(ctx, g, P, [c0, r0, c1, r1], { labels: true, viewW: this.W, viewH: this.H });
+      UI.labelsBegin();
       UI.drawFeatures(ctx, S, P);
       UI.drawDraft(ctx, S, P);
       if (S.show.symbols) {
         UI.drawSymbols(ctx, UI.symbolItems(S), (c, r) => { const [x, y] = this.toScreen(c, r); return { x, y }; },
-          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels') });
+          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels'), view: { w: this.W, h: this.H } });
       }
+      UI.labelsEnd(ctx);
       this._hud(ctx, g);
       if (this.onRender) this.onRender();
     }

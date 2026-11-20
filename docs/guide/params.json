@@ -1420,7 +1420,7 @@
  },
  "mfd": {
   "name": "Suggest Minefields",
-  "desc": "Sites AT / AP minefields at the narrowest defiles on enemy avenues of approach, tied into NO-GO ground and within reach of own troops.",
+  "desc": "Builds an obstacle plan. AT (barrier): fields at defiles on the vehicle avenues, each tested by re-routing the enemy round it or through it — kept only if it costs him time. AP (protective): fields close in front of posts and across infiltration nullahs, under own fire.",
   "gsp": "GSP Sec 12: gaps between posts are covered by mines, fire and obstacles; density thickest in valleys and foothills. Mines lose effect in heavy snow and rocky ground and wash away on slopes — use wire there.",
   "rows": [
    {
@@ -1482,15 +1482,15 @@
     "section": "Siting constraints"
    },
    {
-    "label": "Minimum distance from own position",
-    "def": "300 m",
+    "label": "Nearest to own troops (0 = 300 AT / 80 AP)",
+    "def": "0 m",
     "help": "",
     "only": ""
    },
    {
-    "label": "Maximum distance from own position",
-    "def": "3000 m",
-    "help": "",
+    "label": "Farthest from own troops (0 = 3000 AT / 800 AP)",
+    "def": "0 m",
+    "help": "Measured from own position and from every post / platoon post — AP fields protect the posts.",
     "only": ""
    },
    {
@@ -1506,15 +1506,30 @@
     "only": ""
    },
    {
-    "label": "Block every avenue at least once",
-    "def": "Yes",
+    "label": "Only sites under own observation / fire",
+    "def": "No",
     "help": "",
     "only": ""
    },
    {
-    "label": "Only sites under own observation / fire",
-    "def": "No",
-    "help": "",
+    "section": "Delay test"
+   },
+   {
+    "label": "Time for the enemy to breach one field (0 = 1.5 h AT / 0.75 h AP)",
+    "def": "0 h",
+    "help": "Each candidate field is tested: the enemy’s best route is searched again with the field in place — he detours round it or breaches it. The extra time is the field’s value.",
+    "only": ""
+   },
+   {
+    "label": "Drop fields that add less than",
+    "def": "5 min",
+    "help": "AT only — an AP field is judged by fire cover in front of the posts (men walk round defiles).",
+    "only": ""
+   },
+   {
+    "label": "Candidate defiles tested",
+    "def": "20",
+    "help": "More = better plan, longer run (one route search per candidate).",
     "only": ""
    },
    {
@@ -1534,7 +1549,7 @@
    },
    {
     "label": "Factor if not observed (0–1)",
-    "def": "0.45",
+    "def": "0.3",
     "help": "",
     "only": ""
    },
@@ -1546,7 +1561,7 @@
    },
    {
     "label": "Factor outside distance band (0–1)",
-    "def": "0.15",
+    "def": "0.3",
     "help": "",
     "only": ""
    },
