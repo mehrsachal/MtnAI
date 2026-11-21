@@ -448,7 +448,7 @@ add(h1('13. Settings'),
     ['Analysis', 'Earth curve and refraction, observer heights, landform scales, altitude slow-down, route options.'],
     ['Movement classes', 'GO / SLOW-GO slopes and speeds for each class.'],
     ['Weapon data', 'Range, site slope, heights, access and mount limits of each weapon.'],
-    ['Data, Report, Interface', 'Import options, report header, theme (dark, light, high contrast, night red), text size.'],
+    ['Data, Report, Interface', 'Import options, report header, text size and density (light theme only).'],
   ], [2800, 6838]),
   gap(),
 );

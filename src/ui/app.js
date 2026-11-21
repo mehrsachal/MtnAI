@@ -1600,7 +1600,7 @@
     }));
   };
   const applyTheme = () => {
-    document.body.dataset.theme = cfg('ui.theme');
+    document.body.dataset.theme = 'light'; // dark themes are disabled; older saved choices fall back to light
     document.body.dataset.density = cfg('ui.density');
     document.documentElement.style.setProperty('--fs', `${cfg('ui.fontSize')}px`);
   };
@@ -1843,7 +1843,6 @@
     gridSec: { t: 'Secondary CRS grid', rb: 'Secondary Grid', check: true, run: () => Settings.set('grid.secondary', !cfg('grid.secondary')), on: () => cfg('grid.secondary') },
     contours: { t: 'Contours', rb: 'Contours', check: true, run: () => Settings.set('map.contours', !cfg('map.contours')), on: () => cfg('map.contours') },
     labels: { t: 'Labels', rb: 'Labels', check: true, run: () => Settings.set('sym.labels', !cfg('sym.labels')), on: () => cfg('sym.labels') },
-    theme: { t: 'Theme', rb: 'Theme', icon: 'panel', menu: () => [['dark', 'Dark'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red)']].map(([k, n]) => ({ t: n, checked: cfg('ui.theme') === k, run: () => Settings.set('ui.theme', k) })) },
     routeCard: { t: 'Route card (GSP Annex E)', rb: 'Route Card', icon: 'doc', need, run: () => { setDock(true); showDockTab('card'); } },
     doctrine: { t: 'Doctrine — GSP Mountain Warfare', rb: 'Doctrine', icon: 'doc', run: () => openHelp('doctrine') },
     swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; renderAll(); refresh(); } },
@@ -1935,7 +1934,7 @@
     ] },
     { id: 'view', name: 'View', groups: [
       ['Views', ['*view2d', '*view3d']],
-      ['Layout', ['*mnuWindows', '*mnuGrids', '*theme']],
+      ['Layout', ['*mnuWindows', '*mnuGrids']],
       ['Scene', [{ html: '<div class="rb-fields"><div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div></div>' }]],
     ] },
     { id: 'share', name: 'Share', groups: [

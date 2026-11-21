@@ -9,7 +9,7 @@
 <style>
 /*
  * MtnEye — enterprise desktop-GIS styling.
- * Themes: dark (graphite) · light · contrast · night (red, preserves dark adaptation).
+ * Theme: light only (the dark rules below are unused).
  * Densities: compact · comfortable. Local font stacks only (fully offline).
  */
 :root, [data-theme="dark"] {
@@ -610,7 +610,7 @@ body:not(.has-grid) .map-ctl { display: none; }
 
 </style>
 </head>
-<body data-theme="dark" data-density="compact">
+<body data-theme="light" data-density="comfortable">
 <header id="titlebar">
   <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnEye</b></div>
   <div class="qat">
@@ -5573,7 +5573,7 @@ body:not(.has-grid) .map-ctl { display: none; }
       { key: 'map.contourColor', label: 'Contour colour', type: 'color', def: '#7a4a22', apply: 'base' },
       { key: 'map.spotHeights', label: 'Spot heights & cols', type: 'bool', def: true, apply: 'grid' },
       { key: 'map.scaleBar', label: 'Scale bar', type: 'bool', def: true, apply: 'grid' },
-      { key: 'map.background', label: 'Map background', type: 'color', def: '#15171c', apply: 'grid' },
+      { key: 'map.background', label: 'Map background', type: 'color', def: '#e9edf2', apply: 'grid' },
     ] },
     { id: 'sym', title: 'Symbology', items: [
       { key: 'sym.size', label: 'Symbol size', type: 'number', def: 26, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
@@ -5607,7 +5607,7 @@ body:not(.has-grid) .map-ctl { display: none; }
       { key: 'v3.fov', label: 'Field of view', type: 'number', def: 45, min: 20, max: 80, step: 1, unit: '°', apply: '3d' },
       { key: 'v3.light', label: 'Sun lighting strength', type: 'number', def: 0.42, min: 0, max: 1, step: 0.05, apply: '3d' },
       { key: 'v3.haze', label: 'Atmospheric haze', type: 'number', def: 0.55, min: 0, max: 1, step: 0.05, apply: '3d' },
-      { key: 'v3.sky', label: 'Background', type: 'color', def: '#1b2029', apply: '3d' },
+      { key: 'v3.sky', label: 'Background', type: 'color', def: '#dfe6ee', apply: '3d' },
       { key: 'v3.skirts', label: 'Terrain block sides', type: 'bool', def: true, apply: '3d' },
       { key: 'v3.lift', label: 'Symbol leader height', type: 'number', def: 26, min: 0, max: 80, step: 1, unit: 'px', apply: '3d' },
       { key: 'v3.flySpeed', label: 'Fly-through speed', type: 'number', def: 260, min: 50, max: 2000, step: 10, unit: 'm/s', apply: 'none' },
@@ -5652,8 +5652,7 @@ body:not(.has-grid) .map-ctl { display: none; }
       { key: 'rep.prefix', label: 'File name prefix', type: 'text', def: '', apply: 'none' },
     ] },
     { id: 'ui', title: 'Interface', items: [
-      { key: 'ui.theme', label: 'Theme', type: 'select', def: 'dark', apply: 'ui',
-        options: [['dark', 'Dark (graphite)'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red, preserves dark adaptation)']] },
+      { key: 'ui.theme', label: 'Theme', type: 'select', def: 'light', apply: 'ui', options: [['light', 'Light']] }, // dark themes disabled
       { key: 'ui.density', label: 'Density', type: 'select', def: 'comfortable', options: [['compact', 'Compact'], ['comfortable', 'Comfortable']], apply: 'ui' },
       { key: 'ui.fontSize', label: 'Interface font size', type: 'number', def: 13, min: 11, max: 16, step: 0.5, unit: 'px', apply: 'ui' },
       { key: 'ui.startup', label: 'On start-up', type: 'select', def: 'welcome', options: [['welcome', 'Show start page'], ['demo', 'Load the demo terrain']], apply: 'none' },
@@ -10702,7 +10701,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     }));
   };
   const applyTheme = () => {
-    document.body.dataset.theme = cfg('ui.theme');
+    document.body.dataset.theme = 'light'; // dark themes are disabled; older saved choices fall back to light
     document.body.dataset.density = cfg('ui.density');
     document.documentElement.style.setProperty('--fs', `${cfg('ui.fontSize')}px`);
   };
@@ -10945,7 +10944,6 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     gridSec: { t: 'Secondary CRS grid', rb: 'Secondary Grid', check: true, run: () => Settings.set('grid.secondary', !cfg('grid.secondary')), on: () => cfg('grid.secondary') },
     contours: { t: 'Contours', rb: 'Contours', check: true, run: () => Settings.set('map.contours', !cfg('map.contours')), on: () => cfg('map.contours') },
     labels: { t: 'Labels', rb: 'Labels', check: true, run: () => Settings.set('sym.labels', !cfg('sym.labels')), on: () => cfg('sym.labels') },
-    theme: { t: 'Theme', rb: 'Theme', icon: 'panel', menu: () => [['dark', 'Dark'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red)']].map(([k, n]) => ({ t: n, checked: cfg('ui.theme') === k, run: () => Settings.set('ui.theme', k) })) },
     routeCard: { t: 'Route card (GSP Annex E)', rb: 'Route Card', icon: 'doc', need, run: () => { setDock(true); showDockTab('card'); } },
     doctrine: { t: 'Doctrine — GSP Mountain Warfare', rb: 'Doctrine', icon: 'doc', run: () => openHelp('doctrine') },
     swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; renderAll(); refresh(); } },
@@ -11037,7 +11035,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     ] },
     { id: 'view', name: 'View', groups: [
       ['Views', ['*view2d', '*view3d']],
-      ['Layout', ['*mnuWindows', '*mnuGrids', '*theme']],
+      ['Layout', ['*mnuWindows', '*mnuGrids']],
       ['Scene', [{ html: '<div class="rb-fields"><div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div></div>' }]],
     ] },
     { id: 'share', name: 'Share', groups: [

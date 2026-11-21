@@ -214,7 +214,7 @@ GeoJSON exports carry the matching 20-digit SIDC for each feature.
 
 ```
 index.html            app shell (opens directly from disk)
-css/app.css           themes (dark, light, high contrast, night red) and layout
+css/app.css           light theme and layout
 src/core/             analysis library — runs in the Web Worker, main thread and Node
   util geo crs grid terrain mobility visibility routing weapons tactical synthetic jobs
 src/io/dem-io.js      HGT / GeoTIFF / ASC / ZIP readers and UTM resampling

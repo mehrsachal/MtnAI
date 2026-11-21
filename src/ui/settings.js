@@ -119,7 +119,7 @@
       { key: 'map.contourColor', label: 'Contour colour', type: 'color', def: '#7a4a22', apply: 'base' },
       { key: 'map.spotHeights', label: 'Spot heights & cols', type: 'bool', def: true, apply: 'grid' },
       { key: 'map.scaleBar', label: 'Scale bar', type: 'bool', def: true, apply: 'grid' },
-      { key: 'map.background', label: 'Map background', type: 'color', def: '#15171c', apply: 'grid' },
+      { key: 'map.background', label: 'Map background', type: 'color', def: '#e9edf2', apply: 'grid' },
     ] },
     { id: 'sym', title: 'Symbology', items: [
       { key: 'sym.size', label: 'Symbol size', type: 'number', def: 26, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
@@ -153,7 +153,7 @@
       { key: 'v3.fov', label: 'Field of view', type: 'number', def: 45, min: 20, max: 80, step: 1, unit: '°', apply: '3d' },
       { key: 'v3.light', label: 'Sun lighting strength', type: 'number', def: 0.42, min: 0, max: 1, step: 0.05, apply: '3d' },
       { key: 'v3.haze', label: 'Atmospheric haze', type: 'number', def: 0.55, min: 0, max: 1, step: 0.05, apply: '3d' },
-      { key: 'v3.sky', label: 'Background', type: 'color', def: '#1b2029', apply: '3d' },
+      { key: 'v3.sky', label: 'Background', type: 'color', def: '#dfe6ee', apply: '3d' },
       { key: 'v3.skirts', label: 'Terrain block sides', type: 'bool', def: true, apply: '3d' },
       { key: 'v3.lift', label: 'Symbol leader height', type: 'number', def: 26, min: 0, max: 80, step: 1, unit: 'px', apply: '3d' },
       { key: 'v3.flySpeed', label: 'Fly-through speed', type: 'number', def: 260, min: 50, max: 2000, step: 10, unit: 'm/s', apply: 'none' },
@@ -198,8 +198,7 @@
       { key: 'rep.prefix', label: 'File name prefix', type: 'text', def: '', apply: 'none' },
     ] },
     { id: 'ui', title: 'Interface', items: [
-      { key: 'ui.theme', label: 'Theme', type: 'select', def: 'dark', apply: 'ui',
-        options: [['dark', 'Dark (graphite)'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red, preserves dark adaptation)']] },
+      { key: 'ui.theme', label: 'Theme', type: 'select', def: 'light', apply: 'ui', options: [['light', 'Light']] }, // dark themes disabled
       { key: 'ui.density', label: 'Density', type: 'select', def: 'comfortable', options: [['compact', 'Compact'], ['comfortable', 'Comfortable']], apply: 'ui' },
       { key: 'ui.fontSize', label: 'Interface font size', type: 'number', def: 13, min: 11, max: 16, step: 0.5, unit: 'px', apply: 'ui' },
       { key: 'ui.startup', label: 'On start-up', type: 'select', def: 'welcome', options: [['welcome', 'Show start page'], ['demo', 'Load the demo terrain']], apply: 'none' },

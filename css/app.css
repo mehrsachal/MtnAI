@@ -1,6 +1,6 @@
 /*
  * MtnEye — enterprise desktop-GIS styling.
- * Themes: dark (graphite) · light · contrast · night (red, preserves dark adaptation).
+ * Theme: light only (the dark rules below are unused).
  * Densities: compact · comfortable. Local font stacks only (fully offline).
  */
 :root, [data-theme="dark"] {
