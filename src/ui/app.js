@@ -33,7 +33,7 @@
     show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true,
       secArea: true, ridges: true, nullahs: true, itgs: true, plan: true, eappr: true, infil: true, eopts: true, bwatch: true, firegaps: true },
     tool: null, draft: null, sel: null, view: '2d', baseCanvas: null, texCanvas: null, texDirty: true,
-    sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: {},
+    sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: { grpGrid: true },
   });
   const engine = new UI.Engine();
   let map, v3;
@@ -143,6 +143,7 @@
       S.contours = await engine.call('contours', { interval: +cfg('map.contourInterval'), majorEvery: +cfg('map.contourIndex') });
       await syncSettings();
       $('welcome').hidden = true;
+      document.body.classList.add('has-grid');
       $('demName').textContent = `${meta.name} — ${meta.w} × ${meta.h} cells @ ${meta.cs} m`;
       updateEnabled();
       composeBase();
@@ -1525,17 +1526,19 @@
   // =================================================================== dock / profile
   const showDockTab = (tab) => {
     document.querySelectorAll('.dock-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.dock === tab));
+    document.querySelector(`.dock-tabs [data-dock=${tab}]`).classList.remove('fresh');
     document.querySelectorAll('[data-dockpanel]').forEach((p) => (p.hidden = p.dataset.dockpanel !== tab));
     document.querySelector('[data-dockpanel-tools]').hidden = tab !== 'table';
     if (tab === 'card') renderRouteCard();
     if (tab === 'profile' && S.drawerData) UI.drawProfile($('chart'), S.drawerData);
   };
   const setDock = (open) => { $('dock').classList.toggle('collapsed', !open); $('dockToggle').textContent = open ? '▾' : '▴'; saveLayout(); updateRibbonState(); };
+  /** The profile is prepared; the dock opens only if it is already open (keeps the map large). */
   const openProfile = (title, data) => {
     S.drawerData = data;
     $('profileTitle').textContent = title;
-    setDock(true);
-    showDockTab('profile');
+    if (!$('dock').classList.contains('collapsed')) showDockTab('profile');
+    else document.querySelector('.dock-tabs [data-dock=profile]').classList.add('fresh');
   };
   const showRouteProfile = () => {
     if (!S.routes) return;
@@ -1884,46 +1887,60 @@
 
   // =================================================================== ribbon
   // Items: 'cmd' (small), '*cmd' (large), '|' column break for small buttons, {html} custom control.
+  // Clean ribbon: one row of large buttons per tab; secondary commands live in ▾ menus.
+  const menuOf = (title, icon, names) => ({ t: title, rb: title, icon, menu: () => names.map((n) => (n === '-' ? '-' : { t: CMD[n].t, icon: CMD[n].icon, checked: CMD[n].on ? !!CMD[n].on() : false, disabled: !!(CMD[n].need && !CMD[n].need()), run: () => runCmd(n) })) });
+  Object.assign(CMD, {
+    mnuData: menuOf('More', 'data', ['demo', '-', 'tool:aoi', 'fullExtent', 'reproject', '-', 'raster']),
+    mnuPoints: menuOf('More Points', 'target', ['tool:target', 'tool:a', 'tool:b', '-', 'swapAB']),
+    mnuInquiry: menuOf('More', 'ruler', ['tool:los', 'tool:vs', 'gp:convert', '-', 'clearSel', 'attrTable']),
+    mnuVis: menuOf('More', 'eye', ['gp:los', 'tool:los', 'tool:vs', 'tool:rvsline']),
+    mnuMove: menuOf('More', 'route', ['gp:fly', 'swapAB', 'routeCard', 'tool:rvsline']),
+    mnuSector: menuOf('More', 'crop', ['clearSector']),
+    mnuOwn: menuOf('More', 'post', ['gp:fireCoverage', 'gp:borderWatch']),
+    mnuEnemy: menuOf('More', 'axis', ['gp:infiltration', 'gp:enemyOptions']),
+    mnuExport: menuOf('Export', 'download', ['shapefile', 'geojson', 'csv', 'raster', 'png']),
+    mnuGrids: menuOf('Grids & Labels', 'layers', ['gridMgrs', 'gridGrat', 'gridSec', '-', 'contours', 'labels']),
+    mnuWindows: menuOf('Panes', 'panel', ['toggleLeft', 'toggleRight', 'toggleDock']),
+    mnuCreate: menuOf('More', 'nogo', ['clearObstacles']),
+    mnuExtent: menuOf('More', 'fit', ['fullExtent', 'reproject']),
+  });
   const RIBBON = [
     { id: 'map', name: 'Map', groups: [
-      ['Navigate', ['*explore', 'fit', 'zoomIn', 'zoomOut', '|', { html: '<div class="rb-goto"><label>Go To XY</label><input id="gotoBox" placeholder="MGRS · UTM · lat/lon · GARS" spellcheck="false" disabled></div>' }]],
-      ['Layer', ['*addData', '*downloadDEM', 'demo', 'attrTable']],
-      ['Basemap', ['*basemap']],
-      ['Selection', ['clearSel']],
-      ['Inquiry', ['*tool:measure', 'tool:los', 'tool:vs', 'gp:convert']],
-      ['Situation', ['*tool:own', '*tool:threat', 'tool:target', 'tool:a', 'tool:b']],
+      ['Navigate', ['*explore', '*fit', { html: '<div class="rb-goto"><label>Go To XY</label><input id="gotoBox" placeholder="MGRS · UTM · lat/lon · GARS" spellcheck="false" disabled></div>' }]],
+      ['Data', ['*addData', '*downloadDEM', '*mnuData']],
+      ['Display', ['*basemap', '*mnuGrids']],
+      ['Inquiry', ['*tool:measure', '*mnuInquiry']],
+      ['Situation', ['*tool:own', '*tool:threat', '*mnuPoints']],
     ] },
     { id: 'sector', name: 'Sector', groups: [
-      ['Area', ['*tool:sector', '*tool:border', 'clearSector']],
+      ['Area', ['*tool:sector', '*tool:border', '*mnuSector']],
       ['Assess', ['*gp:sectorAll']],
       ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
-      ['Own Forces', ['*gp:deploy', 'gp:fireCoverage', 'gp:borderWatch']],
-      ['Enemy', ['*gp:enemyApproaches', 'gp:infiltration', 'gp:enemyOptions']],
-      ['Output', ['*secReport', 'shapefile', 'geojson', 'csv']],
+      ['Own Forces', ['*gp:deploy', '*mnuOwn']],
+      ['Enemy', ['*gp:enemyApproaches', '*mnuEnemy']],
+      ['Output', ['*secReport', '*mnuExport']],
     ] },
     { id: 'analysis', name: 'Analysis', groups: [
-      ['Geoprocessing', ['*gpTools', '*history']],
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
-      ['Visibility', ['gp:viewshed', 'gp:routeViewshed', 'gp:los', '|', 'gp:hostile']],
-      ['Tactical Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
-      ['Routing & Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'swapAB', 'routeCard']],
+      ['Visibility', ['*gp:viewshed', '*gp:routeViewshed', '*gp:hostile', '*mnuVis']],
+      ['Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
+      ['Movement', ['*gp:route', '*gp:picquets', '*gp:helipads', '*mnuMove']],
+      ['Tools', ['*gpTools', '*history']],
     ] },
     { id: 'edit', name: 'Edit', groups: [
-      ['Create', ['*tool:poly', '*tool:line', 'clearObstacles']],
-      ['Situation', ['*tool:own', '*tool:threat', 'tool:target', 'tool:a', 'tool:b', '|', { html: `<div class="rb-field"><label>Own echelon</label><select id="rbEchelon">${['team', 'section', 'platoon', 'company', 'battalion', 'brigade'].map((e) => `<option value="${e}">${e[0].toUpperCase() + e.slice(1)}</option>`).join('')}</select></div>
-        <div class="rb-field"><label>Enemy type</label><select id="rbThreat"><option value="foot">Infantry</option><option value="jeep">Wheeled / mech</option><option value="tracked">Armour</option><option value="mule">Animal transport</option><option value="truck">Trucks</option></select></div>` }]],
-      ['Extent', ['*tool:aoi', 'fullExtent', 'reproject']],
+      ['Create', ['*tool:poly', '*tool:line', '*mnuCreate']],
+      ['Units', ['*tool:own', '*tool:threat', '*mnuPoints', { html: `<div class="rb-fields"><div class="rb-field"><label>Own echelon</label><select id="rbEchelon">${['team', 'section', 'platoon', 'company', 'battalion', 'brigade'].map((e) => `<option value="${e}">${e[0].toUpperCase() + e.slice(1)}</option>`).join('')}</select></div>
+        <div class="rb-field"><label>Enemy type</label><select id="rbThreat"><option value="foot">Infantry</option><option value="jeep">Wheeled / mech</option><option value="tracked">Armour</option><option value="mule">Animal transport</option><option value="truck">Trucks</option></select></div></div>` }]],
+      ['Extent', ['*tool:aoi', '*mnuExtent']],
     ] },
     { id: 'view', name: 'View', groups: [
       ['Views', ['*view2d', '*view3d']],
-      ['Windows', ['toggleLeft', 'toggleRight', 'toggleDock']],
-      ['Grids & Labels', ['gridMgrs', 'gridGrat', 'gridSec', '|', 'contours', 'labels']],
-      ['Scene', [{ html: '<div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div>' }]],
-      ['Appearance', ['*theme']],
+      ['Layout', ['*mnuWindows', '*mnuGrids', '*theme']],
+      ['Scene', [{ html: '<div class="rb-fields"><div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div></div>' }]],
     ] },
     { id: 'share', name: 'Share', groups: [
       ['Project', ['*loadPlan', '*savePlan']],
-      ['Export', ['geojson', 'shapefile', 'csv', '|', 'raster', 'png']],
+      ['Export', ['*shapefile', '*geojson', '*csv', '*raster', '*png']],
       ['Output', ['*report']],
     ] },
     { id: 'settings', name: 'Settings', groups: [
@@ -1931,7 +1948,7 @@
       ['Options', ['*settings']],
     ] },
     { id: 'help', name: 'Help', groups: [
-      ['Help', ['*help', '*doctrine', '*shortcuts', 'about']],
+      ['Help', ['*help', '*doctrine', '*shortcuts', '*about']],
     ] },
   ];
   const rbIcon = (c, large) => (c.sym ? `<span class="rb-sym${large ? ' lg' : ''}" data-sym="${c.sym}"></span>` : c.check ? '<span class="rb-chk"></span>' : UI.icon(c.icon || 'command', large ? 24 : 15));

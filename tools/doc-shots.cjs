@@ -68,7 +68,7 @@ const { chromium } = require('playwright');
   await fit();
   await shot('10_mfd');
   await gp('analysis', 'route');
-  await p.click('#rbBody [data-cmd=routeCard]');
+  await p.evaluate(() => MTN_UI.app.runCmd('routeCard'));
   await fit();
   await shot('11_route');
   await gp('analysis', 'picquets');

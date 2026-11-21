@@ -67,7 +67,7 @@ const { chromium } = require('playwright');
   // a cleaner map: hide rasters and enemy options, show plan
   await p.evaluate(() => { const S = MTN_UI.S; S.overlays.dominance.visible = false; S.overlays.firecov.visible = false; S.show.eopts = false; S.show.infil = false; MTN_UI.app.runCmd('fit'); });
   await p.evaluate(() => MTN_UI.app.select && MTN_UI.app.showRightTab('attr'));
-  await p.click('#rbTabs [data-rbtab=map]'); await p.click('#rbBody [data-cmd=attrTable]');
+  await p.click('#rbTabs [data-rbtab=map]'); await p.evaluate(() => MTN_UI.app.runCmd('attrTable'));
   await p.selectOption('#attrLayer', 'plan').catch(() => {});
   await p.evaluate(() => { const S = MTN_UI.S; S.overlays.dominance.visible = false; MTN_UI.app.map.render(); });
   await p.waitForTimeout(400);

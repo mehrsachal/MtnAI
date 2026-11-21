@@ -60,7 +60,9 @@
     draw() {
       const ctx = this.ctx, S = this.app.S, g = S.grid;
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      ctx.fillStyle = UI.cfg('map.background');
+      const bg = UI.cfg('map.background');
+      // the default background follows the theme (light theme: light surround)
+      ctx.fillStyle = bg === UI.Settings.ITEMS['map.background'].def ? getComputedStyle(document.body).getPropertyValue('--bg').trim() || bg : bg;
       ctx.fillRect(0, 0, this.W, this.H);
       if (!g || !S.baseCanvas) return;
       const P = { xy: (c, r) => this.toScreen(c, r), ppc: this.view.scale, lw: 1, cs: g.cs };
@@ -74,7 +76,7 @@
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       const [c0, r0] = this.toCell(0, 0), [c1, r1] = this.toCell(this.W, this.H);
       UI.drawGrids(ctx, g, P, [c0, r0, c1, r1], { labels: true, viewW: this.W, viewH: this.H });
-      UI.labelsBegin();
+      UI.labelsBegin(this.view.scale < 1.3 ? 1 : 0);
       UI.drawFeatures(ctx, S, P);
       UI.drawDraft(ctx, S, P);
       if (S.show.symbols) {

@@ -92,7 +92,7 @@
       { key: 'grid.mgrsLabels', label: 'Grid line labels', type: 'select', def: 'principal', apply: 'grid',
         options: [['none', 'None'], ['principal', 'Principal digits (e.g. 47)'], ['full', 'Full easting / northing']] },
       { key: 'grid.squareIds', label: 'Label 100 km square identifiers', type: 'bool', def: true, apply: 'grid' },
-      { key: 'grid.mgrsColor', label: 'Grid colour', type: 'color', def: '#3d7bff', apply: 'grid' },
+      { key: 'grid.mgrsColor', label: 'Grid colour', type: 'color', def: '#5d8ff0', apply: 'grid' },
       { key: 'grid.graticule', label: 'Lat / lon graticule', type: 'bool', def: false, apply: 'grid' },
       { key: 'grid.graticuleInterval', label: 'Graticule interval', type: 'select', def: 'auto', apply: 'grid',
         options: [['auto', 'Automatic'], [1, "1'"], [2, "2'"], [5, "5'"], [10, "10'"], [15, "15'"], [30, "30'"], [60, '1°']] },
@@ -122,7 +122,7 @@
       { key: 'map.background', label: 'Map background', type: 'color', def: '#15171c', apply: 'grid' },
     ] },
     { id: 'sym', title: 'Symbology', items: [
-      { key: 'sym.size', label: 'Symbol size', type: 'number', def: 30, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
+      { key: 'sym.size', label: 'Symbol size', type: 'number', def: 26, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
       { key: 'sym.colorMode', label: 'Affiliation colour mode (APP-6D)', type: 'select', def: 'light', apply: 'sym',
         options: [['light', 'Light (default)'], ['medium', 'Medium'], ['dark', 'Dark']] },
       { key: 'sym.filled', label: 'Filled frames', type: 'bool', def: true, apply: 'sym' },
@@ -200,8 +200,8 @@
     { id: 'ui', title: 'Interface', items: [
       { key: 'ui.theme', label: 'Theme', type: 'select', def: 'dark', apply: 'ui',
         options: [['dark', 'Dark (graphite)'], ['light', 'Light'], ['contrast', 'High contrast'], ['night', 'Night (red, preserves dark adaptation)']] },
-      { key: 'ui.density', label: 'Density', type: 'select', def: 'compact', options: [['compact', 'Compact'], ['comfortable', 'Comfortable']], apply: 'ui' },
-      { key: 'ui.fontSize', label: 'Interface font size', type: 'number', def: 12.5, min: 11, max: 16, step: 0.5, unit: 'px', apply: 'ui' },
+      { key: 'ui.density', label: 'Density', type: 'select', def: 'comfortable', options: [['compact', 'Compact'], ['comfortable', 'Comfortable']], apply: 'ui' },
+      { key: 'ui.fontSize', label: 'Interface font size', type: 'number', def: 13, min: 11, max: 16, step: 0.5, unit: 'px', apply: 'ui' },
       { key: 'ui.startup', label: 'On start-up', type: 'select', def: 'welcome', options: [['welcome', 'Show start page'], ['demo', 'Load the demo terrain']], apply: 'none' },
       { key: 'ui.toastSec', label: 'Notification duration', type: 'number', def: 5, min: 1, max: 30, step: 1, unit: 's', apply: 'none' },
     ] },

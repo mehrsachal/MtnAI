@@ -479,3 +479,122 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 .rb-group { padding: 0 6px; }
 .rb-l { min-width: 54px; }
 #toolHint { max-width: 70%; white-space: normal; text-align: center; }
+
+/* =====================================================================
+   MtnEye visual refresh — calmer palette, more air, panels as cards
+   ===================================================================== */
+:root, [data-theme="dark"] {
+  --bg: #0e1116; --panel: #161a21; --panel-2: #1a1f27; --surface: #1f252f; --hover: #262e3a;
+  --line: #262d38; --line-2: #343d4b; --text: #e3e7ed; --text-2: #b9c1cc; --muted: #8590a0;
+  --accent: #4ea1ff; --accent-fg: #06121f; --sel: rgba(78, 161, 255, 0.14); --sel-line: #4ea1ff; --input: #11151b;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] {
+  --bg: #e9edf2; --panel: #ffffff; --panel-2: #f6f8fa; --surface: #ffffff; --hover: #eef2f7;
+  --line: #e3e7ee; --line-2: #cfd6e0; --text: #1b2330; --text-2: #3c4655; --muted: #6b7686;
+  --accent: #1769e0; --accent-fg: #ffffff; --sel: rgba(23, 105, 224, 0.09); --sel-line: #1769e0; --input: #ffffff;
+}
+:root { --left-w: 250px; --right-w: 320px; --dock-h: 220px; --radius: 6px; --gutter: 6px; }
+body { grid-template-rows: 40px auto minmax(0, 1fr) 26px; }
+
+/* title bar */
+#titlebar { gap: 12px; padding: 0 12px; border-bottom: 0; }
+.brand { font-size: 14px; gap: 8px; }
+.qat { border: 0; gap: 4px; padding: 0 4px; }
+.qb { width: 30px; height: 28px; border-radius: var(--radius); }
+.cmd-search { height: 28px; width: 300px; border-radius: 14px; padding: 0 12px; background: var(--panel-2); }
+
+/* ribbon: one calm row of large buttons */
+#ribbon { border-bottom: 1px solid var(--line); }
+.rb-tabs { height: 32px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); gap: 2px; }
+.rb-tabs button { padding: 0 16px; font-size: 12.5px; border-radius: var(--radius) var(--radius) 0 0; }
+.rb-tabs button.on { background: var(--panel); border-bottom-width: 2px; }
+.rb-body { height: 84px; padding: 6px 8px 0; gap: 4px; background: var(--panel); }
+.rb-group { padding: 0 10px; border-right: 1px solid var(--line); }
+.rb-group:last-child { border-right: 0; }
+.rb-items { gap: 4px; align-items: center; }
+.rb-l { min-width: 62px; max-width: 86px; height: 60px; padding: 6px 6px 4px; gap: 5px; border-radius: 8px; font-size: 11.5px; }
+.rb-l:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+.rb-l.active { background: var(--sel); border-color: transparent; box-shadow: inset 0 0 0 1px var(--sel-line); }
+.rb-l .ico { width: 22px; height: 22px; color: var(--accent); }
+.rb-l.dd span::after { content: " ▾"; }
+.rb-label { font-size: 10.5px; letter-spacing: .3px; color: var(--muted); height: 16px; }
+.rb-goto { padding: 2px 8px; }
+.rb-goto input { width: 230px; height: 30px; border-radius: var(--radius); }
+.rb-fields { display: flex; flex-direction: column; gap: 4px; padding: 0 6px; }
+.rb-field { flex-direction: row; align-items: center; gap: 8px; padding: 0; }
+.rb-field label { width: 120px; }
+.rb-field select, .rb-field input { width: 150px; height: 26px; border-radius: var(--radius); }
+
+/* panes as cards with gutters */
+#app { gap: 0; padding: var(--gutter); padding-top: var(--gutter); background: var(--bg); }
+.splitter { background: transparent; }
+.splitter.v { border: 0; width: var(--gutter); }
+.splitter.h { border: 0; height: var(--gutter); background: transparent; }
+.splitter:hover, .splitter.drag { background: var(--line-2); border-radius: 3px; }
+#contents, #right { border-radius: 10px; border: 1px solid var(--line); }
+#center { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); }
+.pane-head { height: 38px; padding: 0 8px 0 14px; font-size: 13px; border-bottom: 1px solid var(--line); }
+.pane-tools { padding: 8px 10px; border-bottom: 0; }
+.pane-tools input, #tocFilter { height: 30px; border-radius: 15px; padding: 0 12px; background: var(--panel-2); }
+.pane-tabs { height: 38px; background: var(--panel); padding: 0 6px; }
+.pane-tabs button[data-rtab] { padding: 0 12px; font-size: 12.5px; }
+.view-tabs { height: 34px; background: var(--panel); }
+.view-tabs button { padding: 0 16px; border-right: 0; border-top: 0; border-bottom: 2px solid transparent; }
+.view-tabs button.on { background: transparent; border-bottom-color: var(--accent); }
+
+/* contents */
+#toc { padding: 2px 6px 24px; }
+.toc-map { padding: 8px 8px 4px; }
+.toc-grp { margin-left: 4px; }
+.toc-gh { padding: 10px 6px 4px; font-size: 10.5px; }
+.toc-l { margin-left: 6px; padding: 3px 6px; border-radius: var(--radius); }
+.toc-lh { min-height: 26px; gap: 7px; }
+.toc-c { background: transparent; border: 0; color: var(--muted); }
+.toc-lg { margin: 2px 0 6px 38px; }
+
+/* geoprocessing pane */
+.gp-head { height: 44px; font-size: 14px; padding: 0 8px; }
+.gp-gsp { margin: 8px 12px; border-radius: 8px; border: 1px solid var(--line); border-left: 3px solid var(--warn); padding: 8px 10px; }
+.gp-tabs { height: 32px; padding: 0 14px; }
+.gp-form { padding: 6px 16px 20px; }
+.gp-p { margin: 12px 0; gap: 5px; }
+.gp-p > label { font-size: 12px; color: var(--muted); }
+.gp-p input[type=number], .gp-p input[type=text], .gp-p input[type=password], .gp-p select { height: 32px; border-radius: var(--radius); }
+.gp-p.marker { border-left: 0; padding: 8px 10px; background: var(--panel-2); border-radius: 8px; }
+.gp-sec { margin: 16px 0 4px; border-top: 1px solid var(--line); }
+.gp-sec-h { padding: 10px 0 2px; font-size: 12.5px; }
+.gp-msg { margin: 0 12px 10px; border-radius: 8px; max-height: 28%; padding: 10px 12px; }
+.gp-foot { padding: 10px 12px; background: var(--panel); }
+.gp-foot .btn.primary { min-width: 90px; height: 32px; border-radius: var(--radius); }
+.gp-tool { padding: 8px 12px 8px 26px; border-radius: 8px; }
+.gp-box-h { padding: 12px 12px 4px; }
+.btn { border-radius: var(--radius); }
+input[type=number], input[type=text], input:not([type]), select { border-radius: var(--radius); }
+
+/* map */
+#stage { background: var(--bg); }
+.map-ctl { position: absolute; right: 14px; top: 14px; z-index: 12; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.map-ctl button { width: 34px; height: 34px; background: none; border: 0; color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
+.map-ctl button + button { border-top: 1px solid var(--line); }
+.map-ctl button:hover { background: var(--hover); }
+body:not(.has-grid) .map-ctl { display: none; }
+#toast { right: 62px; border-radius: 8px; }
+#toolHint { border-radius: 18px; padding: 6px 16px; top: 14px; }
+
+/* dock */
+#dock { border-top: 1px solid var(--line); background: var(--panel); }
+.dock-head { height: 34px; background: var(--panel); }
+#dock.collapsed { height: 34px; }
+.dock-tabs button { padding: 0 14px; position: relative; }
+.dock-tabs button.fresh::after { content: ""; position: absolute; top: 9px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.grid-table th { padding: 7px 10px; background: var(--panel); }
+.grid-table td { padding: 6px 10px; }
+.grid-table tbody tr:nth-child(even) { background: transparent; }
+.grid-table tbody tr { border-bottom: 1px solid var(--line); }
+
+/* status bar */
+#status { background: var(--bg); border-top: 0; font-size: 11.5px; padding: 0 6px; }
+#status > span { border-right: 0; padding: 0 10px; }
+#status .st-right, #status .st-right > span { border-left: 0; }

@@ -42,7 +42,8 @@
   // While a frame is drawn, labels are queued instead of painted; at the end they are placed by
   // priority and any label that would overlap a placed label or a symbol is dropped.
   let labelQ = null, symBoxes = null;
-  UI.labelsBegin = () => { labelQ = []; symBoxes = []; };
+  let minPrio = 0;
+  UI.labelsBegin = (mp = 0) => { labelQ = []; symBoxes = []; minPrio = mp; };
   UI.labelsEnd = (ctx) => {
     if (!labelQ) return;
     const q = labelQ, syms = symBoxes;
@@ -51,6 +52,7 @@
     const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
     q.sort((a, b) => b.prio - a.prio || a.order - b.order);
     for (const L of q) {
+      if (L.prio < minPrio) continue; // zoomed out: minor labels (heights, cols, ridge ids) wait until zoomed in
       ctx.save();
       ctx.font = L.opts.font || `600 12px ${FONT}`;
       const w = ctx.measureText(L.text).width, h = parseFloat(/(\d+(\.\d+)?)px/.exec(ctx.font)?.[1] || 12);
@@ -146,7 +148,7 @@
       const lines = [];
       for (let E = Math.ceil(E0 / step) * step; E <= E1; E += step) { lines.push({ pts: [[toC(E), r0], [toC(E), r1]] }); labels.push({ axis: 'x', v: E, at: P.xy(toC(E), r0), color, kind: 'utm' }); }
       for (let N = Math.ceil(N0 / step) * step; N <= N1; N += step) { lines.push({ pts: [[c0, toR(N)], [c1, toR(N)]] }); labels.push({ axis: 'y', v: N, at: P.xy(c0, toR(N)), color, kind: 'utm' }); }
-      strokeLines(ctx, lines, P, rgbaHex(color, 0.6), width);
+      strokeLines(ctx, lines, P, rgbaHex(color, 0.28), width);
       if (opts.labels && cfg('grid.squareIds')) {
         for (let E = Math.floor(E0 / 1e5) * 1e5; E < E1; E += 1e5)
           for (let N = Math.floor(N0 / 1e5) * 1e5; N < N1; N += 1e5) {
@@ -177,7 +179,7 @@
         lines.push(ln); labels.push({ axis: 'y', v: lat, line: ln, color, kind: 'lat' });
       }
       ctx.setLineDash([6 * P.lw, 4 * P.lw]);
-      strokeLines(ctx, lines, P, rgbaHex(color, 0.75), width);
+      strokeLines(ctx, lines, P, rgbaHex(color, 0.4), width);
       ctx.setLineDash([]);
     }
     const crs = cfg('grid.secondary') && UI.F.secondaryCRS();
@@ -208,7 +210,7 @@
         lines.push(ln); labels.push({ axis: 'y', v: y, line: ln, color, kind: geo ? 'lat' : 'proj' });
       }
       ctx.setLineDash([2 * P.lw, 3 * P.lw]);
-      strokeLines(ctx, lines, P, rgbaHex(color, 0.85), width);
+      strokeLines(ctx, lines, P, rgbaHex(color, 0.5), width);
       ctx.setLineDash([]);
     }
     if (opts.labels && cfg('grid.mgrsLabels') !== 'none') {
@@ -355,6 +357,14 @@
         cased(ctx, rt.line, P, routeC, 4);
         const n = rt.line.length;
         for (let q = 6; q < n - 1; q += 8) arrowHead(ctx, P.xy(...rt.line[q - 1]), P.xy(...rt.line[q]), 9 * lw, routeC);
+        // checkpoints: small numbered dots on the route (pins only crowd the map)
+        rt.checkpoints.forEach((cp, k) => {
+          const [x, y] = P.xy(cp.c, cp.r), R2 = 6.5 * lw;
+          ctx.save(); ctx.fillStyle = '#fff'; ctx.strokeStyle = routeC; ctx.lineWidth = 2 * lw;
+          ctx.beginPath(); ctx.arc(x, y, R2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#000'; ctx.font = `700 ${Math.round(8 * lw)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(k + 1), x, y + 0.5); ctx.restore();
+        });
       }
     }
 
@@ -465,7 +475,8 @@
     }
 
     if (sh.key && S.key) {
-      for (const pk of S.key.peaks) {
+      const overview = (P.ppc || 1) < 1.3;
+      for (const pk of overview ? S.key.peaks.slice(0, 10) : S.key.peaks) {
         const [x, y] = P.xy(pk.c, pk.r);
         ctx.save();
         ctx.fillStyle = '#111'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * lw;
@@ -474,7 +485,7 @@
         ctx.restore();
         if (sh.labels) UI.haloText(ctx, String(F.elevNum(pk.z)), x + 7 * lw, y, { font: lblFont(11), prio: 0.5 });
       }
-      for (const ps of S.key.passes) {
+      for (const ps of overview ? S.key.passes.slice(0, 6) : S.key.passes) {
         const [x, y] = P.xy(ps.c, ps.r);
         UI.haloText(ctx, ')(', x, y, { align: 'center', font: `700 ${Math.round(15 * lw)}px Georgia, serif`, color: '#ffe9a8', now: true });
         if (sh.labels) UI.haloText(ctx, `Col ${F.elevNum(ps.z)}`, x + 10 * lw, y + 1, { font: lblFont(11, 400), color: '#ffe9a8', prio: 0.5 });
@@ -575,7 +586,7 @@
     if (sh.hostileOps && S.hostile) S.hostile.observers.filter((o) => !o.isThreat).forEach((o) => items.push({ c: o.c, r: o.r, spec: UI.SYM.hostileOP(), small: true }));
     if (sh.routes && S.routes) {
       const rt = S.routes.routes[S.routes.sel || 0];
-      if (rt) rt.checkpoints.forEach((cp, k) => items.push({ c: cp.c, r: cp.r, spec: UI.SYM.cp(k + 1), small: true }));
+
     }
     if (UI._secItems) UI._secItems().forEach((x) => {
       if (!x.sym || sh[x.layer] === false) return;
