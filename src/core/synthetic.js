@@ -1,5 +1,5 @@
 /*
- * MtnAI core — procedural mountain terrain for training and offline demos.
+ * MtnEye core — procedural mountain terrain for training and offline demos.
  * Ridged multifractal noise, domain warping and carved valleys produce a
  * Karakoram-style massif: a main E-W river valley, side nullahs, a southern
  * enemy valley and passes over the dividing ridge. The terrain is fictional.

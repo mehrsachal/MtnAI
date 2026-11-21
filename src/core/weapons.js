@@ -1,5 +1,5 @@
 /*
- * MtnAI core — weapon planning data (Pakistan Army inventory, open-source figures).
+ * MtnEye core — weapon planning data (Pakistan Army inventory, open-source figures).
  *
  * Ranges are INDICATIVE planning values from public sources and are editable in
  * the UI. Always confirm with the unit's current weapon data before use.

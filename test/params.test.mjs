@@ -87,3 +87,14 @@ test('minefields (AP): protective — close in front of own troops', () => {
   assert.equal(r.purpose, 'protective');
   for (const f of r.fields) assert.ok(distM(f, own) <= 800 * 1.0 + 2 * g.cs, `${f.id} ${distM(f, own)} m`);
 });
+
+test('route viewshed: stations along the route, counts bounded by stations, watch points see part of the route', () => {
+  const rt = jobs.route({ a: snap(syn.markers.a), b: own, profile: 'foot', mode: 'fastest', alternatives: 1, cpEveryM: 0 }, none).routes[0];
+  const r = jobs.routeViewshed({ line: rt.line, mode: 'exposure', stepM: 500, radiusM: 3000, watchPoints: 3 });
+  assert.ok(r.stations.length >= Math.floor(rt.lengthM / 500));
+  let mx = 0; for (const v of r.count) mx = Math.max(mx, v);
+  assert.ok(mx >= 1 && mx <= r.stations.length);
+  assert.ok(r.visibleKm2 > 0 && r.watch.length === 3 && r.watch.every((w) => w.share > 0 && w.share <= 1));
+  const from = jobs.routeViewshed({ line: rt.line, mode: 'from', stepM: 500 });
+  assert.equal(from.mode, 'from');
+});

@@ -734,6 +734,73 @@
    }
   ]
  },
+ "routeViewshed": {
+  "name": "Route Viewshed",
+  "desc": "Viewshed of a whole route: what a column moving along it can see, or — exposure — every place from which the route can be seen. Also finds the best points to watch the route (for picquets, or where the enemy would put OPs).",
+  "gsp": "GSP Sec 4 para 15 and Sec 6: dominating heights overlook the routes in the valleys — picquet them; choose covered routes where the enemy can see little of the move.",
+  "rows": [
+   {
+    "label": "Route",
+    "def": "Selected least-time route",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Question",
+    "def": "Exposure — from where can the route be seen?",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Station spacing along the route",
+    "def": "250 m",
+    "help": "A viewshed is computed at every station; closer = finer, slower.",
+    "only": ""
+   },
+   {
+    "label": "Viewing range",
+    "def": "3000 m",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Height of troops on the route",
+    "def": "1.8 m",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Height of a watcher (eye level)",
+    "def": "2 m",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Observer height on the route",
+    "def": "2 m",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Target height",
+    "def": "1.5 m",
+    "help": "",
+    "only": "only shown for some choices"
+   },
+   {
+    "label": "Watch points to suggest",
+    "def": "5",
+    "help": "",
+    "only": ""
+   },
+   {
+    "label": "Watch points: minimum separation",
+    "def": "600 m",
+    "help": "",
+    "only": ""
+   }
+  ]
+ },
  "los": {
   "name": "Line of Sight",
   "desc": "Intervisibility between two points with terrain profile, obstruction point and clearance.",

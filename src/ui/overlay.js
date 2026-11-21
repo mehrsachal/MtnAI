@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — vector features, map grids and NATO symbols, drawn identically on the
+ * MtnEye ui — vector features, map grids and NATO symbols, drawn identically on the
  * 2D map (screen space) and into the texture draped over the 3D terrain.
  *
  * P = { xy(c, r) -> [x, y], ppc: pixels per cell, lw: line-width scale, cs: cell size (m) }
@@ -394,6 +394,10 @@
       ctx.restore();
     }
 
+    if (sh.rvs !== false && S.rvs) {
+      ctx.save(); path(ctx, S.rvs.line, P, false); ctx.lineWidth = 5 * lw; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+      ctx.lineWidth = 2.6 * lw; ctx.strokeStyle = '#3b6fe0'; ctx.stroke(); ctx.restore();
+    }
     // ---------------------------------------------------------- sector planning
     const X = S.sec || {};
     const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)', prio = 1) => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg, prio }); };

@@ -1,5 +1,5 @@
 /*
- * MtnAI core — analysis jobs. One stateful session (grid + derived layers +
+ * MtnEye core — analysis jobs. One stateful session (grid + derived layers +
  * caches) that runs inside the Web Worker (or on the main thread as fallback).
  * Each job takes plain-object args and returns plain objects / typed arrays.
  */
@@ -139,6 +139,11 @@
         need();
         const vs = M.viewshed(S.g, p.r, p.c, { obsH, tgtH, radiusM });
         return { mask: vs.mask, visibleKm2: (vs.visible * S.g.cs * S.g.cs) / 1e6 };
+      },
+
+      routeViewshed(opts) {
+        need();
+        return M.routeViewshed(S.g, opts.line, opts);
       },
 
       los({ a, b, obsH, tgtH }) {

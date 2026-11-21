@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — application controller (ArcGIS Pro-style shell): state, ribbon, Contents
+ * MtnEye ui — application controller (ArcGIS Pro-style shell): state, ribbon, Contents
  * pane, geoprocessing tool handlers, Attributes pane, attribute table and settings.
  */
 (function (UI) {
@@ -23,8 +23,9 @@
       viewshed: { name: 'Viewshed', legend: 'viewshed', opacity: 1 },
       dominance: { name: 'Terrain value (dominance)', legend: 'dominance', opacity: 0.8 },
       firecov: { name: 'Fire coverage (weapons per square)', legend: 'firecov', opacity: 0.9 },
+      routevs: { name: 'Route viewshed', legend: 'routevs', opacity: 0.9 },
     },
-    sector: null, border: null, sec: {},
+    sector: null, border: null, sec: {}, rvs: null, rvsLine: null,
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
     key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
@@ -87,7 +88,7 @@
       throw e;
     } finally { busy(false); UI.jobSeq++; }
   };
-  const safe = (fn) => (...a) => Promise.resolve().then(() => fn(...a)).catch((e) => { toast(e.message, true); console.debug('MtnAI:', e.message); });
+  const safe = (fn) => (...a) => Promise.resolve().then(() => fn(...a)).catch((e) => { toast(e.message, true); console.debug('MtnEye:', e.message); });
 
   // =================================================================== settings → engine
   const analysisConfig = () => ({
@@ -361,11 +362,12 @@
       case 'dead': o.rgba = UI.colorMask(o.data, rgb('ovl.deadColor'), 0.5); break;
       case 'viewshed': o.rgba = UI.colorMask(o.data, rgb('ovl.viewshedColor'), 0.42); break;
       case 'dominance': o.rgba = UI.colorDominance(o.data); break;
+      case 'routevs': o.rgba = UI.colorCount(o.data, [[120, 190, 255, 0.3], [70, 130, 240, 0.42], [40, 60, 200, 0.55]]); break;
       case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
     }
     return o.rgba;
   };
-  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'viewshed'];
+  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'viewshed'];
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -462,6 +464,8 @@
     if (S.obstacles.length || S.tracks.length) feat.push(Object.assign({ id: 'obstacles', name: 'Obstacles & tracks', count: S.obstacles.length + S.tracks.length,
       legend: swatches([[polySw('rgba(217,58,50,0.35)', '#ff5b4f'), `No-Go areas (${S.obstacles.length})`], [lineSw('#c8955c', true), `Tracks (${S.tracks.length})`]]),
       remove: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } }, showFlag('obstacles')));
+    if (S.rvs) feat.push(Object.assign({ id: 'rvs', name: `Route viewshed — ${S.rvs.label}`, count: S.rvs.watch.length, table: true,
+      legend: swatches([[lineSw('#3b6fe0'), 'Route'], [symSw(UI.SYM.op(), 12), 'Best watch point']]), remove: () => { S.rvs = null; clearOverlay('routevs'); } }, showFlag('rvs')));
     if (S.helipads) feat.push(Object.assign({ id: 'helipads', name: 'Helipad sites (HLS)', count: S.helipads.pads.length, table: true, legend: swatches([['<span class="lg-txt">Ⓗ</span>', `${S.helipads.pads[0] ? S.helipads.pads[0].use : ''} — ≤ ${S.helipads.params.use === 'regular' ? 4 : S.helipads.params.use === 'light' ? 10 : 20}°`]]), remove: () => { S.helipads = null; } }, showFlag('helipads')));
     if (S.picquets) feat.push(Object.assign({ id: 'picquets', name: 'Route picquets', count: S.picquets.picquets.length, table: true, legend: swatches([[symSw(UI.SYM.picquet()), 'Picquet (planned)']]), remove: () => { S.picquets = null; } }, showFlag('picquets')));
     if (S.routes) feat.push(Object.assign({ id: 'routes', name: `Routes — ${M.MOVEMENT_PROFILES[S.routes.profile].name.split(' (')[0]}`, count: S.routes.routes.length, table: true,
@@ -710,6 +714,7 @@
 
   // =================================================================== map tools
   const TOOL_HINTS = {
+    rvsline: 'Route for viewshed — click along the route · double-click or Enter to finish · Backspace undo · Esc cancel',
     sector: 'Sector boundary — click the corners of your area of interest · double-click or Enter to finish · Backspace undo · Esc cancel',
     border: 'Border line (LoC) — click along the line from one end to the other · double-click or Enter to finish · Backspace undo · Esc cancel',
     own: 'Click own position (defended locality / HQ) · Esc to cancel', threat: 'Click the enemy position · Esc to cancel',
@@ -725,6 +730,7 @@
     if (tool !== 'pick') pickCb = null;
     S.tool = tool;
     S.draft = tool && ['poly', 'line', 'los', 'measure', 'aoi'].includes(tool) ? { kind: tool, pts: [] }
+      : tool === 'rvsline' ? { kind: 'line', purpose: 'rvsline', pts: [] }
       : tool === 'sector' ? { kind: 'poly', purpose: 'sector', pts: [] } : tool === 'border' ? { kind: 'line', purpose: 'border', pts: [] } : null;
     document.querySelectorAll('[data-cmd^="tool:"]').forEach((b) => b.classList.toggle('active', b.dataset.cmd === 'tool:' + tool));
     document.querySelectorAll('[data-cmd="explore"]').forEach((b) => b.classList.toggle('active', !tool));
@@ -752,6 +758,7 @@
     const d = S.draft;
     if (!d) return;
     const pts = d.pts.filter((p, k) => k === 0 || Math.hypot(p[0] - d.pts[k - 1][0], p[1] - d.pts[k - 1][1]) > 0.5);
+    if (d.purpose === 'rvsline' && pts.length >= 2) { S.rvsLine = pts; setTool(null); GP.set('routeViewshed', 'source', 'drawn'); GP.open('routeViewshed'); GP.run('routeViewshed'); return; }
     if (d.purpose === 'sector' && pts.length >= 3) { S.sector = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose === 'border' && pts.length >= 2) { S.border = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose) { toast('Not enough vertices.', true); setTool(null); return; }
@@ -819,7 +826,7 @@
     const cell = { c: Math.round(c), r: Math.round(r) };
     if (tool === 'pick') { const cb = pickCb; setTool(null); if (cb) cb(cell); return; }
     if (['own', 'threat', 'target', 'a', 'b'].includes(tool)) { setTool(null); await placeMarker(tool, cell); return; }
-    if (tool === 'poly' || tool === 'line' || tool === 'sector' || tool === 'border') { S.draft.pts.push([c, r]); redrawDraft(); return; }
+    if (tool === 'poly' || tool === 'line' || tool === 'sector' || tool === 'border' || tool === 'rvsline') { S.draft.pts.push([c, r]); redrawDraft(); return; }
     if (tool === 'aoi' || tool === 'measure' || tool === 'los') {
       S.draft.pts.push([c, r]);
       if (S.draft.pts.length < 2) { redrawDraft(); return; }
@@ -923,6 +930,45 @@
     const fire = `\nAngle of sight ${ang.toFixed(1)}° · slant ${F.dist(Math.hypot(res.distance, (pb.z + +v.tgtH) - (pa.z + +v.obsH)))} · set sight to slant ÷ ${M.sightFactor(ang).toFixed(2)} (GSP Sec 18)`;
     return (res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
       : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`) + fire;
+  };
+  /** Routes a route viewshed can use: [key, label]. */
+  const routeSources = () => {
+    const out = [];
+    if (S.routes) S.routes.routes.forEach((r, k) => out.push([`route:${k}`, `Least-time route R${k + 1}${k === (S.routes.sel || 0) ? ' (selected)' : ''}`]));
+    if (S.avenues) S.avenues.routes.forEach((r, k) => out.push([`avenue:${k}`, `Enemy avenue AA${k + 1}`]));
+    if (S.sec.appr) S.sec.appr.approaches.forEach((a, k) => out.push([`eappr:${k}`, `Enemy approach ${a.id}`]));
+    if (S.sec.infil) S.sec.infil.routes.forEach((a, k) => out.push([`infil:${k}`, `Infiltration route ${a.id}`]));
+    if (S.tracks.length) S.tracks.forEach((t, k) => out.push([`track:${k}`, `Drawn track ${k + 1}`]));
+    out.push(['drawn', S.rvsLine ? 'Line drawn for this tool' : 'Draw a line on the map…']);
+    if (S.routes) out.unshift(['route', 'Selected least-time route']);
+    return out;
+  };
+  const routeLine = (src) => {
+    const [kind, k] = String(src).split(':');
+    if (kind === 'route') return S.routes && (k === undefined ? S.routes.routes[S.routes.sel || 0] : S.routes.routes[+k]) && (k === undefined ? S.routes.routes[S.routes.sel || 0] : S.routes.routes[+k]).line;
+    if (kind === 'avenue') return S.avenues && S.avenues.routes[+k] && S.avenues.routes[+k].line;
+    if (kind === 'eappr') return S.sec.appr && S.sec.appr.approaches[+k] && S.sec.appr.approaches[+k].line;
+    if (kind === 'infil') return S.sec.infil && S.sec.infil.routes[+k] && S.sec.infil.routes[+k].line;
+    if (kind === 'track') return S.tracks[+k];
+    if (kind === 'drawn') return S.rvsLine;
+    return null;
+  };
+  H.routeViewshed = async (v) => {
+    needGrid();
+    const line = routeLine(v.source);
+    if (!line) {
+      if (v.source === 'drawn' || v.source === 'route') { setTool('rvsline'); throw new Error('No route yet — click along the route on the map and double-click to finish; the tool then runs.'); }
+      throw new Error('That route no longer exists — choose another.');
+    }
+    const label = (routeSources().find(([k]) => k === v.source) || [, 'route'])[1];
+    const r = await run(`Route Viewshed — ${label}`, 'routeViewshed', Object.assign({}, v, { line }), (x) => `${F.area(x.visibleKm2)} · ${x.stations.length} stations`);
+    S.rvs = { line, label, mode: r.mode, watch: r.watch, stations: r.stations.length, visibleKm2: r.visibleKm2, areaShare: r.areaShare };
+    setOverlay('routevs', r.count, { name: 'Route viewshed', mode: r.mode, n: r.stations.length });
+    S.show.rvs = true;
+    renderAll(); refresh({ base: true });
+    const what = r.mode === 'exposure' ? 'Ground from which the route can be seen' : 'Ground the column on the route can see';
+    return `${what}: ${F.area(r.visibleKm2)} (${Math.round(r.areaShare * 100)}% of the map), from ${r.stations.length} stations every ${F.dist(+v.stepM)}.\nDarker = seen from / sees more of the route.\n` +
+      (r.watch.length ? `Best points to watch the route${r.mode === 'exposure' ? ' (picquets — or likely enemy OPs)' : ''}:\n` + r.watch.map((w, k) => `W${k + 1}  ${F.listRef(w.r, w.c)}  ${F.elev(w.z)} · sees ${Math.round(w.share * 100)}% of the route`).join('\n') : '');
   };
   H.hostile = async (v) => {
     needMarkers('threat');
@@ -1200,6 +1246,9 @@
     if (X.opts) X.opts.options.forEach((o, k) => add('eopts', k, { id: o.id, type: `Enemy option${o.label ? ` — ${o.label}` : ''}`, r: o.objectiveRef.r, c: o.objectiveRef.c, rating: o.rating,
       reasons: [o.summary, `Recommendation: ${o.recommendation}`], detail: `${o.summary} Threat ${o.threat}.`,
       fields: [['Objective', o.objective], ['Main approach', o.main], ['Supporting', o.support || '—'], ['Threat', o.threat], ['Score', o.score.toFixed(2)]] }));
+    if (S.rvs) S.rvs.watch.forEach((q, k) => add('rvs', k, { id: `W${k + 1}`, type: 'Route watch point', sym: UI.SYM.op(), r: q.r, c: q.c, z: q.z,
+      rating: q.share >= 0.6 ? 'Good' : q.share >= 0.3 ? 'Marginal' : 'Not good', reasons: [`sees ${Math.round(q.share * 100)}% of ${S.rvs.label}`],
+      detail: `sees ${Math.round(q.share * 100)}% of ${S.rvs.label}`, fields: [['Route', S.rvs.label], ['Share of route seen', `${Math.round(q.share * 100)}%`]] }));
     if (X.terr) X.terr.ridges.slice(0, 15).forEach((q, k) => add('ridges', k, Object.assign(lineRef(q), { id: q.id, type: 'Ridgeline', rating: q.rating, reasons: [`mean terrain value ${Math.round(q.meanDominance)}`, `${q.side} side`],
       detail: `${F.dist(q.lengthM)} · value ${Math.round(q.meanDominance)} · ${q.side} side` })));
     return out;
@@ -1645,7 +1694,7 @@
   };
   const applyPlan = async (plan, opts = {}) => {
     if (!plan || !S.grid) return;
-    if (plan.format !== 'mtnai-plan') { toast('Not an MtnAI plan file.', true); return; }
+    if (plan.format !== 'mtnai-plan') { toast('Not an MtnEye plan file.', true); return; }
     const p = UI.remapPlan(plan, plan.grid, S.grid);
     const inGrid = (m) => m && m.c >= 0 && m.r >= 0 && m.c < S.grid.w && m.r < S.grid.h;
     S.markers = {};
@@ -1800,7 +1849,7 @@
     palette: { t: 'Command search', k: 'Ctrl+K', run: () => openPalette() },
     help: { t: 'User guide', rb: 'User Guide', icon: 'help', k: 'F1', run: () => openHelp('guide') },
     shortcuts: { t: 'Keyboard shortcuts', rb: 'Shortcuts', icon: 'command', run: () => openHelp('keys') },
-    about: { t: 'About MtnAI', rb: 'About', icon: 'help', run: () => openHelp('about') },
+    about: { t: 'About MtnEye', rb: 'About', icon: 'help', run: () => openHelp('about') },
   };
   const MARKER_TOOLS = [['own', 'Own position', 'Own Posn'], ['threat', 'Enemy position', 'Enemy'], ['target', 'Target area', 'Target'], ['a', 'Route start A', 'Start A'], ['b', 'Route end B', 'End B']];
   for (const [t, label, rb] of MARKER_TOOLS) CMD['tool:' + t] = { t: `Place ${label.toLowerCase()}`, rb, sym: t, need, run: () => setTool(t), on: () => S.tool === t };
@@ -1815,7 +1864,8 @@
   CMD['gp:fireCoverage'].rb = 'Fire Coverage'; CMD['gp:borderWatch'].rb = 'Border Watch'; CMD['gp:enemyApproaches'].rb = 'Approaches'; CMD['gp:infiltration'].rb = 'Infiltration'; CMD['gp:enemyOptions'].rb = 'Enemy Options';
   CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:helipads'].rb = 'Helipads'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
   CMD['gp:avenues'].rb = 'Avenues'; CMD['gp:posts'].rb = 'Posts / OPs'; CMD['gp:weapons'].rb = 'Weapon Sites'; CMD['gp:mfd'].rb = 'Minefields'; CMD['gp:convert'].rb = 'Convert Coords';
-  CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:los'].rb = 'LOS Tool';
+  CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:routeViewshed'].rb = 'Route Viewshed';
+  CMD['tool:rvsline'] = { t: 'Draw a route for Route Viewshed', rb: 'Draw Route', icon: 'track', need, run: () => setTool('rvsline'), on: () => S.tool === 'rvsline' }; CMD['gp:los'].rb = 'LOS Tool';
   for (const sec of Settings.SCHEMA) CMD['settings:' + sec.id] = { t: `Settings — ${sec.title}`, run: () => Settings.open(sec.id) };
   const openGP = (id) => { GP.open(id); };
   const runCmd = (name, ev) => {
@@ -1854,7 +1904,7 @@
     { id: 'analysis', name: 'Analysis', groups: [
       ['Geoprocessing', ['*gpTools', '*history']],
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
-      ['Visibility', ['gp:viewshed', 'gp:los', 'gp:hostile']],
+      ['Visibility', ['gp:viewshed', 'gp:routeViewshed', 'gp:los', '|', 'gp:hostile']],
       ['Tactical Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
       ['Routing & Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'swapAB', 'routeCard']],
     ] },
@@ -1956,7 +2006,7 @@
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure };
+    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources };
     UI.applyIcons();
     map.resize();
     renderRibbon();

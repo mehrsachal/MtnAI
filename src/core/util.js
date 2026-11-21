@@ -1,5 +1,5 @@
 /*
- * MtnAI core — shared utilities.
+ * MtnEye core — shared utilities.
  *
  * Every core module registers a factory on globalThis.MTN_CORE. The factories
  * are self-contained (they only touch their argument `M` and JS built-ins), so

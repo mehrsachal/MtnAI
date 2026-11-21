@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — lightweight NATO APP-6(D) / MIL-STD-2525D symbol renderer.
+ * MtnEye ui — lightweight NATO APP-6(D) / MIL-STD-2525D symbol renderer.
  *
  * Draws only the symbols this tool needs (land units, land equipment and a few
  * control-measure points) as SVG in the standard 200 x 200 symbol space.

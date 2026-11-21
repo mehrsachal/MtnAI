@@ -56,6 +56,7 @@ const { chromium } = require('playwright');
   await shot('tactical');
   await gp('analysis', 'route');
   await gp('analysis', 'picquets');
+  await gp('analysis', 'routeViewshed');
   await gp('analysis', 'helipads');
   await p.click('#rbBody [data-cmd=routeCard]');
   const cardRows = await p.locator('#cardTable tbody tr').count();
@@ -78,13 +79,14 @@ const { chromium } = require('playwright');
       routes: S.routes ? S.routes.routes.length : 0,
       picquets: S.picquets ? S.picquets.picquets.length : 0,
       helipads: S.helipads ? S.helipads.pads.length : 0,
+      routeWatch: S.rvs ? S.rvs.watch.length : 0,
       failedJobs: document.querySelectorAll('#log td.err').length,
       tocLayers: document.querySelectorAll('#toc [data-layer]').length,
     };
   });
   await browser.close();
   console.log(`engine: ${mode}`, JSON.stringify(res));
-  const ok = !errors.length && !res.failedJobs && res.posts && res.weapons.every(Boolean) && res.minefields && res.routes && res.picquets && res.helipads && res.tocLayers > 8;
+  const ok = !errors.length && !res.failedJobs && res.posts && res.weapons.every(Boolean) && res.minefields && res.routes && res.picquets && res.helipads && res.routeWatch && res.tocLayers > 8;
   if (!ok) { console.error('SMOKE TEST FAILED', errors); process.exit(1); }
   console.log('smoke test passed');
 })();

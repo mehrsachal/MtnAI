@@ -1,5 +1,5 @@
 /*
- * MtnAI io — ESRI Shapefile export (WGS 84 geographic) packed in a ZIP.
+ * MtnEye io — ESRI Shapefile export (WGS 84 geographic) packed in a ZIP.
  * A GeoJSON FeatureCollection is split into point, line and polygon layers
  * (<name>_points / _lines / _polygons: .shp .shx .dbf .prj .cpg), with every
  * property as a DBF field (names cut to 10 characters, made unique).

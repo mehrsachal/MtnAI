@@ -1,5 +1,5 @@
 /*
- * MtnAI io — DEM download (the only network feature, used on explicit request)
+ * MtnEye io — DEM download (the only network feature, used on explicit request)
  * and GeoTIFF writing so downloaded / derived rasters can be kept for offline use.
  *
  * Sources:

@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — export: GeoJSON (with MIL-STD-2525D / APP-6D SIDCs), ESRI ASCII
+ * MtnEye ui — export: GeoJSON (with MIL-STD-2525D / APP-6D SIDCs), ESRI ASCII
  * grid + .prj, PNG snapshot, plan save/load and a printable assessment report.
  */
 (function (UI) {
@@ -106,9 +106,9 @@
     S.tracks.forEach((t, k) => line(t, { kind: 'track', index: k + 1 }));
     return {
       type: 'FeatureCollection',
-      name: 'MtnAI plan',
+      name: 'MtnEye plan',
       metadata: {
-        generator: 'MtnAI ' + M.VERSION, dem: g.name, analysis_crs: `EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')} (WGS 84 / UTM ${g.zone}${g.north ? 'N' : 'S'})`,
+        generator: 'MtnEye ' + M.VERSION, dem: g.name, analysis_crs: `EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')} (WGS 84 / UTM ${g.zone}${g.north ? 'N' : 'S'})`,
         secondary_crs: crs ? crs.name : null, grid_ref_format: UI.cfg('ref.primary'), vertical_datum: UI.cfg('units.vdatum'), cell_size_m: g.cs, created: new Date().toISOString(),
       },
       features: feats,
@@ -178,7 +178,7 @@
       @media print{button{display:none} h2{break-after:avoid} table,img{break-inside:avoid}}
       </style></head><body>
       <div class="banner">${esc(cfg('rep.banner') || 'TERRAIN ASSESSMENT')}</div>
-      <h1>Terrain assessment — ${esc(g.name)}</h1><p class="note">${cfg('rep.org') ? esc(cfg('rep.org')) + ' · ' : ''}${cfg('rep.author') ? 'Prepared by ' + esc(cfg('rep.author')) + ' · ' : ''}MtnAI ${M.VERSION} · ${new Date().toLocaleString()}</p>
+      <h1>Terrain assessment — ${esc(g.name)}</h1><p class="note">${cfg('rep.org') ? esc(cfg('rep.org')) + ' · ' : ''}${cfg('rep.author') ? 'Prepared by ' + esc(cfg('rep.author')) + ' · ' : ''}MtnEye ${M.VERSION} · ${new Date().toLocaleString()}</p>
       <button onclick="print()">Print / save as PDF</button>
       <h2>1. Area and elevation model</h2><div class="kv">
       <b>Analysis CRS</b><span>WGS 84 / UTM zone ${g.zone}${g.north ? 'N' : 'S'} (EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')})</span>

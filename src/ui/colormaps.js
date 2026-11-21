@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — raster colouring and legends.
+ * MtnEye ui — raster colouring and legends.
  * Every function returns an ImageData-compatible RGBA Uint8ClampedArray (w*h*4).
  */
 (function (UI) {
@@ -168,6 +168,7 @@
       case 'hostile': return `<h4>Enemy observation</h4>` + sw([[col('ovl.hostileColor', 0.7), 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
       case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([[col('sym.avenueColor', 0.75), 'Least-time approach corridors']]);
       case 'dominance': return `<h4>Terrain value</h4><div class="ramp" style="background:linear-gradient(90deg,rgba(140,90,30,0.15),rgba(80,40,30,0.75))"></div><div class="ends"><span>50</span><span>100 (most dominating)</span></div>`;
+      case 'routevs': return `<h4>Route viewshed</h4>` + sw([['rgba(120,190,255,.6)', info.mode === 'from' ? 'seen from part of the route' : 'sees part of the route'], ['rgba(70,130,240,.7)', 'more of it'], ['rgba(40,60,200,.8)', 'most of it']]);
       case 'firecov': return `<h4>Fire coverage</h4>` + sw([['rgba(255,214,110,.6)', '1 weapon'], ['rgba(245,150,40,.7)', '2 weapons'], ['rgba(210,70,20,.8)', '3 or more']]);
       default: return '';
     }

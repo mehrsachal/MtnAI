@@ -1,5 +1,5 @@
 /*
- * MtnAI core — sector planning: area of interest + border line (LoC), terrain value
+ * MtnEye core — sector planning: area of interest + border line (LoC), terrain value
  * (dominance), ridge and nullah networks, Important Terrain Grounds (ITGs) with force
  * sizing, own deployment (forward / normal / strong point), fire coverage and
  * interlocking, border surveillance, enemy approaches, infiltration routes and enemy

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Builds docs/guide/MtnAI_User_Guide.docx — Arial 12 pt, black only.
+ * Builds docs/guide/MtnEye_User_Guide.docx — Arial 12 pt, black only.
  *   node tools/guide/params.mjs docs/guide/params.json
  *   python3 tools/guide/flowcharts.py docs/guide/img
  *   node tools/doc-shots.cjs docs/guide/img
@@ -107,7 +107,7 @@ const INDEX_TERMS = [
   ['Ribbon', ['Ribbon']], ['Route A→B (Least-Time Route)', ['Least-Time Route', 'Route A']], ['Route card', ['Route Card']], ['Scene (3D) view', ['Scene']],
   ['Settings', ['Settings']], ['Shortcuts', ['Ctrl+']], ['Sight setting (uphill / downhill fire)', ['sight setting', 'slant range']],
   ['Snow line', ['snow line']], ['Strong point', ['strong point']], ['Tiered defence', ['tier']], ['Track (drawing)', ['Track']],
-  ['Viewshed', ['Viewshed']], ['Weapon sites', ['Weapon Sites', 'weapon']],
+  ['Viewshed', ['Viewshed']], ['Route viewshed', ['Route Viewshed', 'route viewshed']], ['Watch points', ['watch point']], ['Weapon sites', ['Weapon Sites', 'weapon']],
   ['ITG (Important Terrain Ground)', ['ITG']], ['Border line (LoC)', ['LoC', 'border line']], ['Border surveillance', ['Border surveillance', 'unwatched']],
   ['Deployment plan (modes)', ['Deployment plan', 'Strong point defence', 'Forward defence']], ['Enemy courses of action', ['courses of action', 'Most likely']],
   ['Infiltration routes', ['infiltration']], ['Interlocking fire', ['interlocking', 'mutually supported']], ['Ratings (Good / Marginal / Not good)', ['Marginal']],
@@ -120,7 +120,7 @@ const pg = (id) => (PAGES && PAGES.headings[id]) || '00';
 
 // Title page
 add(
-  new Paragraph({ spacing: { before: 2400, after: 240 }, alignment: AlignmentType.CENTER, children: [run('MTNAI', { bold: true })] }),
+  new Paragraph({ spacing: { before: 2400, after: 240 }, alignment: AlignmentType.CENTER, children: [run('MTNEYE', { bold: true })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [run('Mountain Terrain Analysis — User Guide', { bold: true })] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [run('Features, how to use them, every setting and how each tool thinks')] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 1200 }, children: [run('Built on the teachings of GSP Mountain Warfare (low and high altitude operations)')] }),
@@ -130,8 +130,8 @@ add(
 const titleEnd = C.length;
 
 // 1
-add(h1('1. What MtnAI is'),
-  para('MtnAI is a map program for planning fights in the mountains. You give it a height map of the ground (a DEM). It then tells you, square by square:'),
+add(h1('1. What MtnEye is'),
+  para('MtnEye is a map program for planning fights in the mountains. You give it a height map of the ground (a DEM). It then tells you, square by square:'),
   bullet('where troops and vehicles **can go, go slowly, or cannot go**;'),
   bullet('which **heights matter** and where the **passes** are;'),
   bullet('what can be **seen** from a point, and what the **enemy can see**;'),
@@ -140,13 +140,13 @@ add(h1('1. What MtnAI is'),
   para('It runs **fully offline** in a web browser. Nothing leaves the computer. The only optional internet use is the Download DEM tool.'),
   para('It looks and works like **ArcGIS Pro**: a ribbon at the top, layers on the left, tools on the right, map in the middle.'),
   para('**Doctrine.** The rules in GSP Mountain Warfare are built into the tools: march times, ridge routes, tiered defence, strong points, OPs at many heights, minefields in valleys, uphill / downhill fire, picquets and helipad slopes (Section 14 lists them all).'),
-  para('**Important.** MtnAI suggests; it does not decide. Always confirm on the ground, as the pamphlet directs.'),
+  para('**Important.** MtnEye suggests; it does not decide. Always confirm on the ground, as the pamphlet directs.'),
 );
 
 // 2
 add(h1('2. Quick start (five minutes)'),
   ...steps([
-    'Double-click **MtnAI.html** (or open index.html). Use Chrome, Edge or Firefox.',
+    'Double-click **MtnEye.html** (or open index.html). Use Chrome, Edge or Firefox.',
     'Click **Demo terrain** to load the practice area, or **Add Data** to open your own DEM, or **Download DEM** to fetch one.',
     'On the **Map** tab, use **Situation** to place Own position, Enemy, Target, Start A and End B (the demo has them already).',
     'On the **Analysis** tab, click a tool (for example **Posts / OPs**). Its settings open on the right. Click **Run**.',
@@ -158,7 +158,7 @@ add(h1('2. Quick start (five minutes)'),
 
 // 3
 add(h1('3. The screen'),
-  shot('02_workspace_numbered', 'The MtnAI screen. The numbers match the table below.'),
+  shot('02_workspace_numbered', 'The MtnEye screen. The numbers match the table below.'),
   table(['No.', 'Part', 'What it is for'], [
     ['1', 'Ribbon', 'Tabs of buttons: Map, Analysis, Edit, View, Share, Settings, Help. Double-click a tab to hide or show it.'],
     ['2', 'Contents pane', 'Every layer with a tick box (show / hide) and a key. Right-click a layer for Zoom To, Attribute Table, Transparency, Remove, Properties.'],
@@ -183,7 +183,7 @@ add(h1('3. The screen'),
 
 // 4
 add(h1('4. Getting terrain (the DEM)'),
-  para('A DEM is a picture where each pixel is a height. MtnAI turns it into a grid of equal squares (cells) in metres (WGS 84 / UTM).'),
+  para('A DEM is a picture where each pixel is a height. MtnEye turns it into a grid of equal squares (cells) in metres (WGS 84 / UTM).'),
   h2('Add Data (offline)'),
   bullet('Files: SRTM **.hgt**, **GeoTIFF** (.tif), ESRI **ASCII grid** (.asc) or a **.zip** of these. Several tiles join together.'),
   bullet('Drag files onto the map, or Map ▸ **Add Data** (Ctrl+O).'),
@@ -261,13 +261,22 @@ add(h1('8. Visibility tools'),
   flow('visibility', 'Viewshed and Line of Sight.'),
   ...params('viewshed'),
   ...params('los'),
-  h2('8.2 Enemy Observation'),
+  h2('8.2 Route Viewshed'),
+  para('A viewshed for a **whole route** instead of one point. Two questions:'),
+  bullet('**Exposure** — from where can the route be seen? Shades every place from which troops moving on the route are visible. Use it to choose a covered route, or to see where the enemy would sit to watch it.'),
+  bullet('**Observation** — what can the column on the route see along the way?'),
+  para('Darker shading means more of the route. MtnAI also suggests the **best watch points**: the heights that see the largest share of the route — sites for **picquets**, or the places the enemy would put **OPs**. Pick the route from the list (least-time route, enemy avenue, sector approach, infiltration route, a drawn track) or draw one on the map.'),
+  ...doctrine('routeViewshed'),
+  shot('23_route_vs', 'Route viewshed (exposure) of the least-time route, with the best watch points.'),
+  flow('routevs', 'Route Viewshed.'),
+  ...params('routeViewshed'),
+  h2('8.3 Enemy Observation'),
   para('Guesses where the enemy would put his OPs (the high ground near him) and shades all ground they can see. **Clear ground is hidden from the enemy (defilade)** — good for mortars, guns, helipads and covered routes.'),
   ...doctrine('hostile'),
   shot('07_hostile', 'Enemy observation (shaded) and the enemy avenues of approach (dashed).'),
   flow('hostile', 'Enemy Observation.'),
   ...params('hostile'),
-  h2('8.3 Avenues of Approach'),
+  h2('8.4 Avenues of Approach'),
   para('Finds the quickest ways the enemy can reach your position, for his type of movement, and how long each takes.'),
   ...doctrine('avenues'),
   flow('avenues', 'Avenues of Approach.'),
@@ -341,7 +350,7 @@ add(h1('11. Sector planning (border sectors)'),
   ...steps([
     'Load the DEM of the sector (Add Data or Download DEM).',
     'Sector tab ▸ **Sector Boundary** (optional): click the corners of your area; double-click to finish. Without it, the whole DEM is used.',
-    'Sector tab ▸ **Border Line**: click along the LoC from one end to the other; double-click to finish. Place **Own Posn** on your side (Map tab) so MtnAI knows which side is yours.',
+    'Sector tab ▸ **Border Line**: click along the LoC from one end to the other; double-click to finish. Place **Own Posn** on your side (Map tab) so MtnEye knows which side is yours.',
     'Sector tab ▸ **Run All**, choose the mode (Forward, Normal or Strong point) and click **Run**. Each tool can also be run on its own.',
     'Read the result message, then the **Contents ▸ Sector plan** layers, the **Attribute table** (Rating column) and **Share ▸ Report**. Click any item to see why it got its rating.',
     'Hand over: Share ▸ **Shapefile**, **GeoJSON** or **CSV**. All carry the ratings and reasons.',
@@ -349,12 +358,12 @@ add(h1('11. Sector planning (border sectors)'),
   flow('sector', 'sector planning, start to finish.'),
   para('**Test sectors.** The tools were tested on the demo terrain and on three Kashmir LoC areas (Neelum valley near Keran, Leepa valley, Haveli / Kahuta) using public DEMs. The border lines used there were drawn by hand along the LoC as an approximation; always draw the surveyed line.'),
   h2('11.2 Terrain value, ridgelines and nullahs'),
-  para('Every square gets a **terrain value from 0 to 100**: how much it stands above the ground around it, near and far, and how high it is. MtnAI also traces the **ridgeline network** (from high ground) and the **nullah and valley network** (where water would flow).'),
+  para('Every square gets a **terrain value from 0 to 100**: how much it stands above the ground around it, near and far, and how high it is. MtnEye also traces the **ridgeline network** (from high ground) and the **nullah and valley network** (where water would flow).'),
   ...doctrine('sectorTerrain'),
   shot('19_sector_terrain', 'Terrain value (brown shading), ridgelines (brown), nullahs and valleys (blue), the sector boundary and the LoC.'),
   ...params('sectorTerrain'),
   h2('11.3 ITGs (Important Terrain Grounds)'),
-  para('An **ITG** is a piece of key ground to hold or dominate. MtnAI finds the dominating summits on your side, draws the ground within 60 m of each top as the ITG, measures its **area** and **perimeter**, and says what force can hold it (section, platoon, company or battalion — change the planning figures to your unit\'s).'),
+  para('An **ITG** is a piece of key ground to hold or dominate. MtnEye finds the dominating summits on your side, draws the ground within 60 m of each top as the ITG, measures its **area** and **perimeter**, and says what force can hold it (section, platoon, company or battalion — change the planning figures to your unit\'s).'),
   ...doctrine('itgs'),
   flow('itgs', 'ITGs.'),
   ...params('itgs'),
@@ -365,7 +374,7 @@ add(h1('11. Sector planning (border sectors)'),
     ['Strong point', 'Light border posts every 2.5 km (OPs / LPs); each company holds one of the best ITGs as a strong point; gaps covered by fire, mines and patrols.'],
   ], [2200, 7438]),
   gap(),
-  para('Then MtnAI groups platoons into companies, and puts each **company HQ** and **60 mm mortar**, and the **battalion HQ** and **81 mm mortar**, where the enemy cannot see them and the mortars reach the posts. Each position is rated.'),
+  para('Then MtnEye groups platoons into companies, and puts each **company HQ** and **60 mm mortar**, and the **battalion HQ** and **81 mm mortar**, where the enemy cannot see them and the mortars reach the posts. Each position is rated.'),
   ...doctrine('deploy'),
   shot('20_sector_plan', 'A normal deployment: border posts, platoon posts, HQs and mortars, with ratings in the attribute table.'),
   flow('deploy', 'Deployment plan.'),
@@ -445,9 +454,9 @@ add(h1('13. Settings'),
 );
 
 // 13
-add(h1('14. Doctrine in MtnAI (GSP Mountain Warfare)'),
+add(h1('14. Doctrine in MtnEye (GSP Mountain Warfare)'),
   para('These rules from the pamphlet are built into the tools. Help ▸ **Doctrine** shows the same table inside the app.'),
-  table(['Subject', 'GSP teaching', 'Where in MtnAI'], [
+  table(['Subject', 'GSP teaching', 'Where in MtnEye'], [
     ['Planning (Sec 4)', 'Measure distance in time. Map distance + ⅓ ≈ ground distance. Avoid losing height (a 3 km ridge detour beats a 600 m down-and-up). Follow ridges, not gullies. Make a route card.', 'Route: GSP time, nullah penalty, route card. Measure: GSP time.'],
     ['Rate of march (Sec 7, Annex E)', 'Day 3 km/h; night 0.5–1 km/h; add 30–60 min for every 300 m up and every 600 m down.', 'GSP time on every route and route-card leg.'],
     ['Objectives (Sec 4, 7)', 'Seize or hold the dominating heights; objectives on the flanks and rear that dominate the enemy.', 'Key Terrain.'],
@@ -498,7 +507,7 @@ add(new Paragraph({ pageBreakBefore: true, spacing: { after: 240 }, children: [r
 const headingStyle = (id, name) => ({ id, name, basedOn: 'Normal', next: 'Normal', quickFormat: true,
   run: { font: FONT, size: SIZE, bold: true, color: COLOR }, paragraph: { spacing: { before: 240, after: 120 }, keepNext: true, keepLines: true } });
 const doc = new Document({
-  creator: 'MtnAI', title: 'MtnAI User Guide', description: 'MtnAI user guide',
+  creator: 'MtnEye', title: 'MtnEye User Guide', description: 'MtnEye user guide',
   styles: {
     default: { document: { run: { font: FONT, size: SIZE, color: COLOR } }, heading1: { run: { font: FONT, size: SIZE, bold: true, color: COLOR } } },
     paragraphStyles: [headingStyle('Heading1', 'Heading 1'), headingStyle('Heading2', 'Heading 2'), headingStyle('Heading3', 'Heading 3')],
@@ -511,7 +520,7 @@ const doc = new Document({
   },
   sections: [{
     properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } },
-    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [run('MtnAI User Guide — page '), new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: SIZE, color: COLOR })] })] }) },
+    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [run('MtnEye User Guide — page '), new TextRun({ children: [PageNumber.CURRENT], font: FONT, size: SIZE, color: COLOR })] })] }) },
     children: C,
   }],
 });
@@ -554,9 +563,9 @@ const paginate = (pdf) => {
 };
 
 (async () => {
-  const out = path.join(ROOT, 'docs/guide/MtnAI_User_Guide.docx');
+  const out = path.join(ROOT, 'docs/guide/MtnEye_User_Guide.docx');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtnai-guide-'));
-  const draft = path.join(tmp, 'MtnAI_User_Guide.docx');
+  const draft = path.join(tmp, 'MtnEye_User_Guide.docx');
   fs.writeFileSync(draft, await Packer.toBuffer(makeDoc(null)));
   const pages = paginate(toPDF(draft, tmp));
   const buf = await Packer.toBuffer(makeDoc(pages));
@@ -564,7 +573,7 @@ const paginate = (pdf) => {
   const check = paginate(toPDF(out, tmp));
   const moved = HEAD.filter((h) => check.headings[h.id] !== pages.headings[h.id]).map((h) => h.text);
   if (moved.length) console.warn('page numbers shifted for:', moved.join(', '));
-  fs.copyFileSync(path.join(tmp, 'MtnAI_User_Guide.pdf'), out.replace(/\.docx$/, '.pdf'));
+  fs.copyFileSync(path.join(tmp, 'MtnEye_User_Guide.pdf'), out.replace(/\.docx$/, '.pdf'));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('wrote', out, `and PDF (${Math.round(buf.length / 1024)} KB, ${fig} figures, ${HEAD.length} contents entries, ${INDEX_TERMS.length} index terms)`);
 })();

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Black-and-white flowcharts for the MtnAI user guide (PIL only).
+"""Black-and-white flowcharts for the MtnEye user guide (PIL only).
 
     python3 tools/guide/flowcharts.py <out-dir>
 
@@ -116,10 +116,10 @@ def render(nodes, path):
 
 CHARTS = {
     'workflow': [
-        ('start', 'Start MtnAI (double-click MtnAI.html)'),
+        ('start', 'Start MtnEye (double-click MtnEye.html)'),
         ('dec', 'Do you have an elevation file (DEM)?', 'Download DEM, or use the demo terrain'),
         ('io', 'Add Data: the map turns into a grid of squares, each with a height'),
-        ('step', 'MtnAI works out slope, aspect, landforms, contours and grids'),
+        ('step', 'MtnEye works out slope, aspect, landforms, contours and grids'),
         ('step', 'Place own position, enemy, target, start A and end B'),
         ('step', 'Draw No-Go areas (rivers, cliffs) and tracks if you know them'),
         ('step', 'Run tools: Go / No-Go, Key Terrain, Enemy Observation, Avenues'),
@@ -164,6 +164,15 @@ CHARTS = {
         ('dec', 'Is the ground ahead hidden by something higher in between?', 'Visible: shade it'),
         ('step', 'Hidden: leave it clear (dead ground)'),
         ('start', 'LOS also gives the angle of sight and sight setting (slant range ÷ factor)'),
+    ],
+    'routevs': [
+        ('start', 'Pick a route: least-time route, enemy avenue or approach, infiltration route, track, or draw one'),
+        ('step', 'Put stations along it every 250 m'),
+        ('dec', 'Question: exposure?', 'Observation: viewshed from each station (eye on the route)'),
+        ('step', 'Viewshed from each station with heights swapped (a man on the route, a watcher\'s eye) — whoever he can see can see him'),
+        ('step', 'Add them up: each square counts how many stations it sees'),
+        ('step', 'Best watch points: squares that see the most of the route, spread apart'),
+        ('start', 'Map (darker = more of the route), area, watch points with % of route seen'),
     ],
     'hostile': [
         ('start', 'Enemy position placed'),

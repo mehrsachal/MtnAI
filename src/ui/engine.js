@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — analysis engine bridge.
+ * MtnEye ui — analysis engine bridge.
  * Builds a Web Worker from the core factories' own source text (Blob URL), so it
  * also works when index.html is opened straight from disk (file://). Falls back
  * to running the jobs on the main thread if workers are unavailable.
@@ -51,7 +51,7 @@
 
     _fallback() {
       if (this.mode === 'local') return;
-      console.warn('MtnAI: Web Worker unavailable, running analysis on the main thread.');
+      console.warn('MtnEye: Web Worker unavailable, running analysis on the main thread.');
       this.mode = 'local';
       if (this.worker) this.worker.terminate();
       this.worker = null;

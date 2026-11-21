@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — user settings: schema, persistent store and the Settings dialog.
+ * MtnEye ui — user settings: schema, persistent store and the Settings dialog.
  *
  * Every option is declared once in SCHEMA (key, type, default, description and an
  * `apply` tag telling the app what to refresh). Values persist in localStorage and
@@ -244,7 +244,7 @@
     exportJSON() { return JSON.stringify({ format: 'mtnai-settings', version: M.VERSION, values }, null, 2); },
     importJSON(text) {
       const o = JSON.parse(text);
-      if (o.format !== 'mtnai-settings') throw new Error('Not an MtnAI settings file.');
+      if (o.format !== 'mtnai-settings') throw new Error('Not an MtnEye settings file.');
       const ks = Object.keys(values).concat(Object.keys(o.values || {}));
       values = Object.assign({}, o.values);
       persist();

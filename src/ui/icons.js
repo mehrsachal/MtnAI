@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — monoline SVG icons (24-unit grid, 1.6 stroke, current text colour).
+ * MtnEye ui — monoline SVG icons (24-unit grid, 1.6 stroke, current text colour).
  * <i data-icon="name"></i> placeholders are filled by UI.applyIcons().
  */
 (function (UI) {

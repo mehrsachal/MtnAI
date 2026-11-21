@@ -1,5 +1,5 @@
 /*
- * MtnAI core — coordinate reference systems and military grid references.
+ * MtnEye core — coordinate reference systems and military grid references.
  *
  *  - Ellipsoids and datums (WGS 84, Kalianpur 1937 / 1962 / 1975 on the Everest
  *    1830 ellipsoids) with 3-parameter geocentric (Helmert) datum shifts.

@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — formatting of coordinates, bearings and quantities according to the
+ * MtnEye ui — formatting of coordinates, bearings and quantities according to the
  * user's settings (reference format & precision, secondary CRS, north reference,
  * angular / distance / elevation / area / time units).
  */

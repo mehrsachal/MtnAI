@@ -1,5 +1,5 @@
 {
-  "name": "mtnai",
+  "name": "mtneye",
   "version": "1.0.0",
   "description": "Offline GIS decision aid for mountain warfare: terrain analysis, Go/No-Go mobility, post / weapon / minefield siting and route planning in 2D and 3D with NATO APP-6D symbology.",
   "private": true,

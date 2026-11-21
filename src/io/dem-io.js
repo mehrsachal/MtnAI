@@ -1,5 +1,5 @@
 /*
- * MtnAI io — offline DEM import.
+ * MtnEye io — offline DEM import.
  *   SRTM .hgt (1" / 3", mosaics of several tiles), GeoTIFF (uncompressed, LZW,
  *   Deflate, PackBits; predictors 1/2/3; strips or tiles; EPSG:4326, WGS84/UTM,
  *   EPSG:3857), ESRI ASCII grid (.asc) and .zip archives containing those.

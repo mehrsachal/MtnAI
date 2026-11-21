@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MtnAI — Mountain Terrain Analysis</title>
+<title>MtnEye — Mountain Terrain Analysis</title>
 <meta name="description" content="Offline GIS decision aid for mountain operations: terrain analysis, Go/No-Go mobility, post / weapon / minefield siting and route planning in 2D and 3D.">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body data-theme="dark" data-density="compact">
 <header id="titlebar">
-  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnAI</b></div>
+  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnEye</b></div>
   <div class="qat">
     <label class="qb file" title="Add data — open elevation model (Ctrl+O)"><i data-icon="open"></i><input type="file" id="demFiles" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
     <button class="qb" data-cmd="savePlan" title="Save plan (Ctrl+S)" data-need><i data-icon="save"></i></button>
@@ -41,7 +41,7 @@
       <canvas id="gl3d" hidden></canvas>
       <canvas id="ovl3d" hidden></canvas>
       <div id="welcome">
-        <h1>MtnAI — Mountain Terrain Analysis</h1>
+        <h1>MtnEye — Mountain Terrain Analysis</h1>
         <p>Add an elevation model from disk, download one for an area, or load the synthetic training area. All analysis is local.</p>
         <div class="row center">
           <label class="btn primary file"><i data-icon="open"></i>Add Data…<input type="file" id="demFiles3" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>

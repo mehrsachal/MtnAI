@@ -1,7 +1,7 @@
-# MtnAI — Mountain Terrain Analysis
+# MtnEye — Mountain Terrain Analysis
 
 A lightweight, **fully offline** GIS decision aid for planning operations in mountain terrain.
-MtnAI reads a digital elevation model (DEM), derives slope, aspect, landforms and cross-country
+MtnEye reads a digital elevation model (DEM), derives slope, aspect, landforms and cross-country
 mobility, and then suggests **posts / OPs, weapon sites, minefields (Mfd) and routes** from
 the terrain. It shows the results on a 2D map and on a 3D terrain model using **NATO APP-6(D) /
 MIL-STD-2525D** symbology, with Pakistan Army weapon data built in.
@@ -19,7 +19,7 @@ the only network feature is the optional **Download DEM** tool.
 
 ## Features
 
-| Requirement | What MtnAI does |
+| Requirement | What MtnEye does |
 |---|---|
 | **Terrain analysis** | Slope (Horn), aspect, multi-directional hillshade, TPI landforms (valley → ridge, military-crest zone), ruggedness (TRI), contours, MGRS 1 km grid, hypsometry / slope / aspect statistics. Also detects **dominating heights** and **passes / cols**. |
 | **Go / No-Go areas** | GO / SLOW-GO / NO-GO per movement class: dismounted infantry, mule / animal transport, jeep, truck / towed gun, tracked. Slope thresholds are editable, with an optional snow line. Digitised No-Go areas (rivers, glaciers, built-up) and tracks are respected. Shown as colour fill or doctrinal hatching. |
@@ -65,7 +65,7 @@ and handed over as **Shapefile** (zipped, WGS 84), GeoJSON or CSV. `npm run sect
 
 The pamphlet's teachings are built into the tools (Help ▸ Doctrine lists them in the app):
 
-| GSP teaching | In MtnAI |
+| GSP teaching | In MtnEye |
 |---|---|
 | Rate of march: 3 km/h by day, 0.5–1 km/h by night, +30–60 min per 300 m of ascent and per 600 m of descent (Sec 7, Annex E) | GSP time on every route and in Measure; **route card** (legs, magnetic bearing, heights, distance, time) with CSV export |
 | Routes follow ridge lines, not gullies (Sec 4) | Nullah-bed penalty in Least-Time Route |
@@ -78,12 +78,12 @@ The pamphlet's teachings are built into the tools (Help ▸ Doctrine lists them 
 
 ## User guide
 
-[`docs/guide/MtnAI_User_Guide.docx`](docs/guide/MtnAI_User_Guide.docx) (PDF copy alongside): every feature, how to use it,
+[`docs/guide/MtnEye_User_Guide.docx`](docs/guide/MtnEye_User_Guide.docx) (PDF copy alongside): every feature, how to use it,
 screenshots, a flowchart for each algorithm and a table of every tool setting. Rebuild it with `npm run guide`.
 
 ## Interface
 
-| ArcGIS Pro element | In MtnAI |
+| ArcGIS Pro element | In MtnEye |
 |---|---|
 | Ribbon | **Map** (navigate, Add Data, Download DEM, basemap, inquiry, situation), **Analysis** (geoprocessing tools), **Edit** (No-Go areas, tracks, units, crop to AOI), **View** (Map / Scene, panes, grids, theme), **Share** (plan, exports, report), **Settings**, **Help**. Double-click a tab to collapse it. |
 | Contents pane | Feature layers, analysis rasters, map grids and the elevation layer, each with a visibility check box and legend. Right-click: Zoom To Layer, Attribute Table, Transparency, Remove, Symbology, Properties. Double-click: Layer Properties (dataset, spatial reference, extent, statistics, histograms, parameters used). |
@@ -119,7 +119,7 @@ movement classes, weapon data) live in **Settings** (the *Environments…* link 
 
 Choose one of these:
 
-1. **Single file:** copy `dist/MtnAI.html` (~0.5 MB) to any computer and double-click it.
+1. **Single file:** copy `dist/MtnEye.html` (~0.5 MB) to any computer and double-click it.
 2. **From the folder:** open `index.html` directly from disk (`file://`).
 3. **Optional local server:** `npm start` (Python `http.server`), then browse to http://localhost:8080.
 
@@ -221,7 +221,7 @@ src/io/dem-io.js      HGT / GeoTIFF / ASC / ZIP readers and UTM resampling
 src/io/dem-download.js  DEM download (Terrain Tiles / OpenTopography) and GeoTIFF writer
 src/ui/               settings, formats, 2D map, WebGL2 3D view, NATO symbols, charts, export,
                       geoprocessing pane (gp.js) and the ribbon / Contents controller (app.js)
-tools/build.mjs       single-file offline build → dist/MtnAI.html
+tools/build.mjs       single-file offline build → dist/MtnEye.html
 tools/e2e-smoke.cjs   browser smoke test (Playwright)
 test/                 unit tests (node:test)
 ```
@@ -233,7 +233,7 @@ also works from `file://`.
 
 ```
 npm test            # unit tests: geodesy/MGRS, CRS, terrain, viewshed, routing, crest clearance, importers, download, tactics, tool parameters
-npm run build       # regenerate dist/MtnAI.html
+npm run build       # regenerate dist/MtnEye.html
 npm run e2e         # browser smoke test (needs Playwright + Chromium)
 ```
 

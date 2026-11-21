@@ -1,5 +1,5 @@
 /*
- * MtnAI core — the analysis grid.
+ * MtnEye core — the analysis grid.
  *
  * All analysis runs on a square-cell raster in a single WGS84/UTM zone:
  *   g = { w, h, cs, x0, y0, zone, north, z: Float32Array, name }

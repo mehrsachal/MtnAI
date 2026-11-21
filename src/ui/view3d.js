@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — 3D terrain view in plain WebGL2 (no libraries).
+ * MtnEye ui — 3D terrain view in plain WebGL2 (no libraries).
  * Heightfield mesh (<= 512 x 512 vertices) with the analysis composite draped as
  * a mip-mapped texture, side skirts, sun lighting and distance haze. NATO symbols
  * are drawn as screen-space billboards with leader lines on an overlay canvas.

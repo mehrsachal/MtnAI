@@ -1,5 +1,5 @@
 /*
- * MtnAI core — intervisibility: viewshed, line of sight and terrain profiles.
+ * MtnEye core — intervisibility: viewshed, line of sight and terrain profiles.
  * Earth curvature and atmospheric refraction (default k = 0.13, see M.CFG) are applied.
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function visibility(M) {
@@ -122,5 +122,30 @@
     }
     prof[0].los = zA; prof[prof.length - 1].los = zB;
     return { visible: blockIndex < 0, distance: D, profile: prof, blockIndex, clearance };
+  };
+
+  /**
+   * Viewshed of a route: viewsheds from stations every stepM along the line, summed.
+   *   mode 'from'     — what a column on the route can see (observer on the route at obsH, target tgtH);
+   *   mode 'exposure' — from where the route can be seen: by reciprocity the observer height and
+   *                     target height swap (a man on the route at routeH, a watcher at watcherH).
+   * Returns per-cell count of stations seeing / seen, area, share of stations, and the best
+   * watch points (cells that see the most of the route).
+   */
+  M.routeViewshed = (g, line, o = {}) => {
+    const stepM = Math.max(g.cs, o.stepM || 250);
+    const st = M.lineStations(g, line, stepM).map((s) => ({ r: Math.round(s.r), c: Math.round(s.c), d: s.d })).filter((s) => M.inGrid(g, s.r, s.c));
+    if (st.length < 2) throw new Error('Route too short for a route viewshed.');
+    const exposure = o.mode === 'exposure';
+    const obsH = exposure ? (o.routeH ?? 1.8) : (o.obsH ?? 2), tgtH = exposure ? (o.watcherH ?? 2) : (o.tgtH ?? 1.5);
+    const count = M.viewshedCount(g, st, { obsH, tgtH, radiusM: o.radiusM || 3000 });
+    let n = 0;
+    for (const v of count) if (v) n++;
+    // best watch points: cells that see the largest share of the route (spread apart)
+    const cand = [];
+    const stride = Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 160000)));
+    for (let r = 0; r < g.h; r += stride) for (let c = 0; c < g.w; c += stride) { const v = count[r * g.w + c]; if (v) cand.push({ r, c, score: v }); }
+    const watch = M.nms(cand, (o.watchSepM || 600) / g.cs, o.watchPoints ?? 5).map((q) => ({ r: q.r, c: q.c, z: g.z[q.r * g.w + q.c], share: q.score / st.length }));
+    return { count, stations: st, visibleKm2: (n * g.cs * g.cs) / 1e6, areaShare: n / count.length, watch, mode: exposure ? 'exposure' : 'from', obsH, tgtH };
   };
 });

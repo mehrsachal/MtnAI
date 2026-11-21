@@ -1,5 +1,5 @@
 /*
- * MtnAI core — cross-country mobility (Go / Slow-Go / No-Go) and movement speeds.
+ * MtnEye core — cross-country mobility (Go / Slow-Go / No-Go) and movement speeds.
  *
  * Classes follow the doctrinal three-tier terrain assessment:
  *   0 GO        unrestricted

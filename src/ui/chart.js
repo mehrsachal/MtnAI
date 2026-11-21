@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — small canvas charts: terrain / route profile with line of sight,
+ * MtnEye ui — small canvas charts: terrain / route profile with line of sight,
  * histograms and the aspect rose.
  */
 (function (UI) {

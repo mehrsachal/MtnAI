@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — Geoprocessing pane: toolboxes, tool parameter forms (ArcGIS Pro style),
+ * MtnEye ui — Geoprocessing pane: toolboxes, tool parameter forms (ArcGIS Pro style),
  * Run / messages and per-tool parameter memory.
  *
  * A parameter: {k, label, type, def, options, min, max, step, unit, help, show(v), group}
@@ -41,7 +41,7 @@
   const BOXES = [
     { name: 'Data Management', tools: ['downloadDEM', 'exportRaster'] },
     { name: 'Terrain Analysis', tools: ['keyTerrain', 'mobility'] },
-    { name: 'Visibility', tools: ['viewshed', 'los', 'hostile'] },
+    { name: 'Visibility', tools: ['viewshed', 'routeViewshed', 'los', 'hostile'] },
     { name: 'Tactical Siting', tools: ['avenues', 'posts', 'weapons', 'mfd'] },
     { name: 'Routing & Movement', tools: ['route', 'picquets', 'helipads', 'fly'] },
     { name: 'Sector Planning', tools: ['sectorAll', 'sectorTerrain', 'itgs', 'deploy', 'fireCoverage', 'borderWatch', 'enemyApproaches', 'infiltration', 'enemyOptions'] },
@@ -239,6 +239,23 @@
         { k: 'obsH', label: 'Observer height above ground', type: 'number', def: () => cfg('an.obsH'), min: 0, max: 500, step: 0.5, unit: 'm' },
         { k: 'tgtH', label: 'Target height above ground', type: 'number', def: () => cfg('an.tgtH'), min: 0, max: 2000, step: 0.5, unit: 'm' },
         { k: 'radiusM', label: 'Radius', type: 'number', def: 5000, min: 100, max: 100000, step: 100, unit: 'm' },
+      ],
+    },
+    routeViewshed: {
+      name: 'Route Viewshed', icon: 'eye',
+      desc: 'Viewshed of a whole route: what a column moving along it can see, or — exposure — every place from which the route can be seen. Also finds the best points to watch the route (for picquets, or where the enemy would put OPs).',
+      gsp: 'GSP Sec 4 para 15 and Sec 6: dominating heights overlook the routes in the valleys — picquet them; choose covered routes where the enemy can see little of the move.',
+      params: [
+        { k: 'source', label: 'Route', type: 'select', def: 'route', rerender: true, options: () => UI.app.routeSources() },
+        { k: 'mode', label: 'Question', type: 'select', def: 'exposure', options: [['exposure', 'Exposure — from where can the route be seen?'], ['from', 'Observation — what can the column on the route see?']] },
+        { k: 'stepM', label: 'Station spacing along the route', type: 'number', def: 250, min: 25, max: 5000, step: 25, unit: 'm', help: 'A viewshed is computed at every station; closer = finer, slower.' },
+        { k: 'radiusM', label: 'Viewing range', type: 'number', def: 3000, min: 200, max: 30000, step: 250, unit: 'm' },
+        { k: 'routeH', label: 'Height of troops on the route', type: 'number', def: 1.8, min: 0, max: 10, step: 0.1, unit: 'm', show: (v) => v.mode === 'exposure' },
+        { k: 'watcherH', label: 'Height of a watcher (eye level)', type: 'number', def: 2, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'exposure' },
+        { k: 'obsH', label: 'Observer height on the route', type: 'number', def: 2, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'from' },
+        { k: 'tgtH', label: 'Target height', type: 'number', def: 1.5, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'from' },
+        { k: 'watchPoints', label: 'Watch points to suggest', type: 'number', def: 5, min: 0, max: 20, step: 1 },
+        { k: 'watchSepM', label: 'Watch points: minimum separation', type: 'number', def: 600, min: 100, max: 5000, step: 50, unit: 'm' },
       ],
     },
     los: {

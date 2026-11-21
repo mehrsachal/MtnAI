@@ -1,5 +1,5 @@
 /*
- * MtnAI core — geodesy: WGS84 <-> UTM (Snyder / USGS series) and MGRS.
+ * MtnEye core — geodesy: WGS84 <-> UTM (Snyder / USGS series) and MGRS.
  * Accuracy is sub-metre inside a zone and well below DEM resolution in the
  * one-zone overlap the app permits.
  */

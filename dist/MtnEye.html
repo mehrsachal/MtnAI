@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- MtnAI 1.0.0 — single-file offline build generated 2026-11-20 -->
+<!-- MtnEye 1.0.0 — single-file offline build generated 2026-11-21 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MtnAI — Mountain Terrain Analysis</title>
+<title>MtnEye — Mountain Terrain Analysis</title>
 <meta name="description" content="Offline GIS decision aid for mountain operations: terrain analysis, Go/No-Go mobility, post / weapon / minefield siting and route planning in 2D and 3D.">
 <style>
 /*
- * MtnAI — enterprise desktop-GIS styling.
+ * MtnEye — enterprise desktop-GIS styling.
  * Themes: dark (graphite) · light · contrast · night (red, preserves dark adaptation).
  * Densities: compact · comfortable. Local font stacks only (fully offline).
  */
@@ -493,7 +493,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </head>
 <body data-theme="dark" data-density="compact">
 <header id="titlebar">
-  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnAI</b></div>
+  <div class="brand"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><b>MtnEye</b></div>
   <div class="qat">
     <label class="qb file" title="Add data — open elevation model (Ctrl+O)"><i data-icon="open"></i><input type="file" id="demFiles" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
     <button class="qb" data-cmd="savePlan" title="Save plan (Ctrl+S)" data-need><i data-icon="save"></i></button>
@@ -525,7 +525,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       <canvas id="gl3d" hidden></canvas>
       <canvas id="ovl3d" hidden></canvas>
       <div id="welcome">
-        <h1>MtnAI — Mountain Terrain Analysis</h1>
+        <h1>MtnEye — Mountain Terrain Analysis</h1>
         <p>Add an elevation model from disk, download one for an area, or load the synthetic training area. All analysis is local.</p>
         <div class="row center">
           <label class="btn primary file"><i data-icon="open"></i>Add Data…<input type="file" id="demFiles3" multiple accept=".hgt,.tif,.tiff,.asc,.zip"></label>
@@ -596,7 +596,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 <!-- core analysis library (also serialised into the Web Worker) -->
 <script>/* src/core/util.js */
 /*
- * MtnAI core — shared utilities.
+ * MtnEye core — shared utilities.
  *
  * Every core module registers a factory on globalThis.MTN_CORE. The factories
  * are self-contained (they only touch their argument `M` and JS built-ins), so
@@ -795,7 +795,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/geo.js */
 /*
- * MtnAI core — geodesy: WGS84 <-> UTM (Snyder / USGS series) and MGRS.
+ * MtnEye core — geodesy: WGS84 <-> UTM (Snyder / USGS series) and MGRS.
  * Accuracy is sub-metre inside a zone and well below DEM resolution in the
  * one-zone overlap the app permits.
  */
@@ -957,7 +957,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/crs.js */
 /*
- * MtnAI core — coordinate reference systems and military grid references.
+ * MtnEye core — coordinate reference systems and military grid references.
  *
  *  - Ellipsoids and datums (WGS 84, Kalianpur 1937 / 1962 / 1975 on the Everest
  *    1830 ellipsoids) with 3-parameter geocentric (Helmert) datum shifts.
@@ -1337,7 +1337,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/grid.js */
 /*
- * MtnAI core — the analysis grid.
+ * MtnEye core — the analysis grid.
  *
  * All analysis runs on a square-cell raster in a single WGS84/UTM zone:
  *   g = { w, h, cs, x0, y0, zone, north, z: Float32Array, name }
@@ -1519,7 +1519,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/terrain.js */
 /*
- * MtnAI core — terrain derivatives: slope, aspect, hillshade, TPI landforms,
+ * MtnEye core — terrain derivatives: slope, aspect, hillshade, TPI landforms,
  * ruggedness, statistics, contours and key terrain (dominating heights, passes).
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function terrain(M) {
@@ -1817,7 +1817,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/mobility.js */
 /*
- * MtnAI core — cross-country mobility (Go / Slow-Go / No-Go) and movement speeds.
+ * MtnEye core — cross-country mobility (Go / Slow-Go / No-Go) and movement speeds.
  *
  * Classes follow the doctrinal three-tier terrain assessment:
  *   0 GO        unrestricted
@@ -1925,7 +1925,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/visibility.js */
 /*
- * MtnAI core — intervisibility: viewshed, line of sight and terrain profiles.
+ * MtnEye core — intervisibility: viewshed, line of sight and terrain profiles.
  * Earth curvature and atmospheric refraction (default k = 0.13, see M.CFG) are applied.
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function visibility(M) {
@@ -2049,12 +2049,37 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     prof[0].los = zA; prof[prof.length - 1].los = zB;
     return { visible: blockIndex < 0, distance: D, profile: prof, blockIndex, clearance };
   };
+
+  /**
+   * Viewshed of a route: viewsheds from stations every stepM along the line, summed.
+   *   mode 'from'     — what a column on the route can see (observer on the route at obsH, target tgtH);
+   *   mode 'exposure' — from where the route can be seen: by reciprocity the observer height and
+   *                     target height swap (a man on the route at routeH, a watcher at watcherH).
+   * Returns per-cell count of stations seeing / seen, area, share of stations, and the best
+   * watch points (cells that see the most of the route).
+   */
+  M.routeViewshed = (g, line, o = {}) => {
+    const stepM = Math.max(g.cs, o.stepM || 250);
+    const st = M.lineStations(g, line, stepM).map((s) => ({ r: Math.round(s.r), c: Math.round(s.c), d: s.d })).filter((s) => M.inGrid(g, s.r, s.c));
+    if (st.length < 2) throw new Error('Route too short for a route viewshed.');
+    const exposure = o.mode === 'exposure';
+    const obsH = exposure ? (o.routeH ?? 1.8) : (o.obsH ?? 2), tgtH = exposure ? (o.watcherH ?? 2) : (o.tgtH ?? 1.5);
+    const count = M.viewshedCount(g, st, { obsH, tgtH, radiusM: o.radiusM || 3000 });
+    let n = 0;
+    for (const v of count) if (v) n++;
+    // best watch points: cells that see the largest share of the route (spread apart)
+    const cand = [];
+    const stride = Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 160000)));
+    for (let r = 0; r < g.h; r += stride) for (let c = 0; c < g.w; c += stride) { const v = count[r * g.w + c]; if (v) cand.push({ r, c, score: v }); }
+    const watch = M.nms(cand, (o.watchSepM || 600) / g.cs, o.watchPoints ?? 5).map((q) => ({ r: q.r, c: q.c, z: g.z[q.r * g.w + q.c], share: q.score / st.length }));
+    return { count, stations: st, visibleKm2: (n * g.cs * g.cs) / 1e6, areaShare: n / count.length, watch, mode: exposure ? 'exposure' : 'from', obsH, tgtH };
+  };
 });
 
 </script>
 <script>/* src/core/routing.js */
 /*
- * MtnAI core — least-time route finding (A*) over an anisotropic cost surface.
+ * MtnEye core — least-time route finding (A*) over an anisotropic cost surface.
  *
  * 16-connected moves (8 neighbours + knight moves) give smooth headings.
  * Cost = travel time from the movement model, optionally multiplied by
@@ -2316,7 +2341,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/weapons.js */
 /*
- * MtnAI core — weapon planning data (Pakistan Army inventory, open-source figures).
+ * MtnEye core — weapon planning data (Pakistan Army inventory, open-source figures).
  *
  * Ranges are INDICATIVE planning values from public sources and are editable in
  * the UI. Always confirm with the unit's current weapon data before use.
@@ -2371,7 +2396,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/tactical.js */
 /*
- * MtnAI core — tactical siting aids for mountain defence planning (OAKOC):
+ * MtnEye core — tactical siting aids for mountain defence planning (OAKOC):
  *   hostile observation, enemy avenues of approach, defended posts / OPs,
  *   direct-fire, indirect-fire (with crest clearance) and AD weapon sites,
  *   minefield (Mfd) sites at defiles, and picquets to protect a route.
@@ -3196,7 +3221,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/synthetic.js */
 /*
- * MtnAI core — procedural mountain terrain for training and offline demos.
+ * MtnEye core — procedural mountain terrain for training and offline demos.
  * Ridged multifractal noise, domain warping and carved valleys produce a
  * Karakoram-style massif: a main E-W river valley, side nullahs, a southern
  * enemy valley and passes over the dividing ridge. The terrain is fictional.
@@ -3333,7 +3358,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/sector.js */
 /*
- * MtnAI core — sector planning: area of interest + border line (LoC), terrain value
+ * MtnEye core — sector planning: area of interest + border line (LoC), terrain value
  * (dominance), ridge and nullah networks, Important Terrain Grounds (ITGs) with force
  * sizing, own deployment (forward / normal / strong point), fire coverage and
  * interlocking, border surveillance, enemy approaches, infiltration routes and enemy
@@ -4118,7 +4143,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/core/jobs.js */
 /*
- * MtnAI core — analysis jobs. One stateful session (grid + derived layers +
+ * MtnEye core — analysis jobs. One stateful session (grid + derived layers +
  * caches) that runs inside the Web Worker (or on the main thread as fallback).
  * Each job takes plain-object args and returns plain objects / typed arrays.
  */
@@ -4258,6 +4283,11 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         need();
         const vs = M.viewshed(S.g, p.r, p.c, { obsH, tgtH, radiusM });
         return { mask: vs.mask, visibleKm2: (vs.visible * S.g.cs * S.g.cs) / 1e6 };
+      },
+
+      routeViewshed(opts) {
+        need();
+        return M.routeViewshed(S.g, opts.line, opts);
       },
 
       los({ a, b, obsH, tgtH }) {
@@ -4421,7 +4451,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/io/dem-io.js */
 /*
- * MtnAI io — offline DEM import.
+ * MtnEye io — offline DEM import.
  *   SRTM .hgt (1" / 3", mosaics of several tiles), GeoTIFF (uncompressed, LZW,
  *   Deflate, PackBits; predictors 1/2/3; strips or tiles; EPSG:4326, WGS84/UTM,
  *   EPSG:3857), ESRI ASCII grid (.asc) and .zip archives containing those.
@@ -4866,7 +4896,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/io/dem-download.js */
 /*
- * MtnAI io — DEM download (the only network feature, used on explicit request)
+ * MtnEye io — DEM download (the only network feature, used on explicit request)
  * and GeoTIFF writing so downloaded / derived rasters can be kept for offline use.
  *
  * Sources:
@@ -5046,7 +5076,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/io/shapefile.js */
 /*
- * MtnAI io — ESRI Shapefile export (WGS 84 geographic) packed in a ZIP.
+ * MtnEye io — ESRI Shapefile export (WGS 84 geographic) packed in a ZIP.
  * A GeoJSON FeatureCollection is split into point, line and polygon layers
  * (<name>_points / _lines / _polygons: .shp .shx .dbf .prj .cpg), with every
  * property as a DBF field (names cut to 10 characters, made unique).
@@ -5208,7 +5238,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 <!-- user interface -->
 <script>/* src/ui/engine.js */
 /*
- * MtnAI ui — analysis engine bridge.
+ * MtnEye ui — analysis engine bridge.
  * Builds a Web Worker from the core factories' own source text (Blob URL), so it
  * also works when index.html is opened straight from disk (file://). Falls back
  * to running the jobs on the main thread if workers are unavailable.
@@ -5260,7 +5290,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
     _fallback() {
       if (this.mode === 'local') return;
-      console.warn('MtnAI: Web Worker unavailable, running analysis on the main thread.');
+      console.warn('MtnEye: Web Worker unavailable, running analysis on the main thread.');
       this.mode = 'local';
       if (this.worker) this.worker.terminate();
       this.worker = null;
@@ -5303,7 +5333,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/settings.js */
 /*
- * MtnAI ui — user settings: schema, persistent store and the Settings dialog.
+ * MtnEye ui — user settings: schema, persistent store and the Settings dialog.
  *
  * Every option is declared once in SCHEMA (key, type, default, description and an
  * `apply` tag telling the app what to refresh). Values persist in localStorage and
@@ -5548,7 +5578,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     exportJSON() { return JSON.stringify({ format: 'mtnai-settings', version: M.VERSION, values }, null, 2); },
     importJSON(text) {
       const o = JSON.parse(text);
-      if (o.format !== 'mtnai-settings') throw new Error('Not an MtnAI settings file.');
+      if (o.format !== 'mtnai-settings') throw new Error('Not an MtnEye settings file.');
       const ks = Object.keys(values).concat(Object.keys(o.values || {}));
       values = Object.assign({}, o.values);
       persist();
@@ -5690,7 +5720,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/format.js */
 /*
- * MtnAI ui — formatting of coordinates, bearings and quantities according to the
+ * MtnEye ui — formatting of coordinates, bearings and quantities according to the
  * user's settings (reference format & precision, secondary CRS, north reference,
  * angular / distance / elevation / area / time units).
  */
@@ -5844,7 +5874,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/icons.js */
 /*
- * MtnAI ui — monoline SVG icons (24-unit grid, 1.6 stroke, current text colour).
+ * MtnEye ui — monoline SVG icons (24-unit grid, 1.6 stroke, current text colour).
  * <i data-icon="name"></i> placeholders are filled by UI.applyIcons().
  */
 (function (UI) {
@@ -5903,7 +5933,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/symbols.js */
 /*
- * MtnAI ui — lightweight NATO APP-6(D) / MIL-STD-2525D symbol renderer.
+ * MtnEye ui — lightweight NATO APP-6(D) / MIL-STD-2525D symbol renderer.
  *
  * Draws only the symbols this tool needs (land units, land equipment and a few
  * control-measure points) as SVG in the standard 200 x 200 symbol space.
@@ -6120,7 +6150,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/colormaps.js */
 /*
- * MtnAI ui — raster colouring and legends.
+ * MtnEye ui — raster colouring and legends.
  * Every function returns an ImageData-compatible RGBA Uint8ClampedArray (w*h*4).
  */
 (function (UI) {
@@ -6289,6 +6319,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       case 'hostile': return `<h4>Enemy observation</h4>` + sw([[col('ovl.hostileColor', 0.7), 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
       case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([[col('sym.avenueColor', 0.75), 'Least-time approach corridors']]);
       case 'dominance': return `<h4>Terrain value</h4><div class="ramp" style="background:linear-gradient(90deg,rgba(140,90,30,0.15),rgba(80,40,30,0.75))"></div><div class="ends"><span>50</span><span>100 (most dominating)</span></div>`;
+      case 'routevs': return `<h4>Route viewshed</h4>` + sw([['rgba(120,190,255,.6)', info.mode === 'from' ? 'seen from part of the route' : 'sees part of the route'], ['rgba(70,130,240,.7)', 'more of it'], ['rgba(40,60,200,.8)', 'most of it']]);
       case 'firecov': return `<h4>Fire coverage</h4>` + sw([['rgba(255,214,110,.6)', '1 weapon'], ['rgba(245,150,40,.7)', '2 weapons'], ['rgba(210,70,20,.8)', '3 or more']]);
       default: return '';
     }
@@ -6298,7 +6329,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/overlay.js */
 /*
- * MtnAI ui — vector features, map grids and NATO symbols, drawn identically on the
+ * MtnEye ui — vector features, map grids and NATO symbols, drawn identically on the
  * 2D map (screen space) and into the texture draped over the 3D terrain.
  *
  * P = { xy(c, r) -> [x, y], ppc: pixels per cell, lw: line-width scale, cs: cell size (m) }
@@ -6693,6 +6724,10 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       ctx.restore();
     }
 
+    if (sh.rvs !== false && S.rvs) {
+      ctx.save(); path(ctx, S.rvs.line, P, false); ctx.lineWidth = 5 * lw; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+      ctx.lineWidth = 2.6 * lw; ctx.strokeStyle = '#3b6fe0'; ctx.stroke(); ctx.restore();
+    }
     // ---------------------------------------------------------- sector planning
     const X = S.sec || {};
     const labelAt = (pt, text, color = '#000', bg = 'rgba(255,255,255,0.9)', prio = 1) => { const [x, y] = P.xy(pt[0], pt[1]); UI.haloText(ctx, text, x + 6 * lw, y - 6 * lw, { font: lblFont(11), color, halo: bg, prio }); };
@@ -6935,7 +6970,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/map2d.js */
 /*
- * MtnAI ui — 2D map view (grid-north up, UTM metric space) on a canvas.
+ * MtnEye ui — 2D map view (grid-north up, UTM metric space) on a canvas.
  * Pan: drag · Zoom: wheel / pinch · Tools are dispatched to the app.
  */
 (function (UI) {
@@ -7161,7 +7196,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/view3d.js */
 /*
- * MtnAI ui — 3D terrain view in plain WebGL2 (no libraries).
+ * MtnEye ui — 3D terrain view in plain WebGL2 (no libraries).
  * Heightfield mesh (<= 512 x 512 vertices) with the analysis composite draped as
  * a mip-mapped texture, side skirts, sun lighting and distance haze. NATO symbols
  * are drawn as screen-space billboards with leader lines on an overlay canvas.
@@ -7689,7 +7724,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/chart.js */
 /*
- * MtnAI ui — small canvas charts: terrain / route profile with line of sight,
+ * MtnEye ui — small canvas charts: terrain / route profile with line of sight,
  * histograms and the aspect rose.
  */
 (function (UI) {
@@ -7839,7 +7874,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 </script>
 <script>/* src/ui/export.js */
 /*
- * MtnAI ui — export: GeoJSON (with MIL-STD-2525D / APP-6D SIDCs), ESRI ASCII
+ * MtnEye ui — export: GeoJSON (with MIL-STD-2525D / APP-6D SIDCs), ESRI ASCII
  * grid + .prj, PNG snapshot, plan save/load and a printable assessment report.
  */
 (function (UI) {
@@ -7946,9 +7981,9 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
     S.tracks.forEach((t, k) => line(t, { kind: 'track', index: k + 1 }));
     return {
       type: 'FeatureCollection',
-      name: 'MtnAI plan',
+      name: 'MtnEye plan',
       metadata: {
-        generator: 'MtnAI ' + M.VERSION, dem: g.name, analysis_crs: `EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')} (WGS 84 / UTM ${g.zone}${g.north ? 'N' : 'S'})`,
+        generator: 'MtnEye ' + M.VERSION, dem: g.name, analysis_crs: `EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')} (WGS 84 / UTM ${g.zone}${g.north ? 'N' : 'S'})`,
         secondary_crs: crs ? crs.name : null, grid_ref_format: UI.cfg('ref.primary'), vertical_datum: UI.cfg('units.vdatum'), cell_size_m: g.cs, created: new Date().toISOString(),
       },
       features: feats,
@@ -8018,7 +8053,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       @media print{button{display:none} h2{break-after:avoid} table,img{break-inside:avoid}}
       </style></head><body>
       <div class="banner">${esc(cfg('rep.banner') || 'TERRAIN ASSESSMENT')}</div>
-      <h1>Terrain assessment — ${esc(g.name)}</h1><p class="note">${cfg('rep.org') ? esc(cfg('rep.org')) + ' · ' : ''}${cfg('rep.author') ? 'Prepared by ' + esc(cfg('rep.author')) + ' · ' : ''}MtnAI ${M.VERSION} · ${new Date().toLocaleString()}</p>
+      <h1>Terrain assessment — ${esc(g.name)}</h1><p class="note">${cfg('rep.org') ? esc(cfg('rep.org')) + ' · ' : ''}${cfg('rep.author') ? 'Prepared by ' + esc(cfg('rep.author')) + ' · ' : ''}MtnEye ${M.VERSION} · ${new Date().toLocaleString()}</p>
       <button onclick="print()">Print / save as PDF</button>
       <h2>1. Area and elevation model</h2><div class="kv">
       <b>Analysis CRS</b><span>WGS 84 / UTM zone ${g.zone}${g.north ? 'N' : 'S'} (EPSG:${g.north ? 326 : 327}${String(g.zone).padStart(2, '0')})</span>
@@ -8117,7 +8152,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
 
 </script>
 <script>/* src/ui/help.js */
-/* MtnAI ui — user guide, keyboard shortcuts and about (rendered into the Help dialog). */
+/* MtnEye ui — user guide, keyboard shortcuts and about (rendered into the Help dialog). */
 (function (UI) {
   'use strict';
 
@@ -8151,13 +8186,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
         ['Sector defence (Sec 12–13, 15)', 'Hold the dominating features astride the axis; cover gaps by fire, mines and OPs; strong points with staying power; guard every approach against infiltration.', 'Sector tab: ITGs, Deployment Plan, Fire Coverage, Border Watch, Infiltration, Enemy Options'],
         ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
       ];
-      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnAI applies GSP Mountain Warfare</h2>
+      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnEye applies GSP Mountain Warfare</h2>
         <p>The rules below come from the GSP Mountain Warfare pamphlet. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the pamphlet.</p>
-        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnAI</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
-        <p class="hint">MtnAI is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
+        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnEye</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+        <p class="hint">MtnEye is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
     }
     if (section === 'about') {
-      return { title: 'About MtnAI', html: `<h2>MtnAI ${M.VERSION}</h2>
+      return { title: 'About MtnEye', html: `<h2>MtnEye ${M.VERSION}</h2>
         <p>Offline GIS decision aid for mountain operations. All processing runs locally in the browser; no data leaves the computer.</p>
         <table><tr><td>Analysis CRS</td><td>WGS 84 / UTM (zone of the DEM, or forced in Settings)</td></tr>
         <tr><td>Supported CRSs</td><td>${Object.values(M.CRS_PRESETS).map((c) => c.name).join(' · ')} · custom TM / LCC on any listed datum</td></tr>
@@ -8171,7 +8206,7 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line-2); border-bottom-wid
       return `<tr><td>${sym(UI.SYM.weapon(w))}</td><td>${w.name}</td><td>${gr.name}</td><td>${w.minR}–${w.maxR} m</td></tr>`;
     }).join('')).join('');
     return { title: 'User guide', html: `
-<h2>MtnAI — mountain terrain analysis</h2>
+<h2>MtnEye — mountain terrain analysis</h2>
 <p>Load a digital elevation model, derive slope, aspect, landforms and mobility, and site posts, weapons, minefields and routes from the terrain.
 Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) and the properties pane.</p>
 
@@ -8237,7 +8272,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
 </script>
 <script>/* src/ui/gp.js */
 /*
- * MtnAI ui — Geoprocessing pane: toolboxes, tool parameter forms (ArcGIS Pro style),
+ * MtnEye ui — Geoprocessing pane: toolboxes, tool parameter forms (ArcGIS Pro style),
  * Run / messages and per-tool parameter memory.
  *
  * A parameter: {k, label, type, def, options, min, max, step, unit, help, show(v), group}
@@ -8279,7 +8314,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   const BOXES = [
     { name: 'Data Management', tools: ['downloadDEM', 'exportRaster'] },
     { name: 'Terrain Analysis', tools: ['keyTerrain', 'mobility'] },
-    { name: 'Visibility', tools: ['viewshed', 'los', 'hostile'] },
+    { name: 'Visibility', tools: ['viewshed', 'routeViewshed', 'los', 'hostile'] },
     { name: 'Tactical Siting', tools: ['avenues', 'posts', 'weapons', 'mfd'] },
     { name: 'Routing & Movement', tools: ['route', 'picquets', 'helipads', 'fly'] },
     { name: 'Sector Planning', tools: ['sectorAll', 'sectorTerrain', 'itgs', 'deploy', 'fireCoverage', 'borderWatch', 'enemyApproaches', 'infiltration', 'enemyOptions'] },
@@ -8477,6 +8512,23 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         { k: 'obsH', label: 'Observer height above ground', type: 'number', def: () => cfg('an.obsH'), min: 0, max: 500, step: 0.5, unit: 'm' },
         { k: 'tgtH', label: 'Target height above ground', type: 'number', def: () => cfg('an.tgtH'), min: 0, max: 2000, step: 0.5, unit: 'm' },
         { k: 'radiusM', label: 'Radius', type: 'number', def: 5000, min: 100, max: 100000, step: 100, unit: 'm' },
+      ],
+    },
+    routeViewshed: {
+      name: 'Route Viewshed', icon: 'eye',
+      desc: 'Viewshed of a whole route: what a column moving along it can see, or — exposure — every place from which the route can be seen. Also finds the best points to watch the route (for picquets, or where the enemy would put OPs).',
+      gsp: 'GSP Sec 4 para 15 and Sec 6: dominating heights overlook the routes in the valleys — picquet them; choose covered routes where the enemy can see little of the move.',
+      params: [
+        { k: 'source', label: 'Route', type: 'select', def: 'route', rerender: true, options: () => UI.app.routeSources() },
+        { k: 'mode', label: 'Question', type: 'select', def: 'exposure', options: [['exposure', 'Exposure — from where can the route be seen?'], ['from', 'Observation — what can the column on the route see?']] },
+        { k: 'stepM', label: 'Station spacing along the route', type: 'number', def: 250, min: 25, max: 5000, step: 25, unit: 'm', help: 'A viewshed is computed at every station; closer = finer, slower.' },
+        { k: 'radiusM', label: 'Viewing range', type: 'number', def: 3000, min: 200, max: 30000, step: 250, unit: 'm' },
+        { k: 'routeH', label: 'Height of troops on the route', type: 'number', def: 1.8, min: 0, max: 10, step: 0.1, unit: 'm', show: (v) => v.mode === 'exposure' },
+        { k: 'watcherH', label: 'Height of a watcher (eye level)', type: 'number', def: 2, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'exposure' },
+        { k: 'obsH', label: 'Observer height on the route', type: 'number', def: 2, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'from' },
+        { k: 'tgtH', label: 'Target height', type: 'number', def: 1.5, min: 0, max: 50, step: 0.5, unit: 'm', show: (v) => v.mode === 'from' },
+        { k: 'watchPoints', label: 'Watch points to suggest', type: 'number', def: 5, min: 0, max: 20, step: 1 },
+        { k: 'watchSepM', label: 'Watch points: minimum separation', type: 'number', def: 600, min: 100, max: 5000, step: 50, unit: 'm' },
       ],
     },
     los: {
@@ -8916,7 +8968,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
 </script>
 <script>/* src/ui/app.js */
 /*
- * MtnAI ui — application controller (ArcGIS Pro-style shell): state, ribbon, Contents
+ * MtnEye ui — application controller (ArcGIS Pro-style shell): state, ribbon, Contents
  * pane, geoprocessing tool handlers, Attributes pane, attribute table and settings.
  */
 (function (UI) {
@@ -8940,8 +8992,9 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       viewshed: { name: 'Viewshed', legend: 'viewshed', opacity: 1 },
       dominance: { name: 'Terrain value (dominance)', legend: 'dominance', opacity: 0.8 },
       firecov: { name: 'Fire coverage (weapons per square)', legend: 'firecov', opacity: 0.9 },
+      routevs: { name: 'Route viewshed', legend: 'routevs', opacity: 0.9 },
     },
-    sector: null, border: null, sec: {},
+    sector: null, border: null, sec: {}, rvs: null, rvsLine: null,
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
     key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
@@ -9004,7 +9057,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       throw e;
     } finally { busy(false); UI.jobSeq++; }
   };
-  const safe = (fn) => (...a) => Promise.resolve().then(() => fn(...a)).catch((e) => { toast(e.message, true); console.debug('MtnAI:', e.message); });
+  const safe = (fn) => (...a) => Promise.resolve().then(() => fn(...a)).catch((e) => { toast(e.message, true); console.debug('MtnEye:', e.message); });
 
   // =================================================================== settings → engine
   const analysisConfig = () => ({
@@ -9278,11 +9331,12 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       case 'dead': o.rgba = UI.colorMask(o.data, rgb('ovl.deadColor'), 0.5); break;
       case 'viewshed': o.rgba = UI.colorMask(o.data, rgb('ovl.viewshedColor'), 0.42); break;
       case 'dominance': o.rgba = UI.colorDominance(o.data); break;
+      case 'routevs': o.rgba = UI.colorCount(o.data, [[120, 190, 255, 0.3], [70, 130, 240, 0.42], [40, 60, 200, 0.55]]); break;
       case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
     }
     return o.rgba;
   };
-  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'viewshed'];
+  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'viewshed'];
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -9379,6 +9433,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (S.obstacles.length || S.tracks.length) feat.push(Object.assign({ id: 'obstacles', name: 'Obstacles & tracks', count: S.obstacles.length + S.tracks.length,
       legend: swatches([[polySw('rgba(217,58,50,0.35)', '#ff5b4f'), `No-Go areas (${S.obstacles.length})`], [lineSw('#c8955c', true), `Tracks (${S.tracks.length})`]]),
       remove: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } }, showFlag('obstacles')));
+    if (S.rvs) feat.push(Object.assign({ id: 'rvs', name: `Route viewshed — ${S.rvs.label}`, count: S.rvs.watch.length, table: true,
+      legend: swatches([[lineSw('#3b6fe0'), 'Route'], [symSw(UI.SYM.op(), 12), 'Best watch point']]), remove: () => { S.rvs = null; clearOverlay('routevs'); } }, showFlag('rvs')));
     if (S.helipads) feat.push(Object.assign({ id: 'helipads', name: 'Helipad sites (HLS)', count: S.helipads.pads.length, table: true, legend: swatches([['<span class="lg-txt">Ⓗ</span>', `${S.helipads.pads[0] ? S.helipads.pads[0].use : ''} — ≤ ${S.helipads.params.use === 'regular' ? 4 : S.helipads.params.use === 'light' ? 10 : 20}°`]]), remove: () => { S.helipads = null; } }, showFlag('helipads')));
     if (S.picquets) feat.push(Object.assign({ id: 'picquets', name: 'Route picquets', count: S.picquets.picquets.length, table: true, legend: swatches([[symSw(UI.SYM.picquet()), 'Picquet (planned)']]), remove: () => { S.picquets = null; } }, showFlag('picquets')));
     if (S.routes) feat.push(Object.assign({ id: 'routes', name: `Routes — ${M.MOVEMENT_PROFILES[S.routes.profile].name.split(' (')[0]}`, count: S.routes.routes.length, table: true,
@@ -9627,6 +9683,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
 
   // =================================================================== map tools
   const TOOL_HINTS = {
+    rvsline: 'Route for viewshed — click along the route · double-click or Enter to finish · Backspace undo · Esc cancel',
     sector: 'Sector boundary — click the corners of your area of interest · double-click or Enter to finish · Backspace undo · Esc cancel',
     border: 'Border line (LoC) — click along the line from one end to the other · double-click or Enter to finish · Backspace undo · Esc cancel',
     own: 'Click own position (defended locality / HQ) · Esc to cancel', threat: 'Click the enemy position · Esc to cancel',
@@ -9642,6 +9699,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (tool !== 'pick') pickCb = null;
     S.tool = tool;
     S.draft = tool && ['poly', 'line', 'los', 'measure', 'aoi'].includes(tool) ? { kind: tool, pts: [] }
+      : tool === 'rvsline' ? { kind: 'line', purpose: 'rvsline', pts: [] }
       : tool === 'sector' ? { kind: 'poly', purpose: 'sector', pts: [] } : tool === 'border' ? { kind: 'line', purpose: 'border', pts: [] } : null;
     document.querySelectorAll('[data-cmd^="tool:"]').forEach((b) => b.classList.toggle('active', b.dataset.cmd === 'tool:' + tool));
     document.querySelectorAll('[data-cmd="explore"]').forEach((b) => b.classList.toggle('active', !tool));
@@ -9669,6 +9727,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     const d = S.draft;
     if (!d) return;
     const pts = d.pts.filter((p, k) => k === 0 || Math.hypot(p[0] - d.pts[k - 1][0], p[1] - d.pts[k - 1][1]) > 0.5);
+    if (d.purpose === 'rvsline' && pts.length >= 2) { S.rvsLine = pts; setTool(null); GP.set('routeViewshed', 'source', 'drawn'); GP.open('routeViewshed'); GP.run('routeViewshed'); return; }
     if (d.purpose === 'sector' && pts.length >= 3) { S.sector = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose === 'border' && pts.length >= 2) { S.border = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose) { toast('Not enough vertices.', true); setTool(null); return; }
@@ -9736,7 +9795,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     const cell = { c: Math.round(c), r: Math.round(r) };
     if (tool === 'pick') { const cb = pickCb; setTool(null); if (cb) cb(cell); return; }
     if (['own', 'threat', 'target', 'a', 'b'].includes(tool)) { setTool(null); await placeMarker(tool, cell); return; }
-    if (tool === 'poly' || tool === 'line' || tool === 'sector' || tool === 'border') { S.draft.pts.push([c, r]); redrawDraft(); return; }
+    if (tool === 'poly' || tool === 'line' || tool === 'sector' || tool === 'border' || tool === 'rvsline') { S.draft.pts.push([c, r]); redrawDraft(); return; }
     if (tool === 'aoi' || tool === 'measure' || tool === 'los') {
       S.draft.pts.push([c, r]);
       if (S.draft.pts.length < 2) { redrawDraft(); return; }
@@ -9840,6 +9899,45 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     const fire = `\nAngle of sight ${ang.toFixed(1)}° · slant ${F.dist(Math.hypot(res.distance, (pb.z + +v.tgtH) - (pa.z + +v.obsH)))} · set sight to slant ÷ ${M.sightFactor(ang).toFixed(2)} (GSP Sec 18)`;
     return (res.visible ? `VISIBLE · range ${F.dist(res.distance)} · minimum clearance ${F.height(res.clearance)}`
       : `MASKED by ground at ${F.dist(blk.d)} (${F.listRef(blk.r, blk.c)}) · range ${F.dist(res.distance)}`) + fire;
+  };
+  /** Routes a route viewshed can use: [key, label]. */
+  const routeSources = () => {
+    const out = [];
+    if (S.routes) S.routes.routes.forEach((r, k) => out.push([`route:${k}`, `Least-time route R${k + 1}${k === (S.routes.sel || 0) ? ' (selected)' : ''}`]));
+    if (S.avenues) S.avenues.routes.forEach((r, k) => out.push([`avenue:${k}`, `Enemy avenue AA${k + 1}`]));
+    if (S.sec.appr) S.sec.appr.approaches.forEach((a, k) => out.push([`eappr:${k}`, `Enemy approach ${a.id}`]));
+    if (S.sec.infil) S.sec.infil.routes.forEach((a, k) => out.push([`infil:${k}`, `Infiltration route ${a.id}`]));
+    if (S.tracks.length) S.tracks.forEach((t, k) => out.push([`track:${k}`, `Drawn track ${k + 1}`]));
+    out.push(['drawn', S.rvsLine ? 'Line drawn for this tool' : 'Draw a line on the map…']);
+    if (S.routes) out.unshift(['route', 'Selected least-time route']);
+    return out;
+  };
+  const routeLine = (src) => {
+    const [kind, k] = String(src).split(':');
+    if (kind === 'route') return S.routes && (k === undefined ? S.routes.routes[S.routes.sel || 0] : S.routes.routes[+k]) && (k === undefined ? S.routes.routes[S.routes.sel || 0] : S.routes.routes[+k]).line;
+    if (kind === 'avenue') return S.avenues && S.avenues.routes[+k] && S.avenues.routes[+k].line;
+    if (kind === 'eappr') return S.sec.appr && S.sec.appr.approaches[+k] && S.sec.appr.approaches[+k].line;
+    if (kind === 'infil') return S.sec.infil && S.sec.infil.routes[+k] && S.sec.infil.routes[+k].line;
+    if (kind === 'track') return S.tracks[+k];
+    if (kind === 'drawn') return S.rvsLine;
+    return null;
+  };
+  H.routeViewshed = async (v) => {
+    needGrid();
+    const line = routeLine(v.source);
+    if (!line) {
+      if (v.source === 'drawn' || v.source === 'route') { setTool('rvsline'); throw new Error('No route yet — click along the route on the map and double-click to finish; the tool then runs.'); }
+      throw new Error('That route no longer exists — choose another.');
+    }
+    const label = (routeSources().find(([k]) => k === v.source) || [, 'route'])[1];
+    const r = await run(`Route Viewshed — ${label}`, 'routeViewshed', Object.assign({}, v, { line }), (x) => `${F.area(x.visibleKm2)} · ${x.stations.length} stations`);
+    S.rvs = { line, label, mode: r.mode, watch: r.watch, stations: r.stations.length, visibleKm2: r.visibleKm2, areaShare: r.areaShare };
+    setOverlay('routevs', r.count, { name: 'Route viewshed', mode: r.mode, n: r.stations.length });
+    S.show.rvs = true;
+    renderAll(); refresh({ base: true });
+    const what = r.mode === 'exposure' ? 'Ground from which the route can be seen' : 'Ground the column on the route can see';
+    return `${what}: ${F.area(r.visibleKm2)} (${Math.round(r.areaShare * 100)}% of the map), from ${r.stations.length} stations every ${F.dist(+v.stepM)}.\nDarker = seen from / sees more of the route.\n` +
+      (r.watch.length ? `Best points to watch the route${r.mode === 'exposure' ? ' (picquets — or likely enemy OPs)' : ''}:\n` + r.watch.map((w, k) => `W${k + 1}  ${F.listRef(w.r, w.c)}  ${F.elev(w.z)} · sees ${Math.round(w.share * 100)}% of the route`).join('\n') : '');
   };
   H.hostile = async (v) => {
     needMarkers('threat');
@@ -10117,6 +10215,9 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (X.opts) X.opts.options.forEach((o, k) => add('eopts', k, { id: o.id, type: `Enemy option${o.label ? ` — ${o.label}` : ''}`, r: o.objectiveRef.r, c: o.objectiveRef.c, rating: o.rating,
       reasons: [o.summary, `Recommendation: ${o.recommendation}`], detail: `${o.summary} Threat ${o.threat}.`,
       fields: [['Objective', o.objective], ['Main approach', o.main], ['Supporting', o.support || '—'], ['Threat', o.threat], ['Score', o.score.toFixed(2)]] }));
+    if (S.rvs) S.rvs.watch.forEach((q, k) => add('rvs', k, { id: `W${k + 1}`, type: 'Route watch point', sym: UI.SYM.op(), r: q.r, c: q.c, z: q.z,
+      rating: q.share >= 0.6 ? 'Good' : q.share >= 0.3 ? 'Marginal' : 'Not good', reasons: [`sees ${Math.round(q.share * 100)}% of ${S.rvs.label}`],
+      detail: `sees ${Math.round(q.share * 100)}% of ${S.rvs.label}`, fields: [['Route', S.rvs.label], ['Share of route seen', `${Math.round(q.share * 100)}%`]] }));
     if (X.terr) X.terr.ridges.slice(0, 15).forEach((q, k) => add('ridges', k, Object.assign(lineRef(q), { id: q.id, type: 'Ridgeline', rating: q.rating, reasons: [`mean terrain value ${Math.round(q.meanDominance)}`, `${q.side} side`],
       detail: `${F.dist(q.lengthM)} · value ${Math.round(q.meanDominance)} · ${q.side} side` })));
     return out;
@@ -10562,7 +10663,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   };
   const applyPlan = async (plan, opts = {}) => {
     if (!plan || !S.grid) return;
-    if (plan.format !== 'mtnai-plan') { toast('Not an MtnAI plan file.', true); return; }
+    if (plan.format !== 'mtnai-plan') { toast('Not an MtnEye plan file.', true); return; }
     const p = UI.remapPlan(plan, plan.grid, S.grid);
     const inGrid = (m) => m && m.c >= 0 && m.r >= 0 && m.c < S.grid.w && m.r < S.grid.h;
     S.markers = {};
@@ -10717,7 +10818,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     palette: { t: 'Command search', k: 'Ctrl+K', run: () => openPalette() },
     help: { t: 'User guide', rb: 'User Guide', icon: 'help', k: 'F1', run: () => openHelp('guide') },
     shortcuts: { t: 'Keyboard shortcuts', rb: 'Shortcuts', icon: 'command', run: () => openHelp('keys') },
-    about: { t: 'About MtnAI', rb: 'About', icon: 'help', run: () => openHelp('about') },
+    about: { t: 'About MtnEye', rb: 'About', icon: 'help', run: () => openHelp('about') },
   };
   const MARKER_TOOLS = [['own', 'Own position', 'Own Posn'], ['threat', 'Enemy position', 'Enemy'], ['target', 'Target area', 'Target'], ['a', 'Route start A', 'Start A'], ['b', 'Route end B', 'End B']];
   for (const [t, label, rb] of MARKER_TOOLS) CMD['tool:' + t] = { t: `Place ${label.toLowerCase()}`, rb, sym: t, need, run: () => setTool(t), on: () => S.tool === t };
@@ -10732,7 +10833,8 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   CMD['gp:fireCoverage'].rb = 'Fire Coverage'; CMD['gp:borderWatch'].rb = 'Border Watch'; CMD['gp:enemyApproaches'].rb = 'Approaches'; CMD['gp:infiltration'].rb = 'Infiltration'; CMD['gp:enemyOptions'].rb = 'Enemy Options';
   CMD['gp:route'].rb = 'Route A→B'; CMD['gp:picquets'].rb = 'Picquets'; CMD['gp:helipads'].rb = 'Helipads'; CMD['gp:fly'].rb = 'Fly Route'; CMD['gp:mobility'].rb = 'Go / No-Go'; CMD['gp:hostile'].rb = 'Enemy Obsn';
   CMD['gp:avenues'].rb = 'Avenues'; CMD['gp:posts'].rb = 'Posts / OPs'; CMD['gp:weapons'].rb = 'Weapon Sites'; CMD['gp:mfd'].rb = 'Minefields'; CMD['gp:convert'].rb = 'Convert Coords';
-  CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:los'].rb = 'LOS Tool';
+  CMD['gp:viewshed'].rb = 'Viewshed Tool'; CMD['gp:routeViewshed'].rb = 'Route Viewshed';
+  CMD['tool:rvsline'] = { t: 'Draw a route for Route Viewshed', rb: 'Draw Route', icon: 'track', need, run: () => setTool('rvsline'), on: () => S.tool === 'rvsline' }; CMD['gp:los'].rb = 'LOS Tool';
   for (const sec of Settings.SCHEMA) CMD['settings:' + sec.id] = { t: `Settings — ${sec.title}`, run: () => Settings.open(sec.id) };
   const openGP = (id) => { GP.open(id); };
   const runCmd = (name, ev) => {
@@ -10771,7 +10873,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     { id: 'analysis', name: 'Analysis', groups: [
       ['Geoprocessing', ['*gpTools', '*history']],
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
-      ['Visibility', ['gp:viewshed', 'gp:los', 'gp:hostile']],
+      ['Visibility', ['gp:viewshed', 'gp:routeViewshed', 'gp:los', '|', 'gp:hostile']],
       ['Tactical Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
       ['Routing & Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'swapAB', 'routeCard']],
     ] },
@@ -10873,7 +10975,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure };
+    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources };
     UI.applyIcons();
     map.resize();
     renderRibbon();

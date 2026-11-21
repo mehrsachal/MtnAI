@@ -1,5 +1,5 @@
 /*
- * MtnAI core — tactical siting aids for mountain defence planning (OAKOC):
+ * MtnEye core — tactical siting aids for mountain defence planning (OAKOC):
  *   hostile observation, enemy avenues of approach, defended posts / OPs,
  *   direct-fire, indirect-fire (with crest clearance) and AD weapon sites,
  *   minefield (Mfd) sites at defiles, and picquets to protect a route.

@@ -1,5 +1,5 @@
 /*
- * MtnAI core — terrain derivatives: slope, aspect, hillshade, TPI landforms,
+ * MtnEye core — terrain derivatives: slope, aspect, hillshade, TPI landforms,
  * ruggedness, statistics, contours and key terrain (dominating heights, passes).
  */
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function terrain(M) {

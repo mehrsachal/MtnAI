@@ -1,5 +1,5 @@
 /*
- * MtnAI core — least-time route finding (A*) over an anisotropic cost surface.
+ * MtnEye core — least-time route finding (A*) over an anisotropic cost surface.
  *
  * 16-connected moves (8 neighbours + knight moves) give smooth headings.
  * Cost = travel time from the movement model, optionally multiplied by

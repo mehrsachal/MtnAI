@@ -1,4 +1,4 @@
-/* MtnAI ui — user guide, keyboard shortcuts and about (rendered into the Help dialog). */
+/* MtnEye ui — user guide, keyboard shortcuts and about (rendered into the Help dialog). */
 (function (UI) {
   'use strict';
 
@@ -32,13 +32,13 @@
         ['Sector defence (Sec 12–13, 15)', 'Hold the dominating features astride the axis; cover gaps by fire, mines and OPs; strong points with staying power; guard every approach against infiltration.', 'Sector tab: ITGs, Deployment Plan, Fire Coverage, Border Watch, Infiltration, Enemy Options'],
         ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
       ];
-      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnAI applies GSP Mountain Warfare</h2>
+      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnEye applies GSP Mountain Warfare</h2>
         <p>The rules below come from the GSP Mountain Warfare pamphlet. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the pamphlet.</p>
-        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnAI</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
-        <p class="hint">MtnAI is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
+        <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnEye</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+        <p class="hint">MtnEye is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
     }
     if (section === 'about') {
-      return { title: 'About MtnAI', html: `<h2>MtnAI ${M.VERSION}</h2>
+      return { title: 'About MtnEye', html: `<h2>MtnEye ${M.VERSION}</h2>
         <p>Offline GIS decision aid for mountain operations. All processing runs locally in the browser; no data leaves the computer.</p>
         <table><tr><td>Analysis CRS</td><td>WGS 84 / UTM (zone of the DEM, or forced in Settings)</td></tr>
         <tr><td>Supported CRSs</td><td>${Object.values(M.CRS_PRESETS).map((c) => c.name).join(' · ')} · custom TM / LCC on any listed datum</td></tr>
@@ -52,7 +52,7 @@
       return `<tr><td>${sym(UI.SYM.weapon(w))}</td><td>${w.name}</td><td>${gr.name}</td><td>${w.minR}–${w.maxR} m</td></tr>`;
     }).join('')).join('');
     return { title: 'User guide', html: `
-<h2>MtnAI — mountain terrain analysis</h2>
+<h2>MtnEye — mountain terrain analysis</h2>
 <p>Load a digital elevation model, derive slope, aspect, landforms and mobility, and site posts, weapons, minefields and routes from the terrain.
 Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) and the properties pane.</p>
 

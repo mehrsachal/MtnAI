@@ -1,5 +1,5 @@
 /*
- * MtnAI ui — 2D map view (grid-north up, UTM metric space) on a canvas.
+ * MtnEye ui — 2D map view (grid-north up, UTM metric space) on a canvas.
  * Pan: drag · Zoom: wheel / pinch · Tools are dispatched to the app.
  */
 (function (UI) {

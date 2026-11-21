@@ -11,7 +11,7 @@ globalThis.MTN_UI = { M };
 for (const f of ['src/ui/settings.js', 'src/ui/gp.js']) vm.runInThisContext(fs.readFileSync(path.join(root, f), 'utf8'), { filename: f });
 const UI = globalThis.MTN_UI;
 const weapon = (id) => M.weapon(id);
-UI.app = { weaponOf: weapon, profileOf: (id) => M.MOVEMENT_PROFILES[id] };
+UI.app = { weaponOf: weapon, profileOf: (id) => M.MOVEMENT_PROFILES[id], routeSources: () => [['route', 'Selected least-time route'], ['drawn', 'Draw a line on the map…']] };
 const out = {};
 for (const [id, t] of Object.entries(UI.GP.TOOLS)) {
   const v = {};
