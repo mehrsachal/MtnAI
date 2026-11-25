@@ -1662,10 +1662,14 @@
   const setView = (v) => {
     if (v === '3d' && !v3.ok) { toast('WebGL2 is not available — Scene view disabled.', true); return; }
     if (!S.grid && v === '3d') return;
+    if (v !== '2d' && UI.Explain && UI.Explain.briefing) UI.Explain.endBrief();
     S.view = v;
-    $('vtMap').classList.toggle('on', v === '2d'); $('vtScene').classList.toggle('on', v === '3d');
+    $('vtMap').classList.toggle('on', v === '2d'); $('vtScene').classList.toggle('on', v === '3d'); $('vtModel').classList.toggle('on', v === 'model');
     $('map2d').hidden = v !== '2d'; $('gl3d').hidden = v !== '3d'; $('ovl3d').hidden = v !== '3d';
+    document.body.classList.toggle('model-view', v === 'model');
+    if (UI.Explain) UI.Explain.show(v === 'model');
     v3.visible = v === '3d';
+    if (v === 'model') { updateRibbonState(); return; }
     if (v === '3d') { v3.resize(); if (S.texDirty) updateTexture(true); v3.render(); } else { v3.stopFly(); map.resize(); }
     updateScale(); updateRibbonState();
   };
@@ -1833,6 +1837,7 @@
     gpRefs: { t: 'Grid reference formats…', rb: 'Grid Refs', icon: 'target', run: () => Settings.open('refs') },
     view2d: { t: 'Map view (2D)', rb: 'Map', icon: 'data', k: '2', run: () => setView('2d'), on: () => S.view === '2d' },
     view3d: { t: 'Scene view (3D)', rb: 'Scene', icon: 'terrain', k: '3', need, run: () => setView('3d'), on: () => S.view === '3d' },
+    viewModel: { t: 'Model view — how each tool works, step by step, with this run’s numbers', rb: 'Model', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
     toggleLeft: { t: 'Contents pane', rb: 'Contents', icon: 'layers', k: 'Ctrl+B', run: () => togglePane('no-left'), on: () => !$('app').classList.contains('no-left') },
     toggleRight: { t: 'Geoprocessing / Attributes pane', rb: 'Side Pane', icon: 'panel', run: () => togglePane('no-right'), on: () => !$('app').classList.contains('no-right') },
     toggleDock: { t: 'Attribute table / profile dock', rb: 'Table Dock', icon: 'log', k: 'Ctrl+J', run: () => setDock($('dock').classList.contains('collapsed')), on: () => !$('dock').classList.contains('collapsed') },
@@ -1917,6 +1922,7 @@
       ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
       ['Own Forces', ['*gp:deploy', '*mnuOwn']],
       ['Enemy', ['*gp:enemyApproaches', '*mnuEnemy']],
+      ['Explain', ['*viewModel']],
       ['Output', ['*secReport', '*mnuExport']],
     ] },
     { id: 'analysis', name: 'Analysis', groups: [
@@ -1924,6 +1930,7 @@
       ['Visibility', ['*gp:viewshed', '*gp:routeViewshed', '*gp:hostile', '*mnuVis']],
       ['Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
       ['Movement', ['*gp:route', '*gp:picquets', '*gp:helipads', '*mnuMove']],
+      ['Explain', ['*viewModel']],
       ['Tools', ['*gpTools', '*history']],
     ] },
     { id: 'edit', name: 'Edit', groups: [
@@ -1933,7 +1940,7 @@
       ['Extent', ['*tool:aoi', '*mnuExtent']],
     ] },
     { id: 'view', name: 'View', groups: [
-      ['Views', ['*view2d', '*view3d']],
+      ['Views', ['*view2d', '*view3d', '*viewModel']],
       ['Layout', ['*mnuWindows', '*mnuGrids']],
       ['Scene', [{ html: '<div class="rb-fields"><div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div></div>' }]],
     ] },
@@ -2022,7 +2029,7 @@
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources };
+    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources, refresh, renderAll };
     UI.applyIcons();
     map.resize();
     renderRibbon();
@@ -2101,7 +2108,7 @@
         if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
         if (e.key === 'Backspace') { e.preventDefault(); S.draft.pts.pop(); redrawDraft(); return; }
       }
-      const keys = { 2: 'view2d', 3: 'view3d', f: 'fit', m: 'tool:measure', l: 'tool:los', v: 'tool:vs', '+': 'zoomIn', '=': 'zoomIn', '-': 'zoomOut', '/': 'palette' };
+      const keys = { 2: 'view2d', 3: 'view3d', 4: 'viewModel', f: 'fit', m: 'tool:measure', l: 'tool:los', v: 'tool:vs', '+': 'zoomIn', '=': 'zoomIn', '-': 'zoomOut', '/': 'palette' };
       if (!ctrl && keys[k] && (S.grid || k === '/')) { e.preventDefault(); runCmd(keys[k]); }
     });
 

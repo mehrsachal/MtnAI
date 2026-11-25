@@ -69,6 +69,18 @@ const { chromium } = require('playwright');
   await p.click('#props [data-close]');
   await p.click('#vtScene'); await p.waitForTimeout(1500);
   await shot('3d');
+  // Model view and Brief mode: the posts model shows its screening numbers, brief steps through
+  await p.click('#vtModel'); await p.waitForTimeout(300);
+  await p.selectOption('#mvTool', 'posts'); await p.waitForTimeout(200);
+  const model = await p.evaluate(() => ({ boxes: document.querySelectorAll('#modelView .mv-node').length, txt: document.querySelector('#modelView svg').textContent }));
+  if (model.boxes < 5 || !/points tested/.test(model.txt)) throw new Error('model view incomplete');
+  await shot('model');
+  await p.click('#modelView [data-act=brief]'); await p.waitForTimeout(300);
+  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300);
+  const brief = await p.evaluate(() => !document.getElementById('briefBar').hidden && MTN_UI.Explain.briefing.k === 1);
+  if (!brief) throw new Error('brief mode did not step');
+  await shot('brief');
+  await p.keyboard.press('Escape');
 
   const res = await p.evaluate(() => {
     const S = MTN_UI.S;

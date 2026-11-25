@@ -8,6 +8,7 @@
   const P = {
     command: '<path d="M8 4a2 2 0 1 0 2 2v12a2 2 0 1 1-2-2h8a2 2 0 1 1-2 2V6a2 2 0 1 0 2-2Z"/>',
     download: '<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5"/><path class="a" d="M5 19h14"/>',
+    flow: '<rect x="2.5" y="9" width="6" height="6" rx="3"/><rect x="10" y="9" width="5" height="6"/><rect class="a" x="16.5" y="9" width="5" height="6" rx="2.5"/><path d="M8.5 12H10m5 0h1.5"/>',
     panel: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path class="a" d="M15 4.5v15"/>',
     help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.8v.5"/><path class="a" d="M12 16.8v.2"/>',
     data: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path class="a" d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/>',

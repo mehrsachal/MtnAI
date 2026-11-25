@@ -20,6 +20,21 @@
   const idxOf = (g, p) => Math.round(p.r) * g.w + Math.round(p.c);
   const dCells = (a, b) => Math.hypot(a.r - b.r, a.c - b.c);
   const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  /**
+   * Screening record for the Model view: how many sample points each test threw out.
+   * sc.ck(reason, ok) returns ok and counts a rejection under `reason` when it fails.
+   */
+  const screen = () => {
+    const sc = { tested: 0, passed: 0, rejected: {} };
+    sc.reset = () => { sc.tested = 0; sc.passed = 0; sc.rejected = {}; };
+    sc.ck = (reason, ok) => { if (!ok) sc.rejected[reason] = (sc.rejected[reason] || 0) + 1; return ok; };
+    sc.wrap = (fn) => (i, r, c) => { sc.tested++; const ok = fn(i, r, c); if (ok) sc.passed++; return ok; };
+    /** One line for an error message: points tested and the main reasons they failed. */
+    sc.why = () => ` ${sc.tested.toLocaleString('en-GB')} points tested, none passed. Thrown out: ` +
+      Object.entries(sc.rejected).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} (${v.toLocaleString('en-GB')})`).join('; ') + '.';
+    sc.out = (cands, extra) => Object.assign({ tested: sc.tested, passed: sc.passed, rejected: Object.assign({}, sc.rejected), candidates: cands.map((q) => ({ r: q.r, c: q.c })) }, extra || {});
+    return sc;
+  };
   const stride = (g) => Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 260000)));
   /** Landform classes 0..5: valley, lower, flat, mid, upper, ridge. */
   const LF = (arr) => arr.slice(0, 6);
@@ -274,13 +289,15 @@
     const { min: zMin, max: zMax } = M.minMax(g.z);
     const relief = zMax - zMin || 1;
     const lfOK = new Set(p.landforms.map(Number));
-    const { cands, relaxed } = withAccess(access, (acc) => genCandidates(T,
-      (i, r, c) => L.slope[i] <= p.maxSlope && lfOK.has(L.landform[i]) && accessOK(acc, i, p.maxAccessH) &&
-        (!T.own || Math.hypot(r - T.own.r, c - T.own.c) <= maxOwn) &&
-        (!T.threat || Math.hypot(r - T.threat.r, c - T.threat.c) * g.cs >= p.minDistThreatM),
+    const sc = screen();
+    const { cands, relaxed } = withAccess(access, (acc) => (sc.reset(), genCandidates(T,
+      sc.wrap((i, r, c) => sc.ck(`slope over ${p.maxSlope}°`, L.slope[i] <= p.maxSlope) && sc.ck('landform not allowed', lfOK.has(L.landform[i])) &&
+        sc.ck('cannot be reached from own position', accessOK(acc, i, p.maxAccessH)) &&
+        sc.ck(`more than ${(p.maxDistOwnM / 1000).toFixed(1)} km from own position`, !T.own || Math.hypot(r - T.own.r, c - T.own.c) <= maxOwn) &&
+        sc.ck(`closer than ${p.minDistThreatM} m to the enemy`, !T.threat || Math.hypot(r - T.threat.r, c - T.threat.c) * g.cs >= p.minDistThreatM)),
       (i) => p.wTpiL * (L.tpiL[i] / L.sdL) + p.wTpiS * (L.tpiS[i] / L.sdS) + (p.wElev * (g.z[i] - zMin)) / relief + p.wCorridor * corridor.wgt[i],
-      minSep / 2, p.candidates));
-    if (!cands.length) throw new Error('No suitable post candidates — relax the slope, landform or distance constraints.');
+      minSep / 2, p.candidates)));
+    if (!cands.length) throw new Error('No suitable post candidates — relax the slope, landform or distance constraints.' + sc.why());
     cands.forEach((cd, j) => {
       Object.assign(cd, evalViewshed(T, cd, { obsH: p.obsH, tgtH: p.tgtH, rangeM: p.rangeM }, (i, r, c, d) => V[i] * (1 - (p.rangeDecay * d) / p.rangeM)));
       if (progress && j % 8 === 0) progress(0.15 + (0.7 * j) / cands.length, `Viewshed ${j + 1}/${cands.length}`);
@@ -324,7 +341,7 @@
         const los = M.lineOfSight(g, posts[a], posts[b], { obsH: p.obsH, tgtH: p.obsH });
         if (los.visible) links.push([a, b, Math.round(los.distance)]);
       }
-    return { posts, links, cover, dead, coverageShare: totalV ? seenV / totalV : 0, accessRelaxed: relaxed, params: p };
+    return { posts, links, cover, dead, coverageShare: totalV ? seenV / totalV : 0, accessRelaxed: relaxed, params: p, trace: sc.out(cands, { accessRelaxed: relaxed }) };
   };
 
   // =====================================================================
@@ -343,12 +360,14 @@
     const access = accessField(T, accessProfile, p.requireAccess);
     const defR = p.defRadiusM / g.cs;
     const lw = LF(p.lfWeights);
-    const { cands, relaxed } = withAccess(access, (acc) => genCandidates(T,
-      (i, r, c) => L.slope[i] <= wp.siteSlope && lw[L.landform[i]] > 0 && accessOK(acc, i, p.maxAccessH) &&
-        (!T.own || Math.hypot(r - T.own.r, c - T.own.c) <= defR),
+    const sc = screen();
+    const { cands, relaxed } = withAccess(access, (acc) => (sc.reset(), genCandidates(T,
+      sc.wrap((i, r, c) => sc.ck(`slope over ${wp.siteSlope}° (weapon limit)`, L.slope[i] <= wp.siteSlope) && sc.ck('landform weight 0', lw[L.landform[i]] > 0) &&
+        sc.ck('cannot be reached from own position', accessOK(acc, i, p.maxAccessH)) &&
+        sc.ck(`outside the ${(p.defRadiusM / 1000).toFixed(1)} km defended area`, !T.own || Math.hypot(r - T.own.r, c - T.own.c) <= defR)),
       (i) => lw[L.landform[i]] + p.wCorridor * corridor.wgt[i] + p.wTpiS * Math.max(-2, Math.min(2, L.tpiS[i] / L.sdS)),
-      minSep / 1.5, p.candidates));
-    if (!cands.length) throw new Error('No suitable weapon site candidates — relax site slope, landform weights or the defended-area radius.');
+      minSep / 1.5, p.candidates)));
+    if (!cands.length) throw new Error('No suitable weapon site candidates — relax site slope, landform weights or the defended-area radius.' + sc.why());
     const ax = corridor.axis;
     const enf = (p.enfilade ?? wp.enfilade ?? 0) * 0.5;
     cands.forEach((cd, j) => {
@@ -392,7 +411,7 @@
       });
     });
     const cover = M.viewshedCount(g, chosen, { obsH: wp.obsH, tgtH: wp.tgtH, radiusM: wp.maxR });
-    return { sites, cover, accessRelaxed: relaxed, accessProfile, params: p };
+    return { sites, cover, accessRelaxed: relaxed, accessProfile, params: p, trace: sc.out(cands, { accessRelaxed: relaxed }) };
   };
 
   /**
@@ -449,25 +468,26 @@
     const tf = own ? dCells(tgt, own) : 0;
     const lw = LF(p.lfWeights);
     const rangeScore = (d) => Math.max(0, 1 - Math.abs(d / wp.maxR - p.idealRangeFrac) / Math.max(0.05, 1 - p.idealRangeFrac));
-    const gen = (acc) => genCandidates(T,
-      (i, r, c) => {
-        if (L.slope[i] > wp.siteSlope || lw[L.landform[i]] <= 0) return false;
-        if (!accessOK(acc, i, p.maxAccessH)) return false;
-        if (p.requireDefilade && hostile && hostile[i]) return false;
+    const sc = screen();
+    const gen = (acc) => (sc.reset(), genCandidates(T,
+      sc.wrap((i, r, c) => {
+        if (!sc.ck(`slope over ${wp.siteSlope}° (weapon limit)`, L.slope[i] <= wp.siteSlope) || !sc.ck('landform weight 0', lw[L.landform[i]] > 0)) return false;
+        if (!sc.ck('cannot be reached from own position', accessOK(acc, i, p.maxAccessH))) return false;
+        if (!sc.ck('seen by the enemy (defilade required)', !(p.requireDefilade && hostile && hostile[i]))) return false;
         const d = Math.hypot(r - tgt.r, c - tgt.c) * g.cs;
-        if (d < Math.max(wp.minR * 1.2, p.minRangeFrac * wp.maxR) || d > p.maxRangeFrac * wp.maxR) return false;
+        if (!sc.ck('out of range of the target', !(d < Math.max(wp.minR * 1.2, p.minRangeFrac * wp.maxR) || d > p.maxRangeFrac * wp.maxR))) return false;
         if (own && tf > 0) {
           // not further forward of own position (towards the target) than forwardLimit × distance
           const t = ((r - tgt.r) * (own.r - tgt.r) + (c - tgt.c) * (own.c - tgt.c)) / (tf * tf);
-          if (t < 1 - p.forwardLimit) return false;
+          if (!sc.ck('too far forward of own position', t >= 1 - p.forwardLimit)) return false;
         }
         return true;
-      },
+      }),
       (i, r, c) => {
         const d = Math.hypot(r - tgt.r, c - tgt.c) * g.cs;
         return (1 - L.slope[i] / (wp.siteSlope + 1)) + (hostile && hostile[i] ? 0 : 1.2) + rangeScore(d) + lw[L.landform[i]];
       },
-      minSep, p.candidates);
+      minSep, p.candidates));
     const { cands, relaxed } = withAccess(access, gen);
     if (!cands.length) {
       throw new Error(`No ${wp.short} position meets the constraints within ${(wp.maxR / 1000).toFixed(1)} km of the target area — ` +
@@ -503,7 +523,7 @@
         accessH: access && access[ai] < Infinity ? access[ai] / 3600 : null, landform: M.LANDFORMS[L.landform[ai]].name,
       });
     });
-    return { sites, cover: null, target: { r: tgt.r, c: tgt.c }, accessRelaxed: relaxed, accessProfile, params: p };
+    return { sites, cover: null, target: { r: tgt.r, c: tgt.c }, accessRelaxed: relaxed, accessProfile, params: p, trace: sc.out(cands, { accessRelaxed: relaxed }) };
   };
 
   // =====================================================================
@@ -711,7 +731,8 @@
       fields, avenues: aven.routes.map((rt) => ({ line: rt.line, lengthM: rt.lengthM, timeH: rt.timeH })),
       enemyBefore: { line: before.line, timeH: baseS / 3600, lengthM: before.lengthM },
       enemyAfter: { line: after.line, timeH: (baseS + totalS) / 3600, lengthM: after.lengthM },
-      totalDelayMin: totalS / 60, tested: cands.length, outOfBand: !inBand.length, purpose: protective ? 'protective' : 'barrier', params: p,
+      totalDelayMin: totalS / 60, tested: cands.length, outOfBand: !inBand.length,
+      trace: { routeCells: onRoute.size, defiles: items.length, inBand: inBand.length, candidates: cands.map((it) => ({ r: it.r, c: it.c, delayMin: it.delayS === undefined || !isFinite(it.delayS) ? null : it.delayS / 60, blocks: it.delayS === Infinity, used: !!it.used })) }, purpose: protective ? 'protective' : 'barrier', params: p,
     };
   };
 
@@ -735,10 +756,13 @@
       }
       return false;
     };
+    const sc = screen();
     const cands = genCandidates(T,
-      (i, r, c) => L.landform[i] >= p.minLandform && L.slope[i] <= p.maxSlope && climb[i] < Infinity && !onRoute[i] && nearRoute(r, c),
+      sc.wrap((i, r, c) => sc.ck('on the route itself', !onRoute[i]) && sc.ck(`more than ${(p.maxOffsetM / 1000).toFixed(1)} km from the route`, nearRoute(r, c)) &&
+        sc.ck('not high enough (landform)', L.landform[i] >= p.minLandform) && sc.ck(`slope over ${p.maxSlope}°`, L.slope[i] <= p.maxSlope) &&
+        sc.ck(`cannot be climbed within ${p.maxClimbH} h`, climb[i] < Infinity)),
       (i) => L.tpiS[i] / L.sdS + 0.5 * (L.tpiL[i] / L.sdL), minSep / 2, p.candidates);
-    if (!cands.length) throw new Error('No heights suitable for picquets near the route — relax landform, slope, offset or climb-time limits.');
+    if (!cands.length) throw new Error('No heights suitable for picquets near the route — relax landform, slope, offset or climb-time limits.' + sc.why());
     cands.forEach((cd, j) => {
       Object.assign(cd, evalViewshed(T, cd, { obsH: p.obsH, tgtH: p.tgtH, rangeM: p.rangeM }, (i) => (onRoute[i] ? 1 : 0)));
       if (progress && j % 10 === 0) progress(0.2 + (0.7 * j) / cands.length, `Picquet viewsheds ${j + 1}/${cands.length}`);
@@ -765,7 +789,7 @@
       });
     }).sort((a, b) => (a.routeFromKm ?? 0) - (b.routeFromKm ?? 0));
     picquets.forEach((q, k) => (q.id = `PQ${k + 1}`));
-    return { picquets, routeCoverage: covered / path.length, params: p };
+    return { picquets, routeCoverage: covered / path.length, params: p, trace: sc.out(cands) };
   };
 
   // =====================================================================
@@ -794,17 +818,21 @@
         }
       return true;
     };
+    const sc = screen();
     const { cands, relaxed } = withAccess(access, (acc) => {
+      sc.reset();
       const items = [];
       const st = stride(g);
       for (let r = rad; r < g.h - rad; r += st)
         for (let c = rad; c < g.w - rad; c += st) {
           const i = r * g.w + c;
-          if (meanSlope[i] > lim || !accessOK(acc, i, p.maxAccessH)) continue;
-          if (T.own && Math.hypot(r - T.own.r, c - T.own.c) > maxOwn) continue;
-          if (p.requireConcealed && hostile && hostile[i]) continue;
-          if (p.avoidCrest && L.landform[i] === 5) continue; // skylined approach, wind
-          if (!flatOK(r, c)) continue;
+          sc.tested++;
+          if (!sc.ck(`ground steeper than ${lim}°`, meanSlope[i] <= lim) || !sc.ck('cannot be reached from own position', accessOK(acc, i, p.maxAccessH))) continue;
+          if (!sc.ck(`more than ${(p.maxDistOwnM / 1000).toFixed(1)} km from own position`, !(T.own && Math.hypot(r - T.own.r, c - T.own.c) > maxOwn))) continue;
+          if (!sc.ck('seen by the enemy', !(p.requireConcealed && hostile && hostile[i]))) continue;
+          if (!sc.ck('on a crest (skyline, wind)', !(p.avoidCrest && L.landform[i] === 5))) continue; // skylined approach, wind
+          if (!sc.ck(`part of the ${p.padRadiusM} m pad too steep`, flatOK(r, c))) continue;
+          sc.passed++;
           const near = T.own ? 1 - Math.min(1, Math.hypot(r - T.own.r, c - T.own.c) / maxOwn) : 0.5;
           const score = p.wFlat * (1 - meanSlope[i] / Math.max(1, lim)) + p.wHidden * (hostile && hostile[i] ? 0 : 1) + p.wNear * near;
           items.push({ r, c, i, score });
@@ -817,6 +845,6 @@
       hidden: !(hostile && hostile[q.i]), accessH: access && access[q.i] < Infinity ? access[q.i] / 3600 : null,
       distOwnM: T.own ? Math.hypot(q.r - T.own.r, q.c - T.own.c) * g.cs : null, score: q.score,
     }));
-    return { pads, accessRelaxed: relaxed, params: p };
+    return { pads, accessRelaxed: relaxed, params: p, trace: sc.out(cands, { accessRelaxed: relaxed }) };
   };
 });

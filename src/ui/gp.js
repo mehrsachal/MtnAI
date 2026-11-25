@@ -612,7 +612,7 @@
     }
     if (inSec) html += '</div>';
     const msg = lastMsg[id];
-    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}</div>` : ''}
+    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}${!msg.running && UI.Explain && UI.Explain.specFor(id) ? `<button class="btn gp-explain" data-explain="${id}">${msg.err ? 'Why did it fail? — Model view' : 'How was this found? — Model view'}</button>` : ''}</div>` : ''}
       <div class="gp-foot"><button class="btn" data-reset>Reset parameters</button><span class="grow"></span><button class="btn primary" data-run ${msg && msg.running ? 'disabled' : ''}>Run</button></div>`;
     el.innerHTML = html;
     el.querySelector('.gp-form').scrollTop = scroll;
@@ -671,6 +671,8 @@
       lastMsg[id] = null; GP.render();
     };
     el.querySelector('[data-run]').onclick = () => GP.run(id);
+    const ex = el.querySelector('[data-explain]');
+    if (ex) ex.onclick = () => UI.Explain.open(UI.Explain.specFor(id));
   };
 
   /** Set one stored parameter value (e.g. a point picked with a ribbon tool). */
@@ -685,8 +687,10 @@
     try {
       const text = await handlers[id](GP.values(id));
       lastMsg[id] = { title: `Completed — ${TOOLS[id].name} (${((performance.now() - t0) / 1000).toFixed(1)} s)`, text: text || '' };
+      if (GP.onResult) GP.onResult(id, null);
     } catch (e) {
       lastMsg[id] = { err: true, title: `Failed — ${TOOLS[id].name}`, text: e.message };
+      if (GP.onResult) GP.onResult(id, e.message);
     }
     if (current === id) GP.render();
   };

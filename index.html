@@ -35,7 +35,7 @@
 
   <!-- ============================== VIEWS -->
   <section id="center">
-    <div class="view-tabs"><button id="vtMap" class="on" data-cmd="view2d"><i data-icon="data"></i>Map</button><button id="vtScene" data-cmd="view3d" data-need><i data-icon="terrain"></i>Scene</button><span class="vt-crs" id="vtCRS"></span></div>
+    <div class="view-tabs"><button id="vtMap" class="on" data-cmd="view2d"><i data-icon="data"></i>Map</button><button id="vtScene" data-cmd="view3d" data-need><i data-icon="terrain"></i>Scene</button><button id="vtModel" data-cmd="viewModel" title="How each tool works — ModelBuilder-style diagram with this run’s numbers"><i data-icon="flow"></i>Model</button><span class="vt-crs" id="vtCRS"></span></div>
     <div id="stage">
       <canvas id="map2d"></canvas>
       <canvas id="gl3d" hidden></canvas>
@@ -50,6 +50,8 @@
         </div>
       </div>
       <div class="map-ctl" aria-label="Map controls"><button data-cmd="zoomIn" title="Zoom in (+)">+</button><button data-cmd="zoomOut" title="Zoom out (−)">−</button><button data-cmd="fit" title="Full extent (F)">⤢</button></div>
+      <div id="modelView" hidden></div>
+      <div id="briefBar" hidden></div>
       <div id="stageBar" hidden><i id="stageBarFill"></i></div>
       <div id="toolHint" hidden></div>
       <div id="toast" hidden></div>
@@ -141,6 +143,7 @@
 <script src="src/ui/export.js"></script>
 <script src="src/ui/help.js"></script>
 <script src="src/ui/gp.js"></script>
+<script src="src/ui/explain.js"></script>
 <script src="src/ui/app.js"></script>
 </body>
 </html>

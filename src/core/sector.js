@@ -241,16 +241,20 @@
     const R = Math.max(2, Math.round(p.peakRadiusM / g.cs));
     const st = Math.max(1, Math.round(Math.sqrt((g.w * g.h) / 260000)));
     const cands = [];
+    const tr = { tested: 0, outside: 0, enemySide: 0, lowValue: 0, notTop: 0 };
     for (let r = R; r < g.h - R; r += st)
       for (let c = R; c < g.w - R; c += st) {
         const i = r * g.w + c;
-        if (!frame.inSector[i] || frame.side[i] < 0 || dom[i] < p.minDominance) continue;
+        tr.tested++;
+        if (!frame.inSector[i]) { tr.outside++; continue; }
+        if (frame.side[i] < 0) { tr.enemySide++; continue; }
+        if (dom[i] < p.minDominance) { tr.lowValue++; continue; }
         let top = true;
         for (let dr = -R; dr <= R && top; dr += st) for (let dc = -R; dc <= R; dc += st) {
           if (dr * dr + dc * dc > R * R) continue;
           if (g.z[(r + dr) * g.w + c + dc] > g.z[i]) { top = false; break; }
         }
-        if (top) cands.push({ r, c, i, score: dom[i] });
+        if (top) cands.push({ r, c, i, score: dom[i] }); else tr.notTop++;
       }
     const picked = M.nms(cands, p.minSepM / g.cs, p.count * 4);
     const target = approachMask(T, terr, p.approachDepthM);
@@ -292,9 +296,11 @@
     });
     const maxObs = Math.max(1e-6, ...out.map((x) => x.obsShare));
     out.forEach((x) => { x.obsIndex = x.obsShare / maxObs; x.score += p.wObs * x.obsIndex; x.rating = M.rate(x.score, p.good, p.marginal); });
+    const allTops = out.map((x) => ({ r: x.r, c: x.c }));
     out.sort((a, b) => b.score - a.score).splice(p.count);
     out.forEach((x, k) => (x.id = `ITG ${k + 1}`));
-    return { itgs: out, params: p };
+    Object.assign(tr, { summits: cands.length, spaced: picked.length, kept: out.length, tops: allTops });
+    return { itgs: out, params: p, trace: tr };
   };
   const hull = (pts) => {
     if (pts.length < 3) return pts;
@@ -624,6 +630,7 @@
     const { g, frame } = T;
     const st = M.lineStations(g, frame.border, p.entrySpacingM);
     const out = [];
+    out.stations = st.length;
     st.forEach((s) => {
       const site = pickSite(T, s.c, s.r, (p.entryDepthM + 300) / g.cs,
         (i) => frame.side[i] < 0 && Math.abs(frame.borderDist[i] - p.entryDepthM) <= 300 && mob.cls[i] !== 2, (i) => -Math.abs(frame.borderDist[i] - p.entryDepthM));
@@ -669,21 +676,25 @@
     // where can the enemy get to at all (summits are often ringed by NO-GO crags)?
     const tAll = M.reachable(g, ctx, entries.map((e) => e.i), 12 * 3600);
     const out = [];
+    const perObj = [];
     objs.forEach((obj, k) => {
       progress && progress(0.1 + (0.8 * k) / objs.length, `Approaches to ${obj.id}`);
       const goal = reachGoal(g, tAll, obj, 1200);
+      const rec = { objective: obj.id, r: obj.r, c: obj.c, reachable: goal >= 0, reached: 0, tooClose: 0, noPath: 0, duplicate: 0, spare: 0, kept: 0 };
+      perObj.push(rec);
       if (goal < 0) return;
       const t = M.reachable(g, ctx, [goal], 6 * 3600);
       const ranked = entries.map((e) => ({ e, t: t[e.i] })).filter((x) => x.t < Infinity).sort((a, b) => a.t - b.t);
+      rec.reached = ranked.length;
       const used = [];
       for (const { e } of ranked) {
-        if (used.length >= p.perObjective) break;
-        if (used.some((u) => Math.hypot(u.r - e.r, u.c - e.c) * g.cs < p.entrySpacingM * 1.5)) continue;
+        if (used.length >= p.perObjective) { rec.spare++; continue; }
+        if (used.some((u) => Math.hypot(u.r - e.r, u.c - e.c) * g.cs < p.entrySpacingM * 1.5)) { rec.tooClose++; continue; }
         const res = M.astar(g, ctx, e.i, goal);
-        if (!res) continue;
+        if (!res) { rec.noPath++; continue; }
         const path = Array.from(res.path);
-        if (out.some((a) => a.objective === obj.id && overlap(a.path, path) > 0.6)) continue;
-        used.push(e);
+        if (out.some((a) => a.objective === obj.id && overlap(a.path, path) > 0.6)) { rec.duplicate++; continue; }
+        used.push(e); rec.kept++;
         const st = M.routeStats(g, ctx, path, {});
         let seenN = 0;
         for (const q of path) if (ownSeen && ownSeen[q] && frame.side[q] > 0) seenN++;
@@ -699,7 +710,9 @@
       a.rating = a.exposure >= 0.6 ? 'Good' : a.exposure >= 0.3 ? 'Marginal' : 'Not good'; // for us: how well we watch it
       a.reasons = [`${a.type} approach to ${a.objective}${a.assaultM > 2 * g.cs ? ` (last ${Math.round(a.assaultM)} m is a climb / assault)` : ''}`, `${(a.lengthM / 1000).toFixed(1)} km / ${a.timeH.toFixed(1)} h`, `${Math.round(a.exposure * 100)}% under own observation`];
     });
-    return { approaches: out, entries: entries.map((e) => ({ r: e.r, c: e.c })), params: p };
+    const reachAny = entries.filter((e) => tAll[e.i] < Infinity).length;
+    return { approaches: out, entries: entries.map((e) => ({ r: e.r, c: e.c })), params: p,
+      trace: { stations: entries.stations, entries: entries.length, reachAny, objectives: objs.length, perObjective: perObj, profile: p.profile } };
   };
 
   M.infiltrationRoutes = (T, terr, targets, ownSeen, o = {}, progress) => {
@@ -718,12 +731,13 @@
     const tAll = M.reachable(g, { cls: mob.cls, slope: L.slope, prof: mob.prof, trackMask: mob.trackMask }, entries.map((e) => e.i), 12 * 3600);
     const goals = targets.map((t) => ({ t, i: reachGoal(g, tAll, t, 1500) })).filter((x) => x.i >= 0);
     const cand = [];
+    let noPath = 0, overlapN = 0;
     entries.forEach((e, k) => {
       progress && progress(0.1 + (0.8 * k) / entries.length, 'Hidden routes');
       const near = goals.slice().sort((a, b) => Math.hypot(a.t.r - e.r, a.t.c - e.c) - Math.hypot(b.t.r - e.r, b.t.c - e.c)).slice(0, 2);
       for (const gl of near) {
         const res = M.astar(g, ctx, e.i, gl.i);
-        if (!res) continue;
+        if (!res) { noPath++; continue; }
         const path = Array.from(res.path);
         const st = M.routeStats(g, { cls: mob.cls, slope: L.slope, prof: mob.prof, trackMask: mob.trackMask }, path, {});
         let seenN = 0, ownN = 0, nulN = 0;
@@ -735,7 +749,7 @@
     const out = [];
     for (const c of cand) {
       if (out.length >= p.infilCount) break;
-      if (out.some((x) => overlap(x.path, c.path) > 0.5)) continue;
+      if (out.some((x) => overlap(x.path, c.path) > 0.5)) { overlapN++; continue; }
       out.push(c);
     }
     out.forEach((x, k) => {
@@ -745,7 +759,8 @@
       x.reasons = [`${Math.round(x.detectShare * 100)}% of the route inside own ground is observed`, `${Math.round(x.nullahShare * 100)}% in nullahs / dead ground`,
         `${(x.lengthM / 1000).toFixed(1)} km, ${x.timeH.toFixed(1)} h on foot to ${x.target}`, x.threat === 'High' ? 'block with an ambush, LP or mines' : 'covered by own observation'];
     });
-    return { routes: out, params: p };
+    return { routes: out, params: p, trace: { stations: entries.stations, entries: entries.length, entryPts: entries.map((e) => ({ r: e.r, c: e.c })), targets: targets.length, goals: goals.length,
+      tried: cand.length + noPath, noPath, candidates: cand.length, overlap: overlapN, kept: out.length, unused: Math.max(0, cand.length - out.length - overlapN) } };
   };
 
   /** Enemy courses of action: objective (ITG) + main approach + supporting approach, scored and described. */
@@ -755,7 +770,9 @@
     appr.approaches.forEach((a) => (byObj[a.objective] = byObj[a.objective] || []).push(a));
     const bearing = (a) => { const s = a.line[0], e = a.line[a.line.length - 1]; return M.bearing(e[0] - s[0], s[1] - e[1]); };
     const opts = [];
+    let noAppr = 0;
     for (const itg of itgs) {
+      if (!(byObj[itg.id] || []).length) noAppr++;
       const as = (byObj[itg.id] || []).slice().sort((a, b) => (1 - a.exposure) * 2 - a.timeH / 6 - ((1 - b.exposure) * 2 - b.timeH / 6)).reverse();
       if (!as.length) continue;
       const main = as[0];
@@ -777,6 +794,6 @@
       x.rating = x.threat === 'High' ? 'Not good' : x.threat === 'Medium' ? 'Marginal' : 'Good';
       x.recommendation = x.cover > 0.6 ? `Put an OP / LP to watch ${x.main} and register DF tasks on it.` : `Covered by observation — register mortar DF on ${x.main} and keep a counter-attack force for ${x.objective}.`;
     });
-    return { options: top };
+    return { options: top, trace: { itgs: itgs.length, noApproach: noAppr, scored: opts.length, kept: top.length } };
   };
 });

@@ -71,6 +71,7 @@
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(S.baseCanvas, x0, y0, g.w * this.view.scale, g.h * this.view.scale);
+      if (UI.briefVeil) UI.briefVeil(ctx, this.W, this.H);
       // frame
       ctx.strokeStyle = 'rgba(128,128,128,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
@@ -84,6 +85,7 @@
           { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels'), view: { w: this.W, h: this.H } });
       }
       UI.labelsEnd(ctx);
+      if (UI.drawBrief) UI.drawBrief(ctx, P);
       this._hud(ctx, g);
       if (this.onRender) this.onRender();
     }

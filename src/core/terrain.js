@@ -222,12 +222,14 @@
     const sdL = M.meanStd(tpiL).std || 1;
     // ---- peaks
     const cands = [];
+    let localMax = 0, lowProm = 0, notHighest = 0, passTested = 0, passFlat = 0, passShape = 0;
     for (let r = 1; r < h - 1; r++)
       for (let c = 1; c < w - 1; c++) {
         const i = r * w + c, v = z[i];
         if (v < z[i - 1] || v < z[i + 1] || v < z[i - w] || v < z[i + w] ||
             v < z[i - w - 1] || v < z[i - w + 1] || v < z[i + w - 1] || v < z[i + w + 1]) continue;
-        if (tpiL[i] < (opts.minDominance ?? 0.5) * sdL) continue;
+        localMax++;
+        if (tpiL[i] < (opts.minDominance ?? 0.5) * sdL) { lowProm++; continue; }
         cands.push(i);
       }
     const peaks = [];
@@ -243,7 +245,7 @@
           if (z[rr * w + cc] > v) { isMax = false; break; }
         }
       }
-      if (!isMax) continue;
+      if (!isMax) { notHighest++; continue; }
       peaks.push({ r, c, z: v, prominence: tpiL[i], score: tpiL[i] / sdL + (0.8 * (v - min)) / (max - min || 1) });
     }
     // ---- passes (saddles)
@@ -255,7 +257,8 @@
     for (let r = ringR; r < h - ringR; r += 1)
       for (let c = ringR; c < w - ringR; c += 1) {
         const i = r * w + c;
-        if (slope[i] > 22) continue;
+        passTested++;
+        if (slope[i] > 22) { passFlat++; continue; }
         const v = z[i];
         const d = new Float32Array(N);
         let hiMax = -Infinity, loMin = Infinity;
@@ -264,7 +267,7 @@
           if (d[k] > hiMax) hiMax = d[k];
           if (d[k] < loMin) loMin = d[k];
         }
-        if (hiMax < relief || loMin > -relief) continue;
+        if (hiMax < relief || loMin > -relief) { passShape++; continue; }
         // lobes: maximal runs of the same sign (dead band = relief/4)
         const band = relief / 4;
         const signs = [];
@@ -282,14 +285,16 @@
         }
         const highs = seq.filter((s) => s.s > 0).map((s) => s.ext).sort((a, b) => b - a);
         const lows = seq.filter((s) => s.s < 0).map((s) => -s.ext).sort((a, b) => b - a);
-        if (highs.length < 2 || lows.length < 2) continue;
-        if (highs[1] < relief || lows[1] < relief) continue;
+        if (highs.length < 2 || lows.length < 2 || highs[1] < relief || lows[1] < relief) { passShape++; continue; }
         passCands.push({ r, c, z: v, score: Math.min(highs[1], lows[1]) + 0.25 * (v - min) / 10 });
       }
     const sepCells = Math.max(4, Math.round(700 / cs));
+    const outPeaks = M.nms(peaks, peakRad, maxPeaks), outPasses = M.nms(passCands, sepCells, maxPasses);
     return {
-      peaks: M.nms(peaks, peakRad, maxPeaks),
-      passes: M.nms(passCands, sepCells, maxPasses),
+      peaks: outPeaks,
+      passes: outPasses,
+      trace: { localMax, lowProm, notHighest, peaksFound: peaks.length, peaksKept: outPeaks.length, peakRadiusM: peakRad * cs,
+        passTested, passFlat, passShape, passesFound: passCands.length, passesKept: outPasses.length, reliefM: relief },
     };
   };
 });
