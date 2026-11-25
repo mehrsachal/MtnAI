@@ -660,6 +660,17 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
 .gp-msg .gp-explain { display: block; margin-top: 8px; width: 100%; }
 @media (max-width: 900px) { .mb-body { flex-direction: column; } .mb-side { width: auto; max-height: 45%; } }
 
+/* ModelBuilder brief on map */
+#briefBar { position: absolute; z-index: 6; left: 50%; top: 12px; transform: translateX(-50%); width: min(820px, calc(100% - 32px)); max-height: 46%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px; font-size: 13.5px; }
+#briefBar[hidden] { display: none; }
+.bb-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-bottom: 4px; } .bb-tool { font-weight: 600; }
+.bb-main { font-size: 15px; margin-bottom: 4px; }
+.bb-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; background: #ffe08a; color: #6b4f00; }
+.bb-desc { color: var(--text-2); margin: 2px 0 4px; } .bb-expr code { font-size: 12px; background: var(--panel-2); padding: 2px 5px; border-radius: 4px; display: inline-block; margin: 2px 0; }
+.bb-list { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; margin: 4px 0; } .bb-list span { background: #dbe8fb; border-radius: 10px; padding: 1px 8px; }
+.bb-res { margin: 4px 0; } .bb-res .bad { color: var(--danger); } .bb-map { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+#briefBar .mb-tbl { font-size: 12px; } .bb-ctl { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+
 </style>
 </head>
 <body data-theme="light" data-density="comfortable">
@@ -706,6 +717,7 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
       </div>
       <div class="map-ctl" aria-label="Map controls"><button data-cmd="zoomIn" title="Zoom in (+)">+</button><button data-cmd="zoomOut" title="Zoom out (−)">−</button><button data-cmd="fit" title="Full extent (F)">⤢</button></div>
       <div id="modelView" hidden></div>
+      <div id="briefBar" hidden></div>
       <div id="stageBar" hidden><i id="stageBarFill"></i></div>
       <div id="toolHint" hidden></div>
       <div id="toast" hidden></div>
@@ -10077,6 +10089,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   MB.visible = false;
   MB.show = (on) => {
     MB.visible = on;
+    if (on && MB.briefing) MB.endBrief();
     const el = $('modelView');
     if (!el) return;
     el.hidden = !on;
@@ -10113,6 +10126,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         <span class="mb-sep"></span>
         <button class="btn" data-mb="reset" title="Reload this model with the current own / enemy / A / B points and border">Reset</button>
         <button class="btn" data-mb="export">Export</button><label class="btn file">Import<input type="file" id="mbImport" accept=".json"></label>
+        <button class="btn" data-mb="brief" title="Step through the model on the map, one tool at a time">▶ Brief on map</button>
         <button class="btn" data-mb="report">Report</button>
         <span class="mb-status" id="mbStatus"></span></div>
       <div class="mb-q" id="mbQ"></div>
@@ -10127,6 +10141,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     el.querySelector('[data-mb=reset]').onclick = () => { MB.load(MB.model.template); MB.render(); };
     el.querySelector('[data-mb=export]').onclick = () => exportModel();
     el.querySelector('[data-mb=report]').onclick = () => MB.print();
+    el.querySelector('[data-mb=brief]').onclick = () => MB.brief();
     $('mbImport').onchange = (e) => importModel(e.target.files[0]);
     $('mbAddTool').onchange = (e) => { if (e.target.value) addTool(e.target.value); e.target.value = ''; };
     $('mbAddVar').onchange = (e) => { if (e.target.value) addVar(e.target.value); e.target.value = ''; };
@@ -10272,7 +10287,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
           ${['Con( , , )', 'NoData', '==', '>', '&', '|'].map((x) => `<button class="chip" data-ins="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
       }
     }
-    h += `<div class="mb-actions"><button class="btn primary" data-act="run">▶ Run this tool</button><button class="btn" data-act="del">Delete</button></div>`;
+    h += `<div class="mb-actions"><button class="btn primary" data-act="run">▶ Run this tool</button><button class="btn" data-act="brief">Show this step on the map</button><button class="btn" data-act="del">Delete</button></div>`;
     return h;
   };
   const bindToolPanel = (el, t) => {
@@ -10314,6 +10329,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       changed(); MB.render();
     }));
     el.querySelector('[data-act=run]').onclick = () => MB.run(t.id);
+    el.querySelector('[data-act=brief]').onclick = () => MB.brief(t.id);
     el.querySelector('[data-act=del]').onclick = () => delNode(t.id);
   };
 
@@ -10433,7 +10449,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   };
   const ctxMenu = (n, x, y) => {
     const items = [];
-    if (n.kind === 'tool') items.push(['▶ Run', () => MB.run(n.id)], ['Open', () => {}]);
+    if (n.kind === 'tool') items.push(['▶ Run', () => MB.run(n.id)], ['Brief on map from here', () => MB.brief(n.id)]);
     if (n.kind === 'derived') items.push([MB.display[n.id] ? 'Remove from display' : 'Add to display', async () => { if (MB.display[n.id]) delete MB.display[n.id]; else MB.display[n.id] = true; save(); await syncMap(); MB.render(); }]);
     if (n.kind === 'value') items.push([n.P ? 'Clear model parameter' : 'Model parameter', () => { n.P = !n.P; changed(); MB.render(); }]);
     items.push(['Rename', () => { const s = prompt('New name', n.name); if (s) { if (isVar(n)) renameVar(n, s); else { n.name = s; changed(); MB.render(); } } }]);
@@ -10501,6 +10517,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       else if (s.dt === 'lines') MB.layers.push({ id, name: n.name, dt: 'lines', lines: s.lines });
       else if (s.dt === 'raster' && s.kind !== 'backlink') ras = prefer && MB.display[prefer] && node(prefer) && MB.rep.vars[prefer] && MB.rep.vars[prefer].dt === 'raster' ? prefer : ras || id;
     }
+    if (MB.briefing && MB.briefing.inputs) MB.layers.push(...MB.briefing.inputs);
     const o = S.overlays.model;
     if (ras) {
       const r = await UI.app.engine.call('modelRaster', { id: ras });
@@ -10573,17 +10590,148 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
         ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
         ctx.beginPath(); l.line.forEach(([c, r], k) => { const [x, y] = P.xy(c, r); if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
         ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 6; ctx.stroke();
-        ctx.strokeStyle = '#d0342c'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+        if (L.input) ctx.setLineDash([9, 5]);
+        ctx.strokeStyle = L.input ? '#6d28d9' : '#d0342c'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
         const m = l.line[Math.floor(l.line.length * 0.6)], [x, y] = P.xy(m[0], m[1]);
         UI.haloText(ctx, `${l.label}${l.attrs && l.attrs.timeH != null ? ' ' + F.time(l.attrs.timeH) : ''}`, x + 8, y - 6, { now: true, color: '#9b1c1c', size: 12, bold: true });
       }
       if (L.dt === 'points') for (const q of L.pts) {
         const [x, y] = P.xy(q.c, q.r);
-        ctx.save(); ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fillStyle = '#1d4ed8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke(); ctx.restore();
-        UI.haloText(ctx, q.label, x + 8, y - 6, { now: true, color: '#1d3a8a', size: 11.5, bold: true });
+        ctx.save(); ctx.beginPath();
+        if (L.input) { ctx.rect(x - 6, y - 6, 12, 12); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#6d28d9'; ctx.lineWidth = 3; } else { ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fillStyle = '#1d4ed8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; }
+        ctx.fill(); ctx.stroke(); ctx.restore();
+        UI.haloText(ctx, q.label || L.name, x + 9, y - 7, { now: true, color: L.input ? '#4c1d95' : '#1d3a8a', size: 11.5, bold: true });
       }
     }
   };
+
+  // ---------------------------------------------------------------- Brief on map
+  /*
+   * Steps through the model in run order on the map: first the inputs, then each tool with its
+   * inputs (purple squares / dashed lines for points and lines you set, the input raster drawn when
+   * the tool makes no raster itself) and its outputs, then the results. A caption says what the
+   * tool does, the values it used and what it produced in this run.
+   */
+  MB.briefing = null;
+  const briefSteps = () => {
+    const G = graph();
+    const ins = nodes().filter((n) => n.kind !== 'derived' && n.kind !== 'tool');
+    const steps = [{ kind: 'inputs', vars: ins }];
+    G.tools.forEach((t, k) => steps.push({ kind: 'tool', t, num: k + 1, reads: G.reads(t).map(node).filter(Boolean), outs: Object.values(t.outputs || {}).map(node).filter(Boolean) }));
+    steps.push({ kind: 'result', outs: nodes().filter((n) => n.kind === 'derived' && (n.display || MB.display[n.id] || (MB.rep.vars[n.id] && MB.rep.vars[n.id].dt === 'table'))) });
+    return steps;
+  };
+  const inputLayers = (vars) => vars.filter((v) => v.value && (v.dt === 'point' || v.dt === 'line' || v.dt === 'points')).map((v) => (v.dt === 'line'
+    ? { id: 'in:' + v.id, name: v.name, dt: 'lines', input: true, lines: [{ label: v.name, line: v.value }] }
+    : { id: 'in:' + v.id, name: v.name, dt: 'points', input: true, pts: (Array.isArray(v.value) ? v.value : [v.value]).map((q) => Object.assign({ label: v.name }, q)) }));
+  MB.brief = async (fromTool) => {
+    if (!MB.rep || MB.rep.stale || MB.rep.failed === undefined) await MB.run();
+    if (!MB.rep) return;
+    const steps = briefSteps();
+    let k = fromTool ? steps.findIndex((s) => s.t && s.t.id === fromTool) : 0;
+    const S = UI.S;
+    MB.briefing = { steps, k: Math.max(0, k), saved: Object.assign({}, MB.display), show: Object.assign({}, S.show),
+      ovl: Object.fromEntries(Object.entries(S.overlays).map(([id, o]) => [id, o.visible])) };
+    // only the model step on the map: keep the situation symbols and the border, hide every other layer
+    const keep = new Set(['symbols', 'labels', 'markers', 'secArea']);
+    Object.keys(S.show).forEach((k) => { if (!keep.has(k)) S.show[k] = false; });
+    Object.entries(S.overlays).forEach(([id, o]) => { if (id !== 'model') o.visible = false; });
+    UI.app.setView('2d');
+    await applyBrief();
+    // whole map below the caption
+    const map = UI.app.map, g = S.grid, bar = ($('briefBar') || {}).offsetHeight || 0;
+    const sc = Math.min((map.W - 40) / g.w, (map.H - bar - 50) / g.h);
+    map.centerOn(g.w / 2, g.h / 2 - (bar + 20) / 2 / sc, sc);
+  };
+  const applyBrief = async () => {
+    const B = MB.briefing;
+    if (!B) return;
+    const st = B.steps[B.k], vars = MB.rep.vars;
+    const show = [];
+    let ras = null, inVars = [];
+    const isRas = (v) => vars[v.id] && vars[v.id].dt === 'raster' && vars[v.id].kind !== 'backlink';
+    if (st.kind === 'inputs') inVars = st.vars;
+    else if (st.kind === 'tool') {
+      inVars = st.reads.filter((v) => v.kind !== 'derived');
+      st.reads.filter((v) => v.kind === 'derived' && vars[v.id] && vars[v.id].dt !== 'raster').forEach((v) => show.push(v.id));
+      st.outs.forEach((v) => { if (vars[v.id]) show.push(v.id); });
+      const outR = st.outs.find(isRas), inR = st.reads.filter((v) => v.kind === 'derived').find(isRas);
+      ras = outR ? outR.id : inR ? inR.id : null;
+      if (ras && !show.includes(ras)) show.push(ras);
+    } else {
+      st.outs.forEach((v) => { if (vars[v.id] && vars[v.id].dt !== 'table') show.push(v.id); });
+      const r = st.outs.find(isRas); ras = r ? r.id : null;
+      inVars = nodes().filter((n) => n.kind === 'value' && (n.dt === 'point' || n.dt === 'line'));
+    }
+    B.inputs = inputLayers(inVars);
+    MB.display = Object.fromEntries(show.map((i) => [i, true]));
+    await syncMap(ras);
+    renderBriefBar();
+  };
+  const settingsOf = (t) => {
+    const def = M.GPT[t.tool], out = [];
+    for (const pd of def.params) {
+      if (pd.dir === 'out') continue;
+      const vid = t.inputs && t.inputs[pd.k];
+      const v = vid && node(vid);
+      if (v && v.kind === 'value') out.push(`${pd.label.replace(/\s*\(.*?\)$/, '')} = ${valueText(v)}`);
+      else if (!v && pd.dt !== 'raster' && pd.dt !== 'points' && pd.dt !== 'lines') { const val = t.values && pd.k in t.values ? t.values[pd.k] : pd.def; if (val !== undefined && val !== null && val !== '') out.push(`${pd.label.replace(/\s*\(.*?\)$/, '')} = ${pd.dt === 'profile' ? (M.MOVEMENT_PROFILES[val] || {}).name || val : val}`); }
+    }
+    return out;
+  };
+  const renderBriefBar = () => {
+    const B = MB.briefing, bar = $('briefBar');
+    if (!bar) return;
+    if (!B) { bar.hidden = true; return; }
+    const st = B.steps[B.k], N = B.steps.length;
+    let tag, title, body = '';
+    if (st.kind === 'inputs') {
+      tag = 'Inputs'; title = `${MB.model.name} — what we start from`;
+      body = `<div class="bb-desc">${esc(MB.model.question || '')}</div><div class="bb-list">${st.vars.map((v) => `<span><b>${esc(v.name)}</b> ${esc(valueText(v))}</span>`).join('')}</div>`;
+    } else if (st.kind === 'tool') {
+      const def = M.GPT[st.t.tool], s = MB.rep.tools[st.t.id] || {};
+      tag = `Step ${st.num} of ${N - 2}`; title = `${st.t.name}: ${st.reads.map((v) => v.name).join(', ')} → ${st.outs.map((v) => v.name).join(', ')}`;
+      const set = settingsOf(st.t);
+      body = `<div class="bb-desc">${esc(def.help)}</div>${st.t.tool === 'rasterCalc' ? `<div class="bb-expr"><code>${esc(st.t.values.expr)}</code></div>` : ''}${set.length ? `<div class="bb-list">${set.map((x) => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
+        <div class="bb-res">${s.state === 'failed' ? `<b class="bad">Failed:</b> ${esc(s.msg)}` : st.outs.map((v) => `<b>${esc(v.name)}:</b> ${esc(resultText(v) || '—')}`).join(' · ')}</div>`;
+    } else {
+      tag = 'Result'; title = MB.model.name;
+      const tbl = st.outs.filter((v) => MB.rep.vars[v.id] && MB.rep.vars[v.id].dt === 'table');
+      body = `<div class="bb-res">${st.outs.filter((v) => MB.rep.vars[v.id] && MB.rep.vars[v.id].dt !== 'table').map((v) => `<b>${esc(v.name)}:</b> ${esc(resultText(v))}`).join(' · ')}</div>${tbl.map((v) => summaryHTML(v, MB.rep.vars[v.id])).join('')}`;
+    }
+    const onMap = MB.layers.map((L) => L.name).concat(MB.rasterId ? [node(MB.rasterId).name + ' (colour)'] : []);
+    bar.hidden = false;
+    bar.innerHTML = `<div class="bb-top"><span class="bb-tool">ModelBuilder brief</span><span class="bb-n">${B.k + 1} / ${N}</span></div>
+      <div class="bb-main"><span class="bb-tag">${esc(tag)}</span><b>${esc(title)}</b></div>${body}
+      ${onMap.length ? `<div class="bb-map">On the map: ${esc(onMap.join(' · '))}</div>` : ''}
+      <div class="bb-ctl"><button class="btn" data-b="prev"${B.k ? '' : ' disabled'}>◀ Prev</button><button class="btn primary" data-b="next"${B.k < N - 1 ? '' : ' disabled'}>Next ▶</button><button class="btn" data-b="model">Back to model</button><button class="btn" data-b="exit">Exit</button></div>`;
+    bar.querySelector('[data-b=prev]').onclick = () => MB.briefStep(-1);
+    bar.querySelector('[data-b=next]').onclick = () => MB.briefStep(1);
+    bar.querySelector('[data-b=model]').onclick = () => { const t = st.t; MB.endBrief(); if (t) MB.sel = t.id; UI.app.setView('model'); };
+    bar.querySelector('[data-b=exit]').onclick = () => MB.endBrief();
+  };
+  MB.briefStep = async (d) => {
+    const B = MB.briefing;
+    if (!B) return;
+    B.k = Math.max(0, Math.min(B.steps.length - 1, B.k + d));
+    await applyBrief();
+  };
+  MB.endBrief = async () => {
+    const B = MB.briefing;
+    if (!B) return;
+    MB.briefing = null;
+    MB.display = B.saved;
+    Object.assign(UI.S.show, B.show);
+    Object.entries(B.ovl).forEach(([id, v]) => { if (id !== 'model' && UI.S.overlays[id]) UI.S.overlays[id].visible = v; });
+    renderBriefBar();
+    await syncMap();
+  };
+  document.addEventListener('keydown', (e) => {
+    if (!MB.briefing || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { MB.briefStep(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { MB.briefStep(-1); e.preventDefault(); }
+    else if (e.key === 'Escape') { MB.endBrief(); e.preventDefault(); }
+  }, true);
 
   // ---------------------------------------------------------------- import / export / report
   const exportModel = () => {

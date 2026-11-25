@@ -84,6 +84,13 @@ const { chromium } = require('playwright');
   await p.click('#mbSvg .mb-n[data-id=cost]'); await p.click('#mbSide [data-showmap]'); await p.waitForTimeout(800);
   if (!(await p.evaluate(() => MTN_UI.S.overlays.model.visible && MTN_UI.MB.layers.length > 0))) throw new Error('model result not on the map');
   await shot('model_map');
+  await p.click('#vtModel'); await p.click('[data-mb=brief]');
+  await p.waitForFunction(() => MTN_UI.MB.briefing && !document.getElementById('briefBar').hidden, null, { timeout: 120000 });
+  await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(600);
+  const br = await p.evaluate(() => ({ k: MTN_UI.MB.briefing.k, txt: document.getElementById('briefBar').textContent }));
+  if (br.k !== 2 || !/Step 2/.test(br.txt)) throw new Error('brief on map did not step: ' + JSON.stringify(br));
+  await shot('model_brief');
+  await p.keyboard.press('Escape');
 
   const res = await p.evaluate(() => {
     const S = MTN_UI.S;

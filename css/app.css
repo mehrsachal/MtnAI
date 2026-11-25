@@ -650,3 +650,14 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
 .mb-ramp-l { display: flex; justify-content: space-between; font-size: 11px; }
 .gp-msg .gp-explain { display: block; margin-top: 8px; width: 100%; }
 @media (max-width: 900px) { .mb-body { flex-direction: column; } .mb-side { width: auto; max-height: 45%; } }
+
+/* ModelBuilder brief on map */
+#briefBar { position: absolute; z-index: 6; left: 50%; top: 12px; transform: translateX(-50%); width: min(820px, calc(100% - 32px)); max-height: 46%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px; font-size: 13.5px; }
+#briefBar[hidden] { display: none; }
+.bb-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-bottom: 4px; } .bb-tool { font-weight: 600; }
+.bb-main { font-size: 15px; margin-bottom: 4px; }
+.bb-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; background: #ffe08a; color: #6b4f00; }
+.bb-desc { color: var(--text-2); margin: 2px 0 4px; } .bb-expr code { font-size: 12px; background: var(--panel-2); padding: 2px 5px; border-radius: 4px; display: inline-block; margin: 2px 0; }
+.bb-list { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; margin: 4px 0; } .bb-list span { background: #dbe8fb; border-radius: 10px; padding: 1px 8px; }
+.bb-res { margin: 4px 0; } .bb-res .bad { color: var(--danger); } .bb-map { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+#briefBar .mb-tbl { font-size: 12px; } .bb-ctl { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
