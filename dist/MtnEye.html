@@ -610,48 +610,55 @@ body:not(.has-grid) .map-ctl { display: none; }
 #status > span { border-right: 0; padding: 0 10px; }
 #status .st-right, #status .st-right > span { border-left: 0; }
 
-/* ============================================================ Model view and Brief mode */
+/* ============================================================ ModelBuilder */
 #modelView { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
 #modelView[hidden] { display: none; }
 body.model-view .map-ctl, body.model-view #welcome { display: none; }
-.mv-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
-.mv-head select { font-size: 14px; font-weight: 600; padding: 5px 8px; max-width: 320px; }
-.mv-q { flex: 1; min-width: 220px; font-size: 14px; color: var(--text); font-style: italic; }
-.mv-state { margin: 10px 14px 0; padding: 8px 12px; border-radius: 6px; font-size: 13px; background: var(--panel-2); border: 1px solid var(--line); }
-.mv-state.ok { border-color: var(--ok); }
-.mv-state.err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--panel)); }
-.mv-body { flex: 1; display: flex; gap: 14px; padding: 12px 14px; min-height: 0; }
-.mv-diagram { flex: 1; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.mv-diagram svg { display: block; margin: 0 auto; }
-.mv-node:hover rect:first-child { filter: brightness(0.96); stroke-width: 2.4; }
-.mv-node.empty text { opacity: 0.85; }
-.mv-key { display: flex; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-2); flex-wrap: wrap; }
-.mv-key .k::before { content: ''; display: inline-block; width: 18px; height: 11px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid; }
-.mv-key .in::before { background: #dbe8fb; border-color: #3b6fe0; border-radius: 6px; }
-.mv-key .step::before { background: #fff4c8; border-color: #c49a00; }
-.mv-key .out::before { background: #d9f1da; border-color: #2f8a3b; border-radius: 6px; outline: 1px solid #2f8a3b; outline-offset: 1px; }
-.mv-key .rej { color: #b3261e; } .mv-key .rej::before { display: none; }
-.mv-side { width: 340px; flex: none; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
-.mv-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
-.mv-card h3 { margin: 4px 0 6px; font-size: 15px; }
-.mv-card p { margin: 4px 0; } .mv-card ul { margin: 4px 0 8px 18px; padding: 0; }
-.mv-kind { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; }
-.mv-kind.in { background: #dbe8fb; color: #1d4ed8; } .mv-kind.step { background: #fff4c8; color: #8a6a00; } .mv-kind.out { background: #d9f1da; color: #1f6b2c; }
-.mv-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
-.mv-tabs button { border: 0; background: none; padding: 6px 8px; font-size: 12.5px; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; }
-.mv-tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-.mv-tab { font-size: 13px; line-height: 1.45; } .mv-tab ul, .mv-tab ol { margin: 6px 0 6px 18px; padding: 0; } .mv-tab li { margin: 4px 0; }
-.mv-tbl { border-collapse: collapse; width: 100%; font-size: 12px; } .mv-tbl th, .mv-tbl td { border: 1px solid var(--line); padding: 4px 6px; vertical-align: top; text-align: left; }
+#app.mb-full { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+#app.mb-full #contents, #app.mb-full #right, #app.mb-full [data-split] { display: none; }
+.mb-bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.mb-bar select { padding: 4px 6px; } #mbTpl { font-weight: 600; min-width: 230px; }
+.mb-lbl { font-size: 12px; color: var(--text-2); } .mb-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+.mb-status { margin-left: auto; font-size: 12.5px; color: var(--text-2); } .mb-status.ok { color: var(--ok); } .mb-status.err { color: var(--danger); font-weight: 600; }
+.mb-q { padding: 6px 14px; font-size: 13px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.mb-body { flex: 1; display: flex; min-height: 0; }
+.mb-canvas { flex: 1; position: relative; overflow: hidden; background: #fbfbfc; background-image: radial-gradient(#d9dde3 1px, transparent 1px); background-size: 18px 18px; }
+#mbSvg { width: 100%; height: 100%; display: block; cursor: grab; font-family: Arial, Helvetica, sans-serif; user-select: none; }
+#mbSvg .mb-n { cursor: pointer; } #mbSvg .mb-n:hover > rect, #mbSvg .mb-n:hover > ellipse { stroke-width: 2.4; }
+.mb-legend { position: absolute; left: 10px; bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-2); background: rgba(255,255,255,.9); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.mb-legend .k::before { content: ''; display: inline-block; width: 18px; height: 11px; margin-right: 4px; vertical-align: -1px; border: 1.5px solid; border-radius: 6px; }
+.mb-legend .data::before { background: #a9c8f5; border-color: #2f5fb8; } .mb-legend .value::before { background: #dbe8fb; border-color: #3b6fe0; }
+.mb-legend .tool::before { background: #ffe08a; border-color: #b88a00; border-radius: 3px; } .mb-legend .derived::before { background: #b9e4ac; border-color: #2f8a3b; }
+.mb-legend .nr::before { background: #eceef1; border-color: #9aa1ab; } .mb-legend .run::before { background: #fff; border-color: #555; box-shadow: 2px 2px 2px rgba(0,0,0,.35); }
+.mb-side { width: 360px; flex: none; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 10px 14px; font-size: 13px; }
+.mb-side h3 { margin: 4px 0 6px; font-size: 15px; } .mb-side h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.mb-name { width: 100%; font: inherit; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 2px 4px; border-radius: 4px; }
+.mb-name:hover, .mb-name:focus { border-color: var(--line); background: var(--input); }
+.mb-help { color: var(--text-2); font-size: 12.5px; margin: 4px 0; } .mb-arc { font-size: 11.5px; color: #8a6a00; margin: 0 0 4px; }
+.mb-kind { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; }
+.mb-kind.tool { background: #ffe08a; color: #6b4f00; } .mb-kind.value { background: #dbe8fb; color: #1d4ed8; } .mb-kind.data { background: #a9c8f5; color: #163a7a; } .mb-kind.derived { background: #b9e4ac; color: #1f5130; }
+.mb-par { margin: 8px 0; } .mb-par label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; } .mb-par label i { font-weight: 400; color: var(--text-2); }
+.mb-par select, .mb-par input, .mb-par textarea, .mb-side > textarea, .mb-side > input, .mb-side > select { width: 100%; box-sizing: border-box; font-size: 12.5px; }
+.mb-par textarea, .mb-side textarea { font-family: Consolas, monospace; }
+.mb-expose { margin-top: 4px; font-size: 11.5px; padding: 2px 8px; }
+.mb-ins { display: flex; flex-wrap: wrap; gap: 4px; margin: -2px 0 8px; font-size: 11.5px; }
+.chip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 1px 7px; font-size: 11px; cursor: pointer; }
+.mb-link { color: var(--accent); cursor: pointer; padding: 2px 0; } .mb-link:hover { text-decoration: underline; }
+.mb-msg { margin: 6px 0; padding: 5px 8px; border-radius: 5px; font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); }
+.mb-msg.failed { border-color: var(--danger); color: var(--danger); } .mb-msg.done, .mb-msg.cached { border-color: var(--ok); }
+.mb-actions { display: flex; gap: 6px; margin-top: 12px; }
+.mb-chk { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+.mb-pt { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .mb-pt code { margin-right: 6px; }
+.mb-params .mb-prow { display: flex; justify-content: space-between; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; } .mb-params .mb-prow:hover { background: var(--hover); }
+.mb-params b { font-weight: 600; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-steps { padding-left: 20px; margin: 4px 0; } .mb-steps li { margin: 4px 0; cursor: pointer; }
+.mb-tbl { border-collapse: collapse; width: 100%; font-size: 12px; margin: 6px 0; } .mb-tbl td, .mb-tbl th { border: 1px solid var(--line); padding: 3px 6px; text-align: left; }
+.mb-menu { position: fixed; z-index: 1000; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); padding: 4px; display: flex; flex-direction: column; min-width: 170px; }
+.mb-menu[hidden] { display: none; } .mb-menu button { border: 0; background: none; text-align: left; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; } .mb-menu button:hover { background: var(--hover); }
+.mb-ramp { height: 10px; margin: 4px 0 2px; border-radius: 3px; background: linear-gradient(90deg, rgb(255,247,188), rgb(254,196,79), rgb(236,112,20), rgb(153,52,4), rgb(76,20,80)); }
+.mb-ramp-l { display: flex; justify-content: space-between; font-size: 11px; }
 .gp-msg .gp-explain { display: block; margin-top: 8px; width: 100%; }
-#briefBar { position: absolute; z-index: 6; left: 50%; top: 12px; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px; font-size: 13.5px; }
-#briefBar[hidden] { display: none; }
-.bb-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-bottom: 4px; } .bb-tool { font-weight: 600; }
-.bb-main { font-size: 15px; margin-bottom: 4px; }
-.bb-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; background: #fff4c8; color: #8a6a00; }
-.bb-tag.in { background: #dbe8fb; color: #1d4ed8; } .bb-tag.out { background: #d9f1da; color: #1f6b2c; }
-.bb-desc { color: var(--text-2); } .bb-rej { color: #b3261e; margin-top: 4px; font-size: 12.5px; }
-.bb-ctl { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
-@media (max-width: 900px) { .mv-body { flex-direction: column; } .mv-side { width: auto; } }
+@media (max-width: 900px) { .mb-body { flex-direction: column; } .mb-side { width: auto; max-height: 45%; } }
 
 </style>
 </head>
@@ -683,7 +690,7 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
 
   <!-- ============================== VIEWS -->
   <section id="center">
-    <div class="view-tabs"><button id="vtMap" class="on" data-cmd="view2d"><i data-icon="data"></i>Map</button><button id="vtScene" data-cmd="view3d" data-need><i data-icon="terrain"></i>Scene</button><button id="vtModel" data-cmd="viewModel" title="How each tool works — ModelBuilder-style diagram with this run’s numbers"><i data-icon="flow"></i>Model</button><span class="vt-crs" id="vtCRS"></span></div>
+    <div class="view-tabs"><button id="vtMap" class="on" data-cmd="view2d"><i data-icon="data"></i>Map</button><button id="vtScene" data-cmd="view3d" data-need><i data-icon="terrain"></i>Scene</button><button id="vtModel" data-cmd="viewModel" title="ModelBuilder — tools, variables and results as a diagram you can edit and run"><i data-icon="flow"></i>ModelBuilder</button><span class="vt-crs" id="vtCRS"></span></div>
     <div id="stage">
       <canvas id="map2d"></canvas>
       <canvas id="gl3d" hidden></canvas>
@@ -699,7 +706,6 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
       </div>
       <div class="map-ctl" aria-label="Map controls"><button data-cmd="zoomIn" title="Zoom in (+)">+</button><button data-cmd="zoomOut" title="Zoom out (−)">−</button><button data-cmd="fit" title="Full extent (F)">⤢</button></div>
       <div id="modelView" hidden></div>
-      <div id="briefBar" hidden></div>
       <div id="stageBar" hidden><i id="stageBarFill"></i></div>
       <div id="toolHint" hidden></div>
       <div id="toast" hidden></div>
@@ -4358,6 +4364,665 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
 });
 
 </script>
+<script>/* src/core/model.js */
+/*
+ * MtnEye core — ModelBuilder: a toolbox of single-purpose geoprocessing tools (Slope,
+ * Reclassify, Raster Calculator, Viewshed, Path Distance, Cost Path, ...) and an executor
+ * that runs a model — a graph of data / value variables and tools — in dependency order.
+ *
+ * Data types: raster { a: typed array, kind: 'continuous'|'class'|'count', unit, classes? }
+ * (NaN = NoData); points [{ r, c, label }]; lines [{ line: [[c, r]...], label, attrs }];
+ * table { cols, rows }; plus plain values (number, string, select, point {r, c}, line [[c, r]]).
+ */
+(globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function model(M) {
+  'use strict';
+
+  const MOVES = [];
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1],
+    [-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2]]) MOVES.push({ dr, dc, len: Math.hypot(dr, dc) });
+
+  const raster = (a, kind, unit, extra) => Object.assign({ dt: 'raster', a, kind, unit: unit || '' }, extra || {});
+  const asPoints = (v) => {
+    if (!v) return [];
+    if (v.dt === 'points') return v.pts;
+    if (Array.isArray(v)) return v.map((q, k) => ({ r: q.r, c: q.c, label: q.label || `P${k + 1}` }));
+    if (typeof v.r === 'number') return [{ r: v.r, c: v.c, label: v.label || 'P1' }];
+    return [];
+  };
+  const asLine = (v) => (v && v.dt === 'lines' ? (v.lines[0] || {}).line : v);
+  const idx = (g, q) => Math.round(q.r) * g.w + Math.round(q.c);
+  const inG = (g, q) => q && q.r >= 0 && q.c >= 0 && q.r < g.h && q.c < g.w;
+  const need = (v, what) => { if (v === undefined || v === null || (Array.isArray(v) && !v.length)) throw new Error(`${what} is empty — set it first.`); return v; };
+
+  // ---------------------------------------------------------------- Raster Calculator (Map Algebra)
+  const FUNCS = { Con: 'C', IsNull: 'N', Abs: 'Math.abs', Exp: 'Math.exp', Ln: 'Math.log', Log10: 'Math.log10', Sqrt: 'Math.sqrt', Power: 'Math.pow', Min: 'Math.min', Max: 'Math.max', Cos: 'Math.cos', Sin: 'Math.sin', Tan: 'Math.tan', Int: 'Math.trunc', Round: 'Math.round' };
+  /** Names of rasters ("Name") and value variables (%Name%) an expression uses. */
+  M.exprRefs = (expr) => ({
+    rasters: [...new Set([...String(expr).matchAll(/"([^"]+)"/g)].map((m) => m[1]))],
+    values: [...new Set([...String(expr).matchAll(/%([^%]+)%/g)].map((m) => m[1]))],
+  });
+  /** Compile a Map Algebra expression into a per-cell function f(R, i). */
+  M.compileExpr = (expr, names, values) => {
+    let s = String(expr).replace(/%([^%]+)%/g, (m, k) => {
+      if (!(k in values)) throw new Error(`Unknown variable %${k}%.`);
+      const v = values[k];
+      return typeof v === 'number' ? String(v) : JSON.stringify(v);
+    });
+    s = s.replace(/"([^"]+)"/g, (m, k) => { const j = names.indexOf(k); if (j < 0) throw new Error(`Unknown raster "${k}".`); return `R[${j}][i]`; });
+    s = s.replace(/\bNoData\b/g, 'NaN');
+    // ArcGIS boolean operators
+    s = s.replace(/&&?/g, '&&').replace(/\|\|?/g, '||').replace(/~(?!=)/g, '!');
+    s = s.replace(/\b([A-Z][A-Za-z0-9]*)\s*\(/g, (m, f) => { if (!FUNCS[f]) throw new Error(`Unknown function ${f}().`); return FUNCS[f] + '('; });
+    // only numbers, operators, brackets and the functions above may remain
+    const check = s.replace(/R\[\d+\]\[i\]/g, '').replace(/Math\.\w+|\bC\b|\bN\b|\bNaN\b|\btrue\b|\bfalse\b/g, '').replace(/\d+(\.\d+)?(e[-+]?\d+)?/gi, '0');
+    if (!/^[0\s.+\-*/()<>=!&|,]*$/.test(check) || /(^|[^<>!=])=([^=]|$)/.test(check)) throw new Error(`Expression not understood: ${expr}`);
+    // eslint-disable-next-line no-new-func
+    const f = new Function('R', 'i', 'C', 'N', `return (${s});`);
+    const C = (a, b, c) => (a ? b : c === undefined ? NaN : c);
+    const N = (x) => Number.isNaN(x);
+    return (R, i) => { const v = f(R, i, C, N); return typeof v === 'boolean' ? (v ? 1 : 0) : v; };
+  };
+
+  // ---------------------------------------------------------------- Reclassify remap table
+  /** "0 20 : 0 GO; 20 40 : 1 SLOW-GO; 40 90 : 2 NO-GO" -> [{lo, hi, v, name}] */
+  M.parseRemap = (txt) => String(txt).split(/[;\n]+/).map((x) => x.trim()).filter(Boolean).map((x) => {
+    const m = x.match(/^(-?[\d.]+)\s*(?:-|–|to|\s)\s*(-?[\d.]+)\s*(?::|=>|→|->)\s*(NoData|-?[\d.]+)\s*(.*)$/i);
+    if (!m) throw new Error(`Remap row not understood: "${x}" (write: low high : new value  name)`);
+    return { lo: +m[1], hi: +m[2], v: /nodata/i.test(m[3]) ? NaN : +m[3], name: m[4].trim() };
+  });
+
+  // =====================================================================
+  // Toolbox
+  // =====================================================================
+  /*
+   * param: { k, label, dt, dir: 'in' | 'out', def, options, optional, help }
+   * dt: raster | points | lines | table | number | string | select | point | line | profile | expr | remap
+   */
+  const T = (M.GPT = {});
+  T.slope = {
+    name: 'Slope', cat: 'Surface', arc: 'Spatial Analyst ▸ Surface ▸ Slope',
+    help: 'Steepness of every cell in degrees, from the heights of the cell and its 8 neighbours.',
+    params: [{ k: 'dem', label: 'Input surface (DEM)', dt: 'raster', dir: 'in' }, { k: 'out', label: 'Output slope', dt: 'raster', dir: 'out' }],
+    run: (E, p) => ({ out: raster(p.dem.a === E.g.z ? E.L.slope : M.slopeAspect(Object.assign({}, E.g, { z: p.dem.a }), M.gradient(Object.assign({}, E.g, { z: p.dem.a }))).slope, 'continuous', '°') }),
+  };
+  T.reclassify = {
+    name: 'Reclassify', cat: 'Reclass', arc: 'Spatial Analyst ▸ Reclass ▸ Reclassify',
+    help: 'Gives every cell a new value from the range its old value falls in (the remap table). Values outside every range become NoData.',
+    params: [{ k: 'in', label: 'Input raster', dt: 'raster', dir: 'in' }, { k: 'remap', label: 'Reclassification (low high : new value name; …)', dt: 'remap', dir: 'in', def: '0 20 : 0 GO; 20 40 : 1 SLOW-GO; 40 90 : 2 NO-GO' },
+      { k: 'out', label: 'Output raster', dt: 'raster', dir: 'out' }],
+    run: (E, p) => {
+      const rows = M.parseRemap(p.remap);
+      const a = p.in.a, out = new Float32Array(a.length);
+      for (let i = 0; i < a.length; i++) {
+        const x = a[i];
+        let v = NaN;
+        for (const r of rows) if (x >= r.lo && x <= r.hi) { v = r.v; break; }
+        out[i] = v;
+      }
+      const classes = {};
+      rows.forEach((r) => { if (!Number.isNaN(r.v)) classes[r.v] = r.name || String(r.v); });
+      return { out: raster(out, 'class', '', { classes }) };
+    },
+  };
+  T.rasterCalc = {
+    name: 'Raster Calculator', cat: 'Map Algebra', arc: 'Spatial Analyst ▸ Map Algebra ▸ Raster Calculator',
+    help: 'Works out a new value for every cell from a formula over other rasters ("Name") and model values (%Name%). Con(test, a, b) = a where the test is true, else b; NoData blocks movement.',
+    params: [{ k: 'expr', label: 'Map Algebra expression', dt: 'expr', dir: 'in', def: '"Slope" * 1' }, { k: 'out', label: 'Output raster', dt: 'raster', dir: 'out' }],
+    run: (E, p) => {
+      const names = Object.keys(p._rasters || {});
+      const R = names.map((k) => p._rasters[k].a);
+      const f = M.compileExpr(p.expr, names, p._values || {});
+      const n = E.g.w * E.g.h, out = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const v = f(R, i); out[i] = v === Infinity || v === -Infinity ? NaN : v; }
+      return { out: raster(out, 'continuous', '') };
+    },
+  };
+  T.viewshed = {
+    name: 'Viewshed', cat: 'Visibility', arc: 'Spatial Analyst ▸ Surface ▸ Viewshed',
+    help: 'For every cell, how many of the observers can see it: a straight line from the observer’s eye to the cell that the ground does not block.',
+    params: [{ k: 'dem', label: 'Input surface (DEM)', dt: 'raster', dir: 'in' }, { k: 'obs', label: 'Observer points', dt: 'points', dir: 'in' },
+      { k: 'obsH', label: 'Observer offset (m)', dt: 'number', dir: 'in', def: 2 }, { k: 'tgtH', label: 'Target offset (m)', dt: 'number', dir: 'in', def: 1.5 },
+      { k: 'radiusM', label: 'Outer radius (m)', dt: 'number', dir: 'in', def: 4000 }, { k: 'out', label: 'Output viewshed (count)', dt: 'raster', dir: 'out' }],
+    run: (E, p) => {
+      const obs = need(asPoints(p.obs), 'Observer points').filter((q) => inG(E.g, q)).map((q) => ({ r: Math.round(q.r), c: Math.round(q.c) }));
+      if (!obs.length) throw new Error('No observer point lies on the DEM.');
+      return { out: raster(M.viewshedCount(E.g, obs, { obsH: +p.obsH, tgtH: +p.tgtH, radiusM: +p.radiusM }), 'count', 'observers') };
+    },
+  };
+  T.pathDistance = {
+    name: 'Path Distance', cat: 'Distance', arc: 'Spatial Analyst ▸ Distance ▸ Path Distance (with surface and vertical factor)',
+    help: 'Spreads out from the sources like water and records, for every cell, the least time to get there. Time per step = distance on the ground × cost (friction) of the cell, at the walking / driving speed for the slope of the step (vertical factor: uphill slower, gentle downhill fastest). NoData cost cells cannot be entered. Also writes the backlink (which way to step back) and the allocation (which source is nearest in time).',
+    params: [{ k: 'src', label: 'Input sources', dt: 'points', dir: 'in' }, { k: 'cost', label: 'Cost (friction) raster', dt: 'raster', dir: 'in' },
+      { k: 'dem', label: 'Surface raster (DEM)', dt: 'raster', dir: 'in' }, { k: 'profile', label: 'Vertical factor — movement class', dt: 'profile', dir: 'in', def: 'foot' },
+      { k: 'maxH', label: 'Maximum time (h)', dt: 'number', dir: 'in', def: 24 },
+      { k: 'out', label: 'Output path distance (time, h)', dt: 'raster', dir: 'out' }, { k: 'back', label: 'Output backlink raster', dt: 'raster', dir: 'out' },
+      { k: 'alloc', label: 'Output allocation (nearest source)', dt: 'raster', dir: 'out', optional: true }],
+    run: (E, p, progress) => {
+      const g = E.g, n = g.w * g.h, { z, cs, w, h } = g;
+      const cost = p.cost.a, slope = E.L.slope;
+      const mob = E.mob(p.profile || 'foot');
+      const prof = mob.prof, track = mob.trackMask;
+      const src = need(asPoints(p.src), 'Input sources').filter((q) => inG(g, q));
+      const t = new Float64Array(n).fill(Infinity), back = new Int32Array(n).fill(-1), alloc = new Int16Array(n).fill(-1);
+      const heap = new M.MinHeap(4096);
+      const bad = (i) => !(cost[i] > 0);
+      src.forEach((q, k) => { const i = idx(g, q); if (!bad(i)) { t[i] = 0; alloc[i] = k; heap.push(0, i); } });
+      if (!heap.size) throw new Error('Every source sits on NoData (impassable) cost cells — move the sources or check the cost raster.');
+      const maxS = (+p.maxH || 24) * 3600;
+      let it = 0;
+      while (heap.size) {
+        const cur = heap.pop(), tc = heap.lastKey;
+        if (tc > t[cur]) continue;
+        if (tc > maxS) break;
+        if (progress && (++it & 0x3ffff) === 0) progress(Math.min(0.95, it / n));
+        const r = (cur / w) | 0, c = cur % w;
+        for (let m = 0; m < 16; m++) {
+          const mv = MOVES[m], rr = r + mv.dr, cc = c + mv.dc;
+          if (rr < 0 || cc < 0 || rr >= h || cc >= w) continue;
+          const nb = rr * w + cc;
+          if (bad(nb)) continue;
+          if (m >= 4 && m < 8) { if (bad(r * w + cc) || bad(rr * w + c)) continue; } else if (m >= 8) {
+            const sr = Math.sign(mv.dr), sc = Math.sign(mv.dc);
+            const a = Math.abs(mv.dr) === 2 ? (r + sr) * w + c : r * w + c + sc, b = Math.abs(mv.dr) === 2 ? (r + sr) * w + cc : rr * w + c + sc;
+            if (bad(a) || bad(b)) continue;
+          }
+          const dist = mv.len * cs;
+          const v = M.moveSpeed(prof, (z[nb] - z[cur]) / dist, slope[nb], 0, z[nb], track ? track[nb] === 1 : false) / 3.6;
+          const nt = tc + (dist / v) * cost[nb];
+          if (nt < t[nb]) { t[nb] = nt; back[nb] = cur; alloc[nb] = alloc[cur]; heap.push(nt, nb); }
+        }
+      }
+      const out = new Float32Array(n), al = new Float32Array(n);
+      for (let i = 0; i < n; i++) { out[i] = t[i] < Infinity ? t[i] / 3600 : NaN; al[i] = alloc[i] >= 0 ? alloc[i] + 1 : NaN; }
+      const classes = {};
+      src.forEach((q, k) => (classes[k + 1] = q.label || `S${k + 1}`));
+      return { out: raster(out, 'continuous', 'h', { profile: prof.name }), back: raster(back, 'backlink', ''), alloc: raster(al, 'class', '', { classes }), _sources: src };
+    },
+  };
+  T.costPath = {
+    name: 'Cost Path', cat: 'Distance', arc: 'Spatial Analyst ▸ Distance ▸ Cost Path (each zone)',
+    help: 'From each destination, follows the backlink raster step by step back to the nearest source: the least-time (least-cost) path. A destination with NoData time cannot be reached.',
+    params: [{ k: 'dst', label: 'Input destinations', dt: 'points', dir: 'in' }, { k: 'dist', label: 'Path distance raster', dt: 'raster', dir: 'in' },
+      { k: 'back', label: 'Backlink raster', dt: 'raster', dir: 'in' }, { k: 'alloc', label: 'Allocation raster (to name the source)', dt: 'raster', dir: 'in', optional: true },
+      { k: 'out', label: 'Output path(s)', dt: 'lines', dir: 'out' }],
+    run: (E, p) => {
+      const g = E.g, back = p.back.a, dist = p.dist.a;
+      const dst = need(asPoints(p.dst), 'Destinations');
+      const lines = [], skipped = [];
+      for (const q of dst) {
+        if (!inG(g, q)) { skipped.push(`${q.label}: off the map`); continue; }
+        let i = idx(g, q);
+        if (!(dist[i] >= 0)) { skipped.push(`${q.label}: cannot be reached (NoData time)`); continue; }
+        const path = [];
+        for (let guard = 0; i >= 0 && guard < g.w * g.h; guard++) { path.push(i); i = back[i]; }
+        path.reverse();
+        const from = p.alloc ? (p.alloc.classes || {})[p.alloc.a[path[0]]] : null;
+        lines.push({ label: q.label, from, path: Int32Array.from(path), line: M.simplify(path.map((x) => [x % g.w, (x / g.w) | 0]), 0.6),
+          attrs: { to: q.label, from: from || '', timeH: dist[idx(g, q)] } });
+      }
+      if (!lines.length) throw new Error(`No path: ${skipped.join('; ')}.`);
+      return { out: { dt: 'lines', lines, skipped } };
+    },
+  };
+  T.pointsAlongLine = {
+    name: 'Generate Points Along Line (offset)', cat: 'Features', arc: 'Data Management ▸ Sampling ▸ Generate Points Along Lines + offset',
+    help: 'Puts a point every so many metres along the line, then moves each point the given distance square to the line — towards the side away from the reference point (e.g. into enemy ground, away from own position).',
+    params: [{ k: 'line', label: 'Input line', dt: 'line', dir: 'in' }, { k: 'spacingM', label: 'Distance between points (m)', dt: 'number', dir: 'in', def: 1500 },
+      { k: 'offsetM', label: 'Offset from the line (m)', dt: 'number', dir: 'in', def: 1500 }, { k: 'ref', label: 'Reference point (offset goes away from it)', dt: 'point', dir: 'in', optional: true },
+      { k: 'prefix', label: 'Label prefix', dt: 'string', dir: 'in', def: 'E' }, { k: 'out', label: 'Output points', dt: 'points', dir: 'out' }],
+    run: (E, p) => {
+      const g = E.g, line = need(asLine(p.line), 'Input line');
+      const st = M.lineStations(g, line, Math.max(g.cs, +p.spacingM));
+      const off = (+p.offsetM || 0) / g.cs, out = [];
+      // which side is "away from the reference": sign of the cross product at the nearest segment
+      let sideSign = 1;
+      if (p.ref && typeof p.ref.r === 'number') {
+        let best = Infinity;
+        for (let k = 1; k < line.length; k++) {
+          const [ax, ay] = line[k - 1], [bx, by] = line[k];
+          const d = Math.hypot((ax + bx) / 2 - p.ref.c, (ay + by) / 2 - p.ref.r);
+          if (d < best) { best = d; const cr = (bx - ax) * (p.ref.r - ay) - (by - ay) * (p.ref.c - ax); sideSign = cr > 0 ? -1 : 1; }
+        }
+      }
+      st.forEach((s, k) => {
+        // local direction of the line
+        let seg = 1;
+        for (let j = 1, acc = 0; j < line.length; j++) { const L = Math.hypot(line[j][0] - line[j - 1][0], line[j][1] - line[j - 1][1]) * g.cs; if (acc + L >= s.d) { seg = j; break; } acc += L; seg = j; }
+        const [ax, ay] = line[seg - 1], [bx, by] = line[seg];
+        const L = Math.hypot(bx - ax, by - ay) || 1;
+        // left normal of (dx, dy) in (c, r) is (dy, -dx); positive cross = left
+        const nx = (by - ay) / L, ny = -(bx - ax) / L;
+        const q = { c: s.c + nx * off * sideSign, r: s.r + ny * off * sideSign, label: `${p.prefix || 'P'}${k + 1}` };
+        if (inG(g, q)) out.push(q);
+      });
+      if (!out.length) throw new Error('No point falls on the DEM — reduce the offset or check the line.');
+      return { out: { dt: 'points', pts: out } };
+    },
+  };
+  T.snapPoints = {
+    name: 'Snap Points to Valid Cells', cat: 'Features', arc: 'Spatial Analyst ▸ Hydrology ▸ Snap Pour Point (nearest valid cell)',
+    help: 'Moves each point to the nearest cell that has a value (is not NoData) in the raster, within the search distance. Points with no valid cell nearby are dropped and listed.',
+    params: [{ k: 'in', label: 'Input points', dt: 'points', dir: 'in' }, { k: 'ras', label: 'Raster of valid cells', dt: 'raster', dir: 'in' },
+      { k: 'radiusM', label: 'Search distance (m)', dt: 'number', dir: 'in', def: 1200 }, { k: 'out', label: 'Output snapped points', dt: 'points', dir: 'out' }],
+    run: (E, p) => {
+      const g = E.g, a = p.ras.a, R = Math.ceil((+p.radiusM || 0) / g.cs), out = [], dropped = [];
+      for (const q of need(asPoints(p.in), 'Input points')) {
+        let best = null, bd = Infinity;
+        for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+          const r = Math.round(q.r) + dr, c = Math.round(q.c) + dc, d = Math.hypot(dr, dc);
+          if (r < 0 || c < 0 || r >= g.h || c >= g.w || d > R || d >= bd) continue;
+          const v = a[r * g.w + c];
+          if (Number.isFinite(v) && v === v) { bd = d; best = { r, c }; }
+        }
+        if (best) out.push({ r: best.r, c: best.c, label: q.label, movedM: Math.round(bd * g.cs) }); else dropped.push(q.label);
+      }
+      if (!out.length) throw new Error(`No valid cell within ${p.radiusM} m of any point (${dropped.join(', ')}).`);
+      return { out: { dt: 'points', pts: out, dropped } };
+    },
+  };
+  T.findPeaks = {
+    name: 'Find Dominating Heights', cat: 'Surface', arc: 'Focal Statistics (maximum) = DEM, ranked by Topographic Position Index',
+    help: 'Finds cells that are the highest point within the search radius (Focal Maximum equals the cell), ranks them by how far they stand above the ground around them, and keeps the best, spaced apart. An optional mask raster limits the search to cells that have a value above 0.',
+    params: [{ k: 'dem', label: 'Input surface (DEM)', dt: 'raster', dir: 'in' }, { k: 'mask', label: 'Mask (search only where > 0)', dt: 'raster', dir: 'in', optional: true },
+      { k: 'radiusM', label: 'Search radius (m)', dt: 'number', dir: 'in', def: 500 }, { k: 'count', label: 'Maximum number', dt: 'number', dir: 'in', def: 6 },
+      { k: 'prefix', label: 'Label prefix', dt: 'string', dir: 'in', def: 'H' }, { k: 'out', label: 'Output points', dt: 'points', dir: 'out' }],
+    run: (E, p) => {
+      const g = E.g, z = p.dem.a, R = Math.max(1, Math.round((+p.radiusM || 500) / g.cs)), mask = p.mask ? p.mask.a : null;
+      const st = Math.max(1, Math.round(R / 4)), cands = [];
+      for (let r = 0; r < g.h; r += st) for (let c = 0; c < g.w; c += st) {
+        const i = r * g.w + c;
+        if (mask && !(mask[i] > 0)) continue;
+        let top = true;
+        for (let dr = -R; dr <= R && top; dr += st) for (let dc = -R; dc <= R; dc += st) {
+          const rr = r + dr, cc = c + dc;
+          if (rr < 0 || cc < 0 || rr >= g.h || cc >= g.w || dr * dr + dc * dc > R * R) continue;
+          if (z[rr * g.w + cc] > z[i]) { top = false; break; }
+        }
+        if (top) cands.push({ r, c, score: E.L.tpiL[i] / E.L.sdL + 1e-4 * z[i] });
+      }
+      const pts = M.nms(cands, R, Math.max(1, +p.count || 6)).map((q, k) => ({ r: q.r, c: q.c, z: z[q.r * g.w + q.c], label: `${p.prefix || 'H'}${k + 1}` }));
+      if (!pts.length) throw new Error('No height found — enlarge the mask or reduce the search radius.');
+      return { out: { dt: 'points', pts, tested: cands.length } };
+    },
+  };
+  T.borderSide = {
+    name: 'Side of Line', cat: 'Features', arc: 'Polygon to Raster of the own-side polygon',
+    help: 'Splits the map along a line (the border) and marks every cell 1 on the side of the reference point (own side) and 0 on the far side.',
+    params: [{ k: 'line', label: 'Input line', dt: 'line', dir: 'in' }, { k: 'ref', label: 'Reference point (own side)', dt: 'point', dir: 'in' }, { k: 'out', label: 'Output side raster', dt: 'raster', dir: 'out' }],
+    run: (E, p) => {
+      const fr = M.sectorFrame(E.g, null, need(asLine(p.line), 'Input line'), need(p.ref, 'Reference point'));
+      const out = new Float32Array(fr.side.length);
+      for (let i = 0; i < out.length; i++) out[i] = fr.side[i] > 0 ? 1 : 0;
+      return { out: raster(out, 'class', '', { classes: { 0: 'far side', 1: 'own side' } }) };
+    },
+  };
+  T.maxCoverage = {
+    name: 'Maximize Coverage (location–allocation)', cat: 'Visibility', arc: 'Network/Location–Allocation “Maximize Coverage”, with viewsheds as coverage',
+    help: 'Computes the viewshed of every candidate, then picks the candidate that sees the most demand (weight raster), then the one that adds most demand not yet seen, and so on.',
+    params: [{ k: 'cand', label: 'Candidate points', dt: 'points', dir: 'in' }, { k: 'dem', label: 'Input surface (DEM)', dt: 'raster', dir: 'in' },
+      { k: 'demand', label: 'Demand (weight) raster', dt: 'raster', dir: 'in', optional: true }, { k: 'count', label: 'Number to choose', dt: 'number', dir: 'in', def: 5 },
+      { k: 'obsH', label: 'Observer offset (m)', dt: 'number', dir: 'in', def: 2 }, { k: 'radiusM', label: 'Range (m)', dt: 'number', dir: 'in', def: 3000 },
+      { k: 'out', label: 'Output chosen points', dt: 'points', dir: 'out' }, { k: 'cover', label: 'Output coverage (count)', dt: 'raster', dir: 'out' }],
+    run: (E, p, progress) => {
+      const g = E.g, n = g.w * g.h, dem = p.demand ? p.demand.a : null;
+      const wt = (i) => (dem ? (dem[i] > 0 ? dem[i] : 0) : 1);
+      const cands = need(asPoints(p.cand), 'Candidates').filter((q) => inG(g, q));
+      const vs = cands.map((q, k) => {
+        if (progress) progress(0.8 * k / cands.length, `Viewshed ${k + 1}/${cands.length}`);
+        const m = M.viewshed(g, Math.round(q.r), Math.round(q.c), { obsH: +p.obsH, tgtH: 1.5, radiusM: +p.radiusM }).mask;
+        const cells = [];
+        for (let i = 0; i < n; i++) if (m[i] && wt(i) > 0) cells.push(i);
+        return cells;
+      });
+      let total = 0;
+      for (let i = 0; i < n; i++) total += wt(i);
+      const seen = new Uint8Array(n), chosen = [], rows = [];
+      for (let k = 0; k < Math.min(+p.count || 5, cands.length); k++) {
+        let best = -1, bv = 0;
+        vs.forEach((cells, j) => { if (chosen.includes(j)) return; let v = 0; for (const i of cells) if (!seen[i]) v += wt(i); if (v > bv) { bv = v; best = j; } });
+        if (best < 0 || bv <= 0) break;
+        chosen.push(best);
+        for (const i of vs[best]) seen[i] = 1;
+        rows.push({ label: `OP${k + 1}`, adds: total ? bv / total : 0 });
+      }
+      const pts = chosen.map((j, k) => Object.assign({}, cands[j], { label: `OP${k + 1}`, addsShare: rows[k].adds }));
+      const cover = M.viewshedCount(g, pts.map((q) => ({ r: Math.round(q.r), c: Math.round(q.c) })), { obsH: +p.obsH, tgtH: 1.5, radiusM: +p.radiusM });
+      let got = 0;
+      for (let i = 0; i < n; i++) if (cover[i]) got += wt(i);
+      return { out: { dt: 'points', pts, coverShare: total ? got / total : 0 }, cover: raster(cover, 'count', 'observers') };
+    },
+  };
+  T.lineStats = {
+    name: 'Line Statistics (along route)', cat: 'Features', arc: 'Extract Values to Line / Zonal Statistics as Table along each path',
+    help: 'For each line: length on the ground, climb and descent from the DEM, travel time at its end (from the path distance raster), and the share of its length where the zone raster is above 0 (e.g. seen by own or enemy observers).',
+    params: [{ k: 'lines', label: 'Input lines', dt: 'lines', dir: 'in' }, { k: 'dem', label: 'Surface (DEM)', dt: 'raster', dir: 'in' },
+      { k: 'zone', label: 'Zone raster (share where > 0)', dt: 'raster', dir: 'in', optional: true }, { k: 'zoneName', label: 'Zone column name', dt: 'string', dir: 'in', def: '% seen' },
+      { k: 'out', label: 'Output table', dt: 'table', dir: 'out' }],
+    run: (E, p) => {
+      const g = E.g, z = p.dem.a;
+      const rows = need(p.lines && p.lines.lines, 'Input lines').map((L) => {
+        const path = L.path || Int32Array.from([]);
+        let len = 0, up = 0, down = 0, inZ = 0;
+        for (let k = 1; k < path.length; k++) {
+          const a = path[k - 1], b = path[k];
+          const d = Math.hypot(((a / g.w) | 0) - ((b / g.w) | 0), (a % g.w) - (b % g.w)) * g.cs;
+          len += d; const dz = z[b] - z[a]; if (dz > 0) up += dz; else down -= dz;
+          if (p.zone && p.zone.a[b] > 0) inZ += d;
+        }
+        const row = { Path: L.label + (L.from ? ` (from ${L.from})` : ''), 'Length km': +(len / 1000).toFixed(2), 'Climb m': Math.round(up), 'Descent m': Math.round(down), 'Time h': L.attrs && L.attrs.timeH != null ? +L.attrs.timeH.toFixed(2) : null };
+        if (p.zone) row[p.zoneName || '% in zone'] = Math.round((len ? inZ / len : 0) * 100);
+        return row;
+      });
+      return { out: { dt: 'table', cols: Object.keys(rows[0] || {}), rows } };
+    },
+  };
+
+  // =====================================================================
+  // Executor
+  // =====================================================================
+  const hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+
+  /** Tool nodes in dependency order, with the variable ids each one reads and writes. */
+  M.modelGraph = (model) => {
+    const vars = {}, tools = [];
+    for (const nd of model.nodes) { if (nd.kind === 'tool') tools.push(nd); else vars[nd.id] = nd; }
+    const byName = {};
+    Object.values(vars).forEach((v) => (byName[v.name] = v.id));
+    const reads = (t) => {
+      const ids = Object.values(t.inputs || {}).filter(Boolean);
+      if (t.tool === 'rasterCalc') {
+        const ex = t.inputs && t.inputs.expr ? vars[t.inputs.expr] && vars[t.inputs.expr].value : (t.values || {}).expr;
+        const ref = M.exprRefs(ex || '');
+        for (const nm of ref.rasters.concat(ref.values)) if (byName[nm]) ids.push(byName[nm]);
+      }
+      return [...new Set(ids)];
+    };
+    const producer = {};
+    tools.forEach((t) => Object.values(t.outputs || {}).forEach((v) => (producer[v] = t.id)));
+    const order = [], seen = new Set(), visiting = new Set();
+    const visit = (t) => {
+      if (seen.has(t.id)) return;
+      if (visiting.has(t.id)) throw new Error(`The model has a loop at ${t.name}.`);
+      visiting.add(t.id);
+      for (const v of reads(t)) if (producer[v]) visit(tools.find((x) => x.id === producer[v]));
+      visiting.delete(t.id); seen.add(t.id); order.push(t);
+    };
+    tools.forEach(visit);
+    return { vars, tools: order, reads, producer, byName };
+  };
+
+  const summarize = (E, d) => {
+    if (d === undefined || d === null) return null;
+    if (d.dt === 'raster') {
+      if (d.kind === 'backlink') return { dt: 'raster', kind: 'backlink', text: 'direction to step back towards the source, for every reached cell' };
+      const a = d.a;
+      let lo = Infinity, hi = -Infinity, sum = 0, k = 0, nd = 0;
+      const cnt = {};
+      for (let i = 0; i < a.length; i++) {
+        const v = a[i];
+        if (v !== v) { nd++; continue; }
+        if (v < lo) lo = v; if (v > hi) hi = v; sum += v; k++;
+        if (d.kind === 'class') cnt[v] = (cnt[v] || 0) + 1;
+      }
+      const s = { dt: 'raster', kind: d.kind, unit: d.unit, min: k ? lo : null, max: k ? hi : null, mean: k ? sum / k : null, nodata: nd / a.length, classes: d.classes || null };
+      if (d.kind === 'class') s.counts = Object.fromEntries(Object.entries(cnt).map(([v, c]) => [v, c / a.length]));
+      if (d.kind === 'count') { let seen = 0; for (let i = 0; i < a.length; i++) if (a[i] > 0) seen++; s.share = seen / a.length; }
+      return s;
+    }
+    if (d.dt === 'points') return { dt: 'points', n: d.pts.length, pts: d.pts.map((q) => Object.assign({}, q)), dropped: d.dropped, coverShare: d.coverShare };
+    if (d.dt === 'lines') return { dt: 'lines', n: d.lines.length, lines: d.lines.map((L) => ({ label: L.label, from: L.from, line: L.line, attrs: L.attrs })), skipped: d.skipped };
+    if (d.dt === 'table') return d;
+    return { dt: 'value', value: d };
+  };
+  /** Value of a variable as the tools see it (sources resolved). */
+  const varValue = (E, v) => {
+    if (v.src === 'dem') return raster(E.g.z, 'continuous', 'm');
+    if (v.dt === 'points' && v.value && !v.value.dt) return { dt: 'points', pts: asPoints(v.value) };
+    if (v.dt === 'point' && v.value) return v.value;
+    return v.value;
+  };
+
+  /**
+   * Run a model. E: { g, L, mob, cache: Map }. opts: { upTo: tool id (run it and what it needs), force }
+   * Returns { tools: {id: {state, ms, msg}}, vars: {id: summary}, order }.
+   */
+  M.runModel = (E, model, opts = {}, progress) => {
+    const G = M.modelGraph(model);
+    const data = {}, stamp = {}, rep = { tools: {}, vars: {}, order: G.tools.map((t) => t.id) };
+    for (const v of Object.values(G.vars)) if (!G.producer[v.id]) { data[v.id] = varValue(E, v); stamp[v.id] = v.src === 'dem' ? `dem:${E.g.name}:${E.g.w}` : hashStr(JSON.stringify(v.value === undefined ? null : v.value)); }
+    let wanted = null;
+    if (opts.upTo) {
+      wanted = new Set();
+      const add = (tid) => { if (wanted.has(tid)) return; wanted.add(tid); const t = G.tools.find((x) => x.id === tid); for (const v of G.reads(t)) if (G.producer[v]) add(G.producer[v]); };
+      add(opts.upTo);
+    }
+    const cache = E.cache || (E.cache = new Map());
+    let failed = false;
+    G.tools.forEach((t, k) => {
+      const def = T[t.tool];
+      if (wanted && !wanted.has(t.id)) return;
+      if (failed) { rep.tools[t.id] = { state: 'notrun', msg: 'not run — an earlier tool failed' }; return; }
+      if (!def) { rep.tools[t.id] = { state: 'failed', msg: `Unknown tool ${t.tool}` }; failed = true; return; }
+      // resolve parameters
+      const p = {}, keyParts = [t.tool];
+      let missing = null;
+      for (const pd of def.params) {
+        if (pd.dir === 'out') continue;
+        const vid = t.inputs && t.inputs[pd.k];
+        if (vid) { p[pd.k] = data[vid]; keyParts.push(pd.k + '=' + stamp[vid]); if ((p[pd.k] === undefined || p[pd.k] === null || p[pd.k] === '') && !pd.optional) missing = `${pd.label} — “${(G.vars[vid] || {}).name || vid}” has no value`; continue; }
+        const val = t.values && pd.k in t.values ? t.values[pd.k] : pd.def;
+        p[pd.k] = val; keyParts.push(pd.k + '=' + JSON.stringify(val === undefined ? null : val));
+        if ((val === undefined || val === null || val === '') && !pd.optional) missing = `${pd.label} is not set`;
+      }
+      if (t.tool === 'rasterCalc') {
+        const ref = M.exprRefs(p.expr || '');
+        p._rasters = {}; p._values = {};
+        for (const nm of ref.rasters) { const vid = G.byName[nm]; if (!vid || data[vid] === undefined) { missing = `raster "${nm}" ${vid ? 'has no value yet' : 'is not in the model'}`; break; } p._rasters[nm] = data[vid]; keyParts.push(nm + '=' + stamp[vid]); }
+        for (const nm of ref.values) { const vid = G.byName[nm]; if (!vid) { missing = `value %${nm}% is not in the model`; break; } p._values[nm] = data[vid]; keyParts.push(nm + '=' + stamp[vid]); }
+      }
+      if (missing) { rep.tools[t.id] = { state: 'failed', msg: `Not ready: ${missing}.` }; failed = true; return; }
+      const key = hashStr(keyParts.join('|') + '|' + E.g.name + E.g.w);
+      const t0 = Date.now();
+      let out, state = 'done';
+      if (!opts.force && cache.has(t.id) && cache.get(t.id).key === key) { out = cache.get(t.id).out; state = 'cached'; } else {
+        try {
+          out = def.run(E, p, progress ? (f, m) => progress((k + f) / G.tools.length, `${t.name}: ${m || ''}`) : null);
+          cache.set(t.id, { key, out });
+        } catch (e) { rep.tools[t.id] = { state: 'failed', msg: e.message }; failed = true; return; }
+      }
+      if (progress) progress((k + 1) / G.tools.length, t.name);
+      for (const [pk, vid] of Object.entries(t.outputs || {})) { data[vid] = out[pk]; stamp[vid] = key + pk; }
+      rep.tools[t.id] = { state, ms: Date.now() - t0 };
+    });
+    for (const [vid, d] of Object.entries(data)) { const s = summarize(E, d); if (s) rep.vars[vid] = s; }
+    rep.failed = failed;
+    E.lastData = data;
+    return rep;
+  };
+});
+
+</script>
+<script>/* src/core/model-templates.js */
+/*
+ * MtnEye core — ready-made models for ModelBuilder. Each is an ordinary model (variables + tools)
+ * that the user can open, edit, re-wire and run; ctx supplies the current situation:
+ * { own, threat, a, b, border } (cells / line in [c, r]).
+ *
+ * Node: { id, kind: 'data' | 'value' | 'derived' | 'tool', name, dt, value, src, P (model parameter),
+ *         display (add to display), col, row, tool, inputs: {param: varId}, values: {param: literal}, outputs }
+ */
+(globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function modelTemplates(M) {
+  'use strict';
+
+  const pt = (q, label) => (q ? { r: Math.round(q.r), c: Math.round(q.c), label } : null);
+  // builders
+  const D = (id, name, dt, col, row, o) => Object.assign({ id, kind: 'data', name, dt, col, row }, o || {});
+  const V = (id, name, dt, value, col, row, o) => Object.assign({ id, kind: 'value', name, dt, value, col, row }, o || {});
+  const O = (id, name, dt, col, row, o) => Object.assign({ id, kind: 'derived', name, dt, col, row }, o || {});
+  const TL = (id, tool, name, col, row, inputs, outputs, values) => ({ id, kind: 'tool', tool, name, col, row, inputs, outputs, values: values || {} });
+  const DEM = (col, row) => D('dem', 'DEM', 'raster', col, row, { src: 'dem' });
+  const REMAP = '0 20 : 0 GO; 20 40 : 1 SLOW-GO; 40 90 : 2 NO-GO';
+  const FRICTION = 'Con("Go / No-Go" == 2, NoData, Con("Go / No-Go" == 1, 1.43, 1))';
+
+  M.MODEL_TEMPLATES = {
+    gonogo: {
+      name: 'Go / No-Go (mobility)', question: 'Where can this kind of troops or vehicle move, move slowly, or not move at all?',
+      build: () => ({
+        nodes: [
+          DEM(0, 0),
+          TL('t1', 'slope', 'Slope', 1, 0, { dem: 'dem' }, { out: 'slope' }),
+          O('slope', 'Slope', 'raster', 2, 0),
+          V('remap', 'Slope classes', 'remap', REMAP, 2, 1, { P: true, note: 'Foot: GO ≤ 20°, SLOW-GO ≤ 40°. Jeep: 12 / 20. Tracked: 17 / 30.' }),
+          TL('t2', 'reclassify', 'Reclassify', 3, 0, { in: 'slope', remap: 'remap' }, { out: 'gonogo' }),
+          O('gonogo', 'Go / No-Go', 'raster', 4, 0, { display: true }),
+        ],
+      }),
+    },
+
+    route: {
+      layout: {"eny": [0, 0], "radius": [1, 0.85], "t3": [2, 0], "vis": [3, 0], "expw": [4, 0.2], "dem": [0, 1.7], "t1": [1, 1.7], "slope": [2, 1.7], "remap": [2, 2.8], "t2": [3, 1.7], "gng": [4, 1.7], "t4": [5, 1.0], "cost": [6, 1.0], "a": [6, 2.0], "prof": [6, 2.9], "t5": [7, 1.9], "pd": [8, 1.3], "bl": [8, 2.5], "b": [8, 3.5], "t6": [9, 1.9], "route": [10, 1.9], "t7": [11, 1.9], "tbl": [12, 1.9]},
+      name: 'Least-cost route A → B', question: 'What is the quickest way from A to B for this column, keeping out of enemy view as much as we choose?',
+      build: (ctx) => ({
+        nodes: [
+          DEM(0, 1),
+          V('a', 'Start A', 'point', pt(ctx.a || ctx.own, 'A'), 0, 3, { P: true }),
+          V('b', 'End B', 'point', pt(ctx.b || ctx.threat, 'B'), 4, 4, { P: true }),
+          V('eny', 'Enemy OP', 'point', pt(ctx.threat, 'ENY'), 0, 0, { P: true }),
+          TL('t1', 'slope', 'Slope', 1, 1, { dem: 'dem' }, { out: 'slope' }),
+          O('slope', 'Slope', 'raster', 2, 1),
+          V('remap', 'Slope classes', 'remap', REMAP, 2, 2, { P: true }),
+          TL('t2', 'reclassify', 'Reclassify', 3, 1, { in: 'slope', remap: 'remap' }, { out: 'gng' }),
+          O('gng', 'Go / No-Go', 'raster', 4, 1),
+          V('radius', 'Enemy view range (m)', 'number', 4000, 1, 0, { P: true }),
+          TL('t3', 'viewshed', 'Viewshed', 2, 0, { dem: 'dem', obs: 'eny', radiusM: 'radius' }, { out: 'vis' }, { obsH: 2, tgtH: 1.5 }),
+          O('vis', 'Enemy view', 'raster', 3, 0),
+          V('expw', 'Exposure weight', 'number', 6, 4, 0, { P: true, note: '0 = fastest; 1.5 = balanced; 6 = covered (each seen cell costs 7× as much).' }),
+          TL('t4', 'rasterCalc', 'Raster Calculator', 5, 1, {}, { out: 'cost' },
+            { expr: 'Con("Go / No-Go" == 2, NoData, Con("Go / No-Go" == 1, 1.43, 1) * (1 + %Exposure weight% * ("Enemy view" > 0)))' }),
+          O('cost', 'Cost raster', 'raster', 6, 1, { display: true }),
+          V('prof', 'Movement class', 'profile', 'foot', 6, 3, { P: true }),
+          TL('t5', 'pathDistance', 'Path Distance', 7, 2, { src: 'a', cost: 'cost', dem: 'dem', profile: 'prof' }, { out: 'pd', back: 'bl' }),
+          O('pd', 'Time from A', 'raster', 8, 1),
+          O('bl', 'Backlink', 'raster', 8, 3),
+          TL('t6', 'costPath', 'Cost Path', 9, 2, { dst: 'b', dist: 'pd', back: 'bl' }, { out: 'route' }),
+          O('route', 'Least-cost route', 'lines', 10, 2, { display: true }),
+          TL('t7', 'lineStats', 'Line Statistics', 11, 2, { lines: 'route', dem: 'dem', zone: 'vis' }, { out: 'tbl' }, { zoneName: '% in enemy view' }),
+          O('tbl', 'Route table', 'table', 12, 2),
+        ],
+      }),
+    },
+
+    approaches: {
+      layout: {"border": [0, 0], "spacing": [1, 0.9], "depth": [2, 0.9], "t1": [2, 0], "raw": [3, 0], "t5": [4, 0], "entries": [5, 0], "dem": [0, 2.2], "t2": [1, 2.2], "slope": [2, 2.2], "remap": [2, 3.3], "t3": [3, 2.2], "gng": [4, 2.2], "t4": [5, 2.2], "cost": [6, 2.2], "prof": [6, 1.2], "t6": [7, 1.2], "pd": [8, 0.5], "bl": [8, 1.4], "al": [8, 2.3], "own": [0, 4.2], "t7": [2, 4.2], "side": [3, 4.2], "nobj": [3, 5.2], "t8": [4, 4.2], "obj": [5, 4.2], "t9": [9, 3.3], "foot": [10, 3.3], "t10": [11, 1.4], "appr": [12, 1.4], "t11": [2, 6.4], "ownview": [3, 6.4], "t12": [13, 1.4], "tbl": [14, 1.4]},
+      name: 'Enemy approaches across the border', question: 'From where across the border can the enemy reach each of our dominating heights fastest, and how much of each way do we see?',
+      build: (ctx) => ({
+        nodes: [
+          V('border', 'Border line', 'line', ctx.border || null, 0, 0, { P: true }),
+          V('own', 'Own position', 'point', pt(ctx.own, 'OWN'), 0, 2, { P: true }),
+          DEM(0, 4),
+          V('spacing', 'Entry spacing (m)', 'number', 1500, 0, 1, { P: true }),
+          V('depth', 'Entry depth (m)', 'number', 1500, 1, 1, { P: true }),
+          TL('t1', 'pointsAlongLine', 'Generate Points Along Line', 2, 0, { line: 'border', spacingM: 'spacing', offsetM: 'depth', ref: 'own' }, { out: 'raw' }, { prefix: 'E' }),
+          O('raw', 'Candidate entries', 'points', 3, 0),
+          TL('t2', 'slope', 'Slope', 1, 4, { dem: 'dem' }, { out: 'slope' }),
+          O('slope', 'Slope', 'raster', 2, 4),
+          V('remap', 'Slope classes', 'remap', REMAP, 2, 5, { P: true }),
+          TL('t3', 'reclassify', 'Reclassify', 3, 4, { in: 'slope', remap: 'remap' }, { out: 'gng' }),
+          O('gng', 'Go / No-Go', 'raster', 4, 4),
+          TL('t4', 'rasterCalc', 'Raster Calculator', 5, 4, {}, { out: 'cost' }, { expr: FRICTION }),
+          O('cost', 'Cost raster', 'raster', 6, 4),
+          TL('t5', 'snapPoints', 'Snap Points to Valid Cells', 4, 0, { in: 'raw', ras: 'cost' }, { out: 'entries' }, { radiusM: 400 }),
+          O('entries', 'Entry points', 'points', 5, 0, { display: true }),
+          V('prof', 'Movement class', 'profile', 'foot', 6, 2, { P: true }),
+          TL('t6', 'pathDistance', 'Path Distance', 7, 2, { src: 'entries', cost: 'cost', dem: 'dem', profile: 'prof' }, { out: 'pd', back: 'bl', alloc: 'al' }),
+          O('pd', 'Time from border', 'raster', 8, 1, { display: true }),
+          O('bl', 'Backlink', 'raster', 8, 2),
+          O('al', 'Nearest entry', 'raster', 8, 3),
+          TL('t7', 'borderSide', 'Side of Line', 2, 2, { line: 'border', ref: 'own' }, { out: 'side' }),
+          O('side', 'Own side', 'raster', 3, 2),
+          V('nobj', 'Number of objectives', 'number', 6, 3, 3, { P: true }),
+          TL('t8', 'findPeaks', 'Find Dominating Heights', 4, 2, { dem: 'dem', mask: 'side', count: 'nobj' }, { out: 'obj' }, { radiusM: 500, prefix: 'OBJ ' }),
+          O('obj', 'Objectives', 'points', 5, 2, { display: true }),
+          TL('t9', 'snapPoints', 'Snap Points to Valid Cells', 9, 1, { in: 'obj', ras: 'pd' }, { out: 'foot' }, { radiusM: 1200 }),
+          O('foot', 'Foot of objective', 'points', 10, 1),
+          TL('t10', 'costPath', 'Cost Path', 11, 2, { dst: 'foot', dist: 'pd', back: 'bl', alloc: 'al' }, { out: 'appr' }),
+          O('appr', 'Enemy approaches', 'lines', 12, 2, { display: true }),
+          TL('t11', 'viewshed', 'Viewshed', 1, 3, { dem: 'dem', obs: 'own' }, { out: 'ownview' }, { obsH: 2, tgtH: 1.5, radiusM: 4000 }),
+          O('ownview', 'Own view', 'raster', 2, 3),
+          TL('t12', 'lineStats', 'Line Statistics', 13, 2, { lines: 'appr', dem: 'dem', zone: 'ownview' }, { out: 'tbl' }, { zoneName: '% seen by us' }),
+          O('tbl', 'Approach table', 'table', 14, 2),
+        ],
+      }),
+    },
+
+    infiltration: {
+      layout: {"own": [0, 0], "t3": [2, 0], "seen": [3, 0], "pen": [4, 0.2], "dem": [0, 1.7], "t1": [1, 1.7], "slope": [2, 1.7], "remap": [2, 2.8], "t2": [3, 1.7], "gng": [4, 1.7], "t4": [5, 1.0], "cost": [6, 1.0], "start": [6, 2.2], "t5": [7, 1.9], "pd": [8, 1.3], "bl": [8, 2.5], "tgt": [8, 3.5], "t6": [9, 1.9], "route": [10, 1.9], "t7": [11, 1.9], "tbl": [12, 1.9]},
+      name: 'Hidden (infiltration) route', question: 'Which way would a small party take to reach a target while staying out of our sight?',
+      build: (ctx) => ({
+        nodes: [
+          DEM(0, 1),
+          V('start', 'Infiltrator start', 'point', pt(ctx.threat, 'START'), 0, 3, { P: true }),
+          V('tgt', 'Target', 'point', pt(ctx.own, 'TGT'), 8, 4, { P: true }),
+          V('own', 'Own OP', 'point', pt(ctx.own, 'OP'), 0, 0, { P: true }),
+          TL('t1', 'slope', 'Slope', 1, 1, { dem: 'dem' }, { out: 'slope' }),
+          O('slope', 'Slope', 'raster', 2, 1),
+          V('remap', 'Slope classes', 'remap', REMAP, 2, 2, { P: true }),
+          TL('t2', 'reclassify', 'Reclassify', 3, 1, { in: 'slope', remap: 'remap' }, { out: 'gng' }),
+          O('gng', 'Go / No-Go', 'raster', 4, 1),
+          TL('t3', 'viewshed', 'Viewshed', 1, 0, { dem: 'dem', obs: 'own' }, { out: 'seen' }, { obsH: 2, tgtH: 1.5, radiusM: 3000 }),
+          O('seen', 'Own view', 'raster', 2, 0),
+          V('pen', 'Seen penalty', 'number', 6, 4, 0, { P: true, note: 'Each cell we can see costs (1 + penalty) times as much — the path hides.' }),
+          TL('t4', 'rasterCalc', 'Raster Calculator', 5, 1, {}, { out: 'cost' },
+            { expr: 'Con("Go / No-Go" == 2, NoData, Con("Go / No-Go" == 1, 1.43, 1) * (1 + %Seen penalty% * ("Own view" > 0)))' }),
+          O('cost', 'Cost raster', 'raster', 6, 1, { display: true }),
+          TL('t5', 'pathDistance', 'Path Distance', 7, 2, { src: 'start', cost: 'cost', dem: 'dem' }, { out: 'pd', back: 'bl' }, { profile: 'foot' }),
+          O('pd', 'Time from start', 'raster', 8, 1),
+          O('bl', 'Backlink', 'raster', 8, 3),
+          TL('t6', 'costPath', 'Cost Path', 9, 2, { dst: 'tgt', dist: 'pd', back: 'bl' }, { out: 'route' }),
+          O('route', 'Hidden route', 'lines', 10, 2, { display: true }),
+          TL('t7', 'lineStats', 'Line Statistics', 11, 2, { lines: 'route', dem: 'dem', zone: 'seen' }, { out: 'tbl' }, { zoneName: '% seen by us' }),
+          O('tbl', 'Route table', 'table', 12, 2),
+        ],
+      }),
+    },
+
+    ops: {
+      name: 'Observation posts (maximize coverage)', question: 'Where should a few OPs go so together they see the most ground the enemy can move on?',
+      build: (ctx) => ({
+        nodes: [
+          DEM(0, 1),
+          TL('t1', 'slope', 'Slope', 1, 1, { dem: 'dem' }, { out: 'slope' }),
+          O('slope', 'Slope', 'raster', 2, 1),
+          V('maxs', 'Max OP slope (°)', 'number', 30, 2, 0, { P: true }),
+          TL('t2', 'rasterCalc', 'Raster Calculator', 3, 0, {}, { out: 'ok' }, { expr: 'Con("Slope" <= %Max OP slope (°)%, 1, NoData)' }),
+          O('ok', 'Usable OP ground', 'raster', 4, 0),
+          TL('t3', 'findPeaks', 'Find Dominating Heights', 5, 0, { dem: 'dem', mask: 'ok' }, { out: 'cand' }, { radiusM: 300, count: 40, prefix: 'C' }),
+          O('cand', 'OP candidates', 'points', 6, 0, { display: true }),
+          V('remap', 'Enemy slope classes', 'remap', REMAP, 2, 2, { P: true }),
+          TL('t4', 'reclassify', 'Reclassify', 3, 2, { in: 'slope', remap: 'remap' }, { out: 'gng' }),
+          O('gng', 'Enemy Go / No-Go', 'raster', 4, 2),
+          TL('t5', 'rasterCalc', 'Raster Calculator', 5, 2, {}, { out: 'dem2' }, { expr: 'Con("Enemy Go / No-Go" == 0, 1, Con("Enemy Go / No-Go" == 1, 0.5, 0))' }),
+          O('dem2', 'Ground worth watching', 'raster', 6, 2),
+          V('n', 'Number of OPs', 'number', 5, 6, 1, { P: true }),
+          V('range', 'OP range (m)', 'number', 3000, 7, 3, { P: true }),
+          TL('t6', 'maxCoverage', 'Maximize Coverage', 7, 1, { cand: 'cand', dem: 'dem', demand: 'dem2', count: 'n', radiusM: 'range' }, { out: 'ops', cover: 'cov' }, { obsH: 2 }),
+          O('ops', 'OPs', 'points', 8, 0, { display: true }),
+          O('cov', 'Coverage', 'raster', 8, 2, { display: true }),
+        ],
+      }),
+    },
+  };
+  // apply each template's layout (col / row per element) after it is built
+  Object.values(M.MODEL_TEMPLATES).forEach((t) => {
+    if (!t.layout) return;
+    const build = t.build;
+    t.build = (ctx) => { const m = build(ctx); m.nodes.forEach((n) => { const q = t.layout[n.id]; if (q) { n.col = q[0]; n.row = q[1]; } }); return m; };
+  });
+  /** GP tool id -> template that shows how it is built. */
+  M.MODEL_FOR_TOOL = { mobility: 'gonogo', route: 'route', avenues: 'route', enemyApproaches: 'approaches', sectorAll: 'approaches', infiltration: 'infiltration', posts: 'ops' };
+});
+
+</script>
 <script>/* src/core/jobs.js */
 /*
  * MtnEye core — analysis jobs. One stateful session (grid + derived layers +
@@ -4645,6 +5310,21 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
         need();
         if (!S.sec.appr) throw new Error('Run Enemy Approaches first.');
         return M.enemyOptions(sectorCtx(), secITG().itgs, S.sec.appr, opts || {});
+      },
+
+      // ---------------------------------------------------------- ModelBuilder
+      modelRun({ model, upTo, force }, progress) {
+        need();
+        const E = S.modelEnv || (S.modelEnv = { cache: new Map() });
+        Object.assign(E, { g: S.g, L: S.L, mob });
+        if (E.gridKey !== S.g) { E.cache.clear(); E.gridKey = S.g; }
+        return M.runModel(E, model, { upTo, force }, progress);
+      },
+      /** A model variable's raster (after a run) for display on the map. */
+      modelRaster({ id }) {
+        const d = S.modelEnv && S.modelEnv.lastData && S.modelEnv.lastData[id];
+        if (!d || d.dt !== 'raster') throw new Error('Run the model first — this raster has no value yet.');
+        return { a: d.a.slice(), kind: d.kind, unit: d.unit, classes: d.classes || null };
       },
 
       crestClearance({ site, target, weaponId, weaponOverrides }) {
@@ -6536,6 +7216,7 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
       case 'hostile': return `<h4>Enemy observation</h4>` + sw([[col('ovl.hostileColor', 0.7), 'Seen from likely enemy OPs'], ['transparent', 'clear = defilade from enemy view']]);
       case 'avenues': return `<h4>Enemy avenues of approach</h4>` + sw([[col('sym.avenueColor', 0.75), 'Least-time approach corridors']]);
       case 'dominance': return `<h4>Terrain value</h4><div class="ramp" style="background:linear-gradient(90deg,rgba(140,90,30,0.15),rgba(80,40,30,0.75))"></div><div class="ends"><span>50</span><span>100 (most dominating)</span></div>`;
+      case 'model': return `<h4>${info.name || 'Model result'}</h4>` + (info.html || '');
       case 'routevs': return `<h4>Route viewshed</h4>` + sw([['rgba(120,190,255,.6)', info.mode === 'from' ? 'seen from part of the route' : 'sees part of the route'], ['rgba(70,130,240,.7)', 'more of it'], ['rgba(40,60,200,.8)', 'most of it']]);
       case 'firecov': return `<h4>Fire coverage</h4>` + sw([['rgba(255,214,110,.6)', '1 weapon'], ['rgba(245,150,40,.7)', '2 weapons'], ['rgba(210,70,20,.8)', '3 or more']]);
       default: return '';
@@ -7270,7 +7951,6 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(S.baseCanvas, x0, y0, g.w * this.view.scale, g.h * this.view.scale);
-      if (UI.briefVeil) UI.briefVeil(ctx, this.W, this.H);
       // frame
       ctx.strokeStyle = 'rgba(128,128,128,0.6)'; ctx.lineWidth = 1;
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
@@ -7284,7 +7964,7 @@ body.model-view .map-ctl, body.model-view #welcome { display: none; }
           { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels'), view: { w: this.W, h: this.H } });
       }
       UI.labelsEnd(ctx);
-      if (UI.drawBrief) UI.drawBrief(ctx, P);
+      if (UI.drawModelLayers) UI.drawModelLayers(ctx, P);
       this._hud(ctx, g);
       if (this.onRender) this.onRender();
     }
@@ -9117,7 +9797,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     }
     if (inSec) html += '</div>';
     const msg = lastMsg[id];
-    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}${!msg.running && UI.Explain && UI.Explain.specFor(id) ? `<button class="btn gp-explain" data-explain="${id}">${msg.err ? 'Why did it fail? — Model view' : 'How was this found? — Model view'}</button>` : ''}</div>` : ''}
+    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}${!msg.running && UI.M.MODEL_FOR_TOOL[id] ? `<button class="btn gp-explain" data-explain="${id}">Open as a model (ModelBuilder) — see each GIS step</button>` : ''}</div>` : ''}
       <div class="gp-foot"><button class="btn" data-reset>Reset parameters</button><span class="grow"></span><button class="btn primary" data-run ${msg && msg.running ? 'disabled' : ''}>Run</button></div>`;
     el.innerHTML = html;
     el.querySelector('.gp-form').scrollTop = scroll;
@@ -9177,7 +9857,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     };
     el.querySelector('[data-run]').onclick = () => GP.run(id);
     const ex = el.querySelector('[data-explain]');
-    if (ex) ex.onclick = () => UI.Explain.open(UI.Explain.specFor(id));
+    if (ex) ex.onclick = () => UI.MB.open(UI.M.MODEL_FOR_TOOL[id]);
   };
 
   /** Set one stored parameter value (e.g. a point picked with a ribbon tool). */
@@ -9202,773 +9882,764 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
 })(globalThis.MTN_UI = globalThis.MTN_UI || {});
 
 </script>
-<script>/* src/ui/explain.js */
+<script>/* src/ui/modelbuilder.js */
 /*
- * MtnEye ui — "How was this found?": a ModelBuilder-style Model view for each tool and a
- * step-by-step Brief mode on the map.
+ * MtnEye ui — ModelBuilder. A model is a diagram of geoprocessing tools (yellow boxes) joined by
+ * variables: input data (blue ovals), values you can change (light-blue ovals) and derived data
+ * (green ovals). Change any value on the diagram, run the model (or one tool), and add any
+ * intermediate or final result to the map.
  *
- * Every tool has one spec: the question it answers, its steps as a flow (inputs → process →
- * outputs) with this run's numbers and the reasons ground was thrown out, how to read the
- * result, what an empty or failed result means, and a script for briefing a senior. The same
- * specs drive the printable briefing book (Print / PDF).
+ * Element states follow ArcGIS ModelBuilder: grey = not ready (an input is missing), coloured =
+ * ready to run, drop shadow = has been run, red outline = failed.
  */
 (function (UI) {
   'use strict';
-  const X = (UI.Explain = {});
-  const F = UI.F, GP = UI.GP;
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const pct = (x) => `${Math.round((x || 0) * 100)}%`;
-  const km = (m) => F.dist(m);
-  const hrs = (h) => F.time(h);
-  const n = (x) => (x === undefined || x === null ? '—' : Math.round(x).toLocaleString('en-GB'));
-  const pv = (id, k) => { try { return GP.values(id)[k]; } catch (e) { return undefined; } };
-  const sumObj = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
-  /** Rejection lines from a screening trace, largest first. */
-  const rejOf = (tr) => (tr ? Object.entries(tr.rejected || {}).sort((a, b) => b[1] - a[1]).map(([why, k]) => [k, why]) : []);
-  const pts = (list, s, lab) => (list || []).map((q, k) => ({ t: 'pt', c: q.c, r: q.r, s, label: lab ? lab(q, k) : '' }));
-  const lines = (list, s, lab) => (list || []).map((q, k) => ({ t: 'line', pts: q.line || q, s, label: lab ? lab(q, k) : '' }));
-  const rateS = (rt) => (rt === 'Good' ? 'ok' : rt === 'Marginal' ? 'mid' : 'bad');
-  const mk = (S, k) => S.markers && S.markers[k];
-
-  // =====================================================================
-  // Tool specs
-  // =====================================================================
-  /*
-   * node: { id, k: 'in' | 'step' | 'out', col, t: title, v: this run's numbers, d: plain description,
-   *         rej: [[count, reason]], from: [node ids], map: { show: [layer flags], ovl: [overlays], geo: [...] } }
-   */
-  const SPECS = [];
-  const spec = (o) => { SPECS.push(o); return o; };
-
-  // ------------------------------------------------------------- Go / No-Go
-  spec({
-    id: 'mobility', gp: ['mobility'], group: 'Ground', title: 'Go / No-Go (mobility)',
-    q: 'Where can this kind of troops or vehicle move freely, move slowly, or not move at all?',
-    result: (S) => (S.overlays.mobility.data && S.mobStats[S.overlays.mobility.profile] ? { stats: S.mobStats[S.overlays.mobility.profile], prof: S.overlays.mobility.info || {} } : null),
-    nodes: (r, S) => [
-      { id: 'dem', k: 'in', col: 0, t: 'Elevation model', v: S.grid ? `${S.grid.w} × ${S.grid.h} cells, ${S.grid.cs} m each` : '—', d: 'The height of the ground in a grid of small squares (cells).' },
-      { id: 'prof', k: 'in', col: 0, t: 'Movement class', v: r ? `${r.prof.name}: GO ≤ ${r.prof.go}°, SLOW ≤ ${r.prof.slow}°` : '—', d: 'Who is moving: foot, mules, wheels or tracks. Each has its own slope limits.' },
-      { id: 'slope', k: 'step', col: 1, from: ['dem'], t: 'Measure the slope of every cell', v: S.grid ? `${n(S.grid.w * S.grid.h)} cells measured` : '—', d: 'Slope = how steep the ground is, in degrees, from the heights of the cell and its neighbours.' },
-      { id: 'cls', k: 'step', col: 2, from: ['slope', 'prof'], t: 'Compare each slope with the limits', v: r ? `≤ ${r.prof.go}° GO · ≤ ${r.prof.slow}° SLOW-GO · steeper NO-GO` : '—', d: 'Not steeper than the GO limit: GO. Up to the SLOW limit: SLOW-GO. Steeper, or water, snow above the snow line, or a drawn obstacle: NO-GO.', map: { ovl: ['mobility'] } },
-      { id: 'out', k: 'out', col: 3, from: ['cls'], t: 'Go / No-Go map', v: r ? `GO ${pct(r.stats.go)} · SLOW ${pct(r.stats.slow)} · NO-GO ${pct(r.stats.nogo)}` : '—', d: 'Green = GO, yellow = SLOW-GO, red = NO-GO.', map: { ovl: ['mobility'] }, shot: true },
-    ],
-    read: () => ['Green ground can be crossed at normal speed, yellow only slowly, red not at all by this class.', 'Run it again for another class: ground that is NO-GO for vehicles is often GO for foot.'],
-    none: [['Almost all red', 'The limits are low for this terrain, or the snow line is set too low.', 'Choose foot or mules, or raise the snow line (Settings).'], ['Almost all green', 'Flat area, or the DEM is coarse and smooths out the slopes.', 'Use a finer DEM (30 m or better).']],
-    brief: (r) => r ? [`This map shows where ${r.prof.name.toLowerCase()} can move.`, `Ground up to ${r.prof.go}° is GO, up to ${r.prof.slow}° is slow, steeper is NO-GO.`, `Here ${pct(r.stats.go)} of the area is GO and ${pct(r.stats.nogo)} is NO-GO.`] : [],
-  });
-
-  // ------------------------------------------------------------- Key terrain
-  spec({
-    id: 'keyTerrain', gp: ['keyTerrain'], group: 'Ground', title: 'Key terrain (heights and passes)',
-    q: 'Which heights dominate the area, and where are the passes (cols) between them?',
-    result: (S) => S.key || null,
-    nodes: (r, S) => {
-      const t = r && r.trace;
-      return [
-        { id: 'dem', k: 'in', col: 0, t: 'Elevation model', v: S.grid ? `${S.grid.w} × ${S.grid.h} cells` : '—', d: 'Heights of the ground.' },
-        { id: 'tops', k: 'step', col: 1, from: ['dem'], t: 'Find hill tops', v: t ? `${n(t.localMax)} cells higher than all 8 neighbours` : '—', d: 'A hill top is a cell higher than every cell around it.' },
-        { id: 'prom', k: 'step', col: 2, from: ['tops'], t: 'Keep only commanding tops', v: t ? `${n(t.peaksFound)} tops kept` : '—', rej: t ? [[t.lowProm, 'not much higher than the ground around'], [t.notHighest, `a higher point within ${km(t.peakRadiusM)}`]] : [],
-          d: 'A top must stand well above its surroundings and be the highest point within the search radius.', map: { geo: (rr) => pts(rr.peaks, 'cand') } },
-        { id: 'peaks', k: 'out', col: 3, from: ['prom'], t: 'Dominating heights', v: r ? `${r.peaks.length} heights (best first)` : '—', d: 'Ranked by how far they stand above the ground around them and by height.', map: { geo: (rr) => pts(rr.peaks, 'key', (q, k) => `H${k + 1}`) }, shot: true },
-        { id: 'sad', k: 'step', col: 1, from: ['dem'], t: 'Look for saddles', v: t ? `${n(t.passTested)} points tested` : '—', rej: t ? [[t.passFlat, 'slope over 22° (not a crossing)'], [t.passShape, `not high on two sides and low on two sides by ${Math.round(t.reliefM)} m`]] : [],
-          d: 'A pass is low between two higher sides and high between two lower sides — like a horse saddle.' },
-        { id: 'passes', k: 'out', col: 3, from: ['sad'], t: 'Passes / cols', v: r ? `${r.passes.length} passes` : '—', d: 'Spaced at least 700 m apart, best first.', map: { geo: (rr) => pts(rr.passes, 'mid', (q, k) => `PS${k + 1}`) } },
-      ];
-    },
-    read: () => ['▲ marks a dominating height; )( marks a pass.', 'Heights see and command the ground; passes are where movement is forced through.'],
-    none: [['No heights', 'Flat or gently rolling area.', 'Lower “minimum dominance” in the tool.'], ['No passes', 'No saddle shape stands out by the relief set.', 'Lower “pass relief” in the tool.']],
-    brief: (r) => r ? [`The tool looked at every hill top and kept those that stand clearly above the ground around them: ${r.peaks.length} dominating heights.`, `It also looked for saddle shapes between heights: ${r.passes.length} passes, where movement is channelled.`] : [],
-  });
-
-  // ------------------------------------------------------------- Enemy observation
-  spec({
-    id: 'hostile', gp: ['hostile'], group: 'Enemy', title: 'Enemy observation',
-    q: 'Which of our ground can the enemy see from his likely OPs?',
-    result: (S) => (S.hostile && S.overlays.hostile.data ? S.hostile : null),
-    nodes: (r, S) => {
-      const ops = r ? r.observers.filter((o) => !o.isThreat) : [];
-      let seen = 0, tot = 0;
-      if (r) { const d = S.overlays.hostile.data; tot = d.length; for (let i = 0; i < d.length; i++) if (d[i]) seen++; }
-      return [
-        { id: 'eny', k: 'in', col: 0, t: 'Enemy position', v: mk(S, 'threat') ? F.listRef(mk(S, 'threat').r, mk(S, 'threat').c) : 'not placed', d: 'Where the enemy is, placed by you.', map: { geo: () => [] } },
-        { id: 'pick', k: 'step', col: 1, from: ['eny'], t: 'Pick his likely OPs', v: r ? `${ops.length} OPs on the most commanding ground within ${km(+pv('hostile', 'searchRadiusM') || 0)}` : '—', d: 'An OP goes where the ground is highest compared with its surroundings, near the enemy, spaced apart.', map: { geo: () => pts(ops, 'enemy', (q, k) => `EOP${k + 1}`) } },
-        { id: 'vs', k: 'step', col: 2, from: ['pick'], t: 'Viewshed from each OP', v: r ? `range ${km(+pv('hostile', 'rangeM') || 0)}` : '—', d: 'From each OP, draw a straight line to every cell; if the ground blocks the line, the cell is hidden.' },
-        { id: 'out', k: 'out', col: 3, from: ['vs'], t: 'Ground the enemy sees', v: r ? `${pct(seen / (tot || 1))} of the area is seen` : '—', d: 'Shaded = seen by at least one enemy OP. Unshaded = defilade (hidden).', map: { ovl: ['hostile'], geo: () => pts(ops, 'enemy') }, shot: true },
-      ];
-    },
-    read: () => ['Shaded ground is seen by the enemy: move there by night or under cover.', 'Unshaded ground is hidden from him: good for HQs, mortars, routes and admin.'],
-    none: [['Nothing shaded', 'The enemy sits low with ridges between.', 'Check the enemy position; add more OPs or a longer range in the tool.'], ['Fails: “Place the enemy”', 'No enemy position on the map.', 'Place it with Points ▸ Enemy.']],
-    brief: (r) => r ? [`We assumed the enemy puts OPs on the ${r.observers.filter((o) => !o.isThreat).length} most commanding points near him.`, 'From each we checked, cell by cell, whether the ground blocks the view.', 'Shaded ground is what he can see; unshaded is hidden from him.'] : [],
-  });
-
-  // ------------------------------------------------------------- Avenues
-  spec({
-    id: 'avenues', gp: ['avenues'], group: 'Enemy', title: 'Enemy avenues of approach',
-    q: 'Which ways can the enemy come to our position fastest?',
-    result: (S) => (S.avenues && S.avenues.routes ? S.avenues : null),
-    nodes: (r, S) => [
-      { id: 'eny', k: 'in', col: 0, t: 'Enemy position', v: mk(S, 'threat') ? F.listRef(mk(S, 'threat').r, mk(S, 'threat').c) : 'not placed', d: 'Start of every avenue.' },
-      { id: 'own', k: 'in', col: 0, t: 'Own position', v: mk(S, 'own') ? F.listRef(mk(S, 'own').r, mk(S, 'own').c) : 'not placed', d: 'End of every avenue.' },
-      { id: 'mob', k: 'step', col: 1, from: ['eny', 'own'], t: 'Go / No-Go for the enemy', v: pv('avenues', 'threatType') || '—', d: 'Each cell gets a walking or driving time from its slope; NO-GO cells cannot be crossed.' },
-      { id: 'fast', k: 'step', col: 2, from: ['mob'], t: 'Fastest path (least time)', v: r && r.routes[0] ? `AA1: ${km(r.routes[0].lengthM)}, ${hrs(r.routes[0].timeH)}` : '—', d: 'The computer tries paths cell by cell and keeps the one with the least total time.', map: { geo: (rr) => lines(rr.routes.slice(0, 1), 'enemy', () => 'AA1') } },
-      { id: 'alt', k: 'step', col: 3, from: ['fast'], t: 'Other, separate ways', v: r ? (r.routes.length > 1 ? `${r.routes.length - 1} more, each ≥ ${km(+pv('avenues', 'separationM') || 0)} from the others` : 'none — no separate way exists') : '—', d: 'The used path is made expensive and the search runs again, so the next route takes different ground.' },
-      { id: 'out', k: 'out', col: 4, from: ['alt'], t: 'Avenues of approach', v: r ? r.routes.map((x, k) => `AA${k + 1} ${hrs(x.timeH)}`).join(' · ') : '—', d: 'Red dashed lines, fastest first.', map: { ovl: ['avenues'], geo: (rr) => lines(rr.routes, 'enemy', (q, k) => `AA${k + 1}`) }, shot: true },
-    ],
-    read: () => ['AA1 is the fastest way for the enemy; the others are real alternatives on different ground.', 'The shaded band shows where each avenue runs: watch and cover these by fire.'],
-    none: [['No avenue', 'Vehicles cannot connect the two points (NO-GO in between).', 'Switch to foot, or move the points onto passable ground.'], ['Only one avenue', 'The ground forces everything through one valley or pass.', 'That itself is the answer: a single defile — block it.']],
-    brief: (r) => r ? [`The computer gave every cell a crossing time from its slope, then found the quickest way from the enemy to us: AA1, ${hrs(r.routes[0].timeH)}.`, `It then blocked that path and searched again to get ${r.routes.length - 1} more avenues on different ground.`] : [],
-  });
-
-  // ------------------------------------------------------------- Posts / OPs
-  const sitingNodes = (o) => (r, S) => {
-    const t = r && r.trace;
-    const out = [
-      { id: 'in', k: 'in', col: 0, t: o.inT, v: o.inV(S), d: o.inD },
-      { id: 'screen', k: 'step', col: 1, from: ['in'], t: 'Screen every sample point', v: t ? `${n(t.tested)} points tested → ${n(t.passed)} pass` : '—', rej: rejOf(t), d: o.screenD },
-      { id: 'short', k: 'step', col: 2, from: ['screen'], t: 'Shortlist the best placed', v: t ? `${t.candidates.length} candidates` : '—', d: o.shortD, map: { geo: () => pts(t ? t.candidates : [], 'cand') }, shot: true },
-      { id: 'score', k: 'step', col: 3, from: ['short'], t: o.scoreT, v: t ? `${t.candidates.length} tested` : '—', d: o.scoreD, map: { geo: () => pts(t ? t.candidates : [], 'cand') } },
-      { id: 'pick', k: 'step', col: 4, from: ['score'], t: 'Pick best first, then what adds most', v: r ? `${o.list(r).length} chosen` : '—', d: o.pickD, map: { geo: () => pts(t ? t.candidates : [], 'cand').concat(pts(r ? o.list(r) : [], 'ok', (q) => q.id)) } },
-      { id: 'out', k: 'out', col: 5, from: ['pick'], t: o.outT, v: r ? o.outV(r) : '—', d: o.outD, map: o.outMap, shot: true },
-    ];
-    if (t && t.accessRelaxed) out[1].rej.unshift(['!', 'no site was reachable — the access rule was relaxed']);
-    return out;
-  };
-  spec({
-    id: 'posts', gp: ['posts'], group: 'Own', title: 'Posts and OPs',
-    q: 'Where should posts / OPs go so together they see the most of the ground the enemy must use?',
-    result: (S) => S.posts || null,
-    nodes: sitingNodes({
-      inT: 'Own and enemy positions, Go / No-Go', inV: (S) => `${mk(S, 'own') ? 'own ✓' : 'own —'} · ${mk(S, 'threat') ? 'enemy ✓' : 'enemy —'}`, inD: 'Posts stay near own troops and away from the enemy; approach ground matters most.',
-      screenD: 'Throw out every point that is too steep, wrong type of ground (e.g. valley floor), cannot be reached, too far from own troops or too close to the enemy.',
-      shortD: 'Of what is left, keep the highest and most commanding points, spaced apart.',
-      scoreT: 'Viewshed from each candidate', scoreD: 'For each candidate, find every cell it can see. Ground the enemy must walk or drive across counts most; nearer ground counts more.',
-      pickD: 'Take the candidate that sees the most valuable ground. Then take the one that adds the most ground not already seen. Repeat.',
-      list: (r) => r.posts, outT: 'Posts / OPs', outV: (r) => `${r.posts.length} sites see ${pct(r.coverageShare)} of approach ground`, outD: 'Shaded = seen by the posts. Hatched = dead ground inside their range that nobody sees.',
-      outMap: { show: ['posts'], ovl: ['cover', 'dead'] },
-    }),
-    read: (r) => ['Each symbol is a post; the shading is what they see together.', 'Hatched dead ground needs patrols, an LP or mines.', r && r.links ? `${r.links.length} pairs of posts can see each other (mutual support).` : ''],
-    none: [['Fails: “No suitable post candidates”', 'Every point failed the screen — the message lists how many were thrown out for each reason.', 'Relax the reason with the biggest number (e.g. raise the slope limit or the distance from own).'], ['Low coverage', 'The ground is broken; few points see far.', 'Add more posts, or accept and cover the dead ground.']],
-    brief: (r) => r && r.trace ? [`${n(r.trace.tested)} points were checked; ${n(r.trace.passed)} passed the basic rules${rejOf(r.trace)[0] ? ` — the main reason for rejection was “${rejOf(r.trace)[0][1]}” (${n(rejOf(r.trace)[0][0])})` : ''}.`, `The ${r.trace.candidates.length} best placed were tested by working out what each can actually see.`, `The computer then picked ${r.posts.length} that together see ${pct(r.coverageShare)} of the ground the enemy must use.`] : [],
-  });
-
-  // ------------------------------------------------------------- Weapon sites
-  spec({
-    id: 'weapons', gp: ['weapons'], group: 'Own', title: 'Weapon sites',
-    q: 'Where should this weapon go to cover the enemy approaches (direct fire) or reach the target from hidden ground (indirect fire)?',
-    result: (S) => { const id = X.lastWeapon; const w = (id && S.weapons.find((x) => x.weapon.id === id)) || S.weapons[S.weapons.length - 1]; return w || null; },
-    nodes: (r, S) => {
-      const ind = r && r.weapon.cat === 'indirect';
-      return sitingNodes({
-        inT: r ? r.weapon.name : 'Weapon', inV: () => (r ? (ind ? `range ${km(r.weapon.minR)}–${km(r.weapon.maxR)}` : `effective ${km(r.weapon.maxR || 0)}`) : '—'), inD: 'The weapon’s range and siting slope limit come from the weapon table.',
-        screenD: ind ? 'Throw out points that are too steep, cannot be reached, can be seen by the enemy (if defilade is required), are out of range of the target, or are too far forward.' : 'Throw out points that are too steep for the weapon, on ground it cannot use, cannot be reached, or outside the defended area.',
-        shortD: 'Of what is left, keep the best placed points, spaced apart.',
-        scoreT: ind ? 'Check the crest and range' : 'Field of fire from each candidate',
-        scoreD: ind ? 'Can the shell clear the crest in front on its way to the target, and is the site hidden from the enemy?' : 'For each candidate, find the ground it can hit. Ground the enemy must cross counts most.',
-        pickD: 'Take the best site, then the one that adds the most new cover. Repeat.',
-        list: (x) => x.sites, outT: 'Weapon sites', outV: (x) => `${x.sites.length} sites`, outD: ind ? 'Each site with its range to the target.' : 'Each site with its arc of fire; shading = fields of fire.',
-        outMap: { show: ['weapons'], ovl: ind ? [] : ['wcover'] },
-      })(r, S);
-    },
-    read: () => ['Each symbol is a weapon site with its arc (direct fire) or range to target (indirect).', 'Sites marked “hidden” cannot be seen from the enemy side.'],
-    none: [['Fails: “No suitable weapon site candidates”', 'Every point failed the screen — the message lists the reasons, biggest first.', 'Relax the biggest reason: more slope, larger defended radius, or untick “require defilade”.'], ['Fails: “indirect fire needs a target”', 'No enemy or target point.', 'Place Points ▸ Target or Enemy.']],
-    brief: (r) => r && r.trace ? [`For the ${r.weapon.name} the computer checked ${n(r.trace.tested)} points and kept ${n(r.trace.passed)} that the weapon can use.`, `It tested the best ${r.trace.candidates.length} and chose ${r.sites.length} sites that together cover the most of the enemy’s ground.`] : [],
-  });
-
-  // ------------------------------------------------------------- Minefields
-  spec({
-    id: 'mfd', gp: ['mfd'], group: 'Own', title: 'Minefields',
-    q: 'Where would a minefield cost the enemy the most time on his way to us?',
-    result: (S) => S.mfd || null,
-    nodes: (r, S) => {
-      const t = r && r.trace, ap = r && r.purpose === 'protective';
-      const cands = t ? t.candidates : [];
-      const good = cands.filter((q) => q.blocks || (q.delayMin || 0) >= (r.params.minDelayMin || 5)).length;
-      return [
-        { id: 'in', k: 'in', col: 0, t: 'Own and enemy positions', v: r ? `${r.fields[0] ? r.fields[0].type : ''} · ${ap ? 'protective' : 'barrier'}` : '—', d: 'AT = anti-tank (on vehicle routes, a barrier); AP = anti-personnel (protective, close in front of own troops).' },
-        { id: 'aven', k: 'step', col: 1, from: ['in'], t: 'Enemy’s fastest ways in', v: r ? `${r.avenues.length} avenues · best ${hrs(r.enemyBefore.timeH)}` : '—', d: 'Least-time routes from the enemy to us for his vehicles (AT) or men on foot (AP).', map: { geo: (rr) => lines(rr.avenues, 'thin').concat(lines([rr.enemyBefore], 'enemy', () => 'enemy now')) } },
-        { id: 'def', k: 'step', col: 2, from: ['aven'], t: ap ? 'Sites in front of own troops' : 'Find defiles on those routes', v: t ? `${t.defiles} sites found · ${t.inBand} in the distance band → best ${cands.length} shortlisted` : '—', rej: t ? [[t.defiles - cands.length, 'weaker site, or next to a better one']] : [], d: ap ? 'Points 80–800 m in front of posts, across the foot approaches.' : 'A defile is a narrow gap between NO-GO ground — the cheapest place to block.', map: { geo: () => pts(cands, 'cand') }, shot: true },
-        { id: 'test', k: 'step', col: 3, from: ['def'], t: 'Test each: mine it, re-route the enemy', v: t ? `${cands.length} tested · ${good} delay ≥ ${r.params.minDelayMin} min` : '—', rej: t ? [[cands.length - good, `delay under ${r.params.minDelayMin} min — he just walks round`]] : [],
-          d: 'Pretend the site is mined, then let the enemy find his new fastest way. The extra time is what the field is worth.',
-          map: { geo: () => cands.map((q) => ({ t: 'pt', c: q.c, r: q.r, s: q.blocks || (q.delayMin || 0) >= r.params.minDelayMin ? 'mid' : 'bad', label: q.blocks ? 'blocks' : q.delayMin === null ? '' : `+${Math.round(q.delayMin)}′` })) } },
-        { id: 'pick', k: 'step', col: 4, from: ['test'], t: 'Pick biggest delay, re-test the rest', v: r ? `${r.fields.length} fields chosen (up to ${r.params.count})` : '—', rej: r && t ? [[good - r.fields.length, r.fields.length >= r.params.count ? `not needed — the plan asks for ${r.params.count} fields` : 'no longer worth it once the enemy re-routed round earlier fields, or too close to one']] : [], d: 'Lay the best field, then test again — the enemy now goes a different way, so the next field must work against that.' },
-        { id: 'out', k: 'out', col: 5, from: ['pick'], t: 'Minefields', v: r ? `${r.fields.length} fields` : '—', d: 'Rated by delay, fire cover and distance from own troops.', map: { show: ['mfd'] }, shot: true },
-        { id: 'time', k: 'out', col: 5, from: ['pick'], t: 'Enemy time before → after', v: r ? `${hrs(r.enemyBefore.timeH)} → ${hrs(r.enemyAfter.timeH)} (+${Math.round(r.totalDelayMin)} min)` : '—', d: 'Thin red: his best way now. Thick red: his best way with the fields laid.', map: { show: ['mfd'], geo: (rr) => [{ t: 'line', pts: rr.enemyBefore.line, s: 'thin', label: 'before' }, { t: 'line', pts: rr.enemyAfter.line, s: 'enemy', label: 'after' }] } },
-      ];
-    },
-    read: () => ['Each field shows the minutes it adds. “No bypass” means he must breach.', 'A field marked NOT observed can be lifted at leisure — put an OP or a weapon on it.'],
-    none: [['Fails: “No defile narrower than the maximum gap”', 'The approaches run over open ground with no narrow point.', 'Raise “maximum gap”, widen the distance band, or use AP fields close in.'], ['Fails: “No field delays the enemy …”', 'He can go round every site with little loss.', 'Obstacles here buy no time: use depth, fire and patrols instead.'], ['Warning: placed outside the band', 'No suitable defile inside the band.', 'Accept, or widen the band.']],
-    brief: (r) => r && r.trace ? [`First we found the enemy’s fastest way to us: ${hrs(r.enemyBefore.timeH)}.`, `We then tested ${r.trace.candidates.length} possible sites: each was “mined” and the enemy re-routed to see how much time it really costs him.`, `We kept the ${r.fields.length} that cost him most. Together they add ${Math.round(r.totalDelayMin)} minutes: ${hrs(r.enemyBefore.timeH)} becomes ${hrs(r.enemyAfter.timeH)}.`] : [],
-  });
-
-  // ------------------------------------------------------------- Least-time route
-  spec({
-    id: 'route', gp: ['route'], group: 'Move', title: 'Least-time route',
-    q: 'What is the quickest (or most hidden) way from A to B for this column?',
-    result: (S) => S.routes || null,
-    nodes: (r, S) => {
-      const rt = r && r.routes[r.sel || 0];
-      return [
-        { id: 'ab', k: 'in', col: 0, t: 'Start A and end B', v: mk(S, 'a') && mk(S, 'b') ? `${F.listRef(mk(S, 'a').r, mk(S, 'a').c)} → ${F.listRef(mk(S, 'b').r, mk(S, 'b').c)}` : 'not placed', d: 'Placed by you.' },
-        { id: 'cls', k: 'in', col: 0, t: 'Column and mode', v: r ? `${r.profile} · ${r.mode}${r.night ? ' · night' : ''}` : '—', d: 'Fastest; covered (avoid enemy view); hidden (also avoid skylines).' },
-        { id: 'cost', k: 'step', col: 1, from: ['ab', 'cls'], t: 'Time to cross every cell', v: r ? (r.mode === 'fastest' ? 'slope only' : 'slope + penalty where the enemy sees / on skylines') : '—', d: 'Each cell costs walking or driving time from its slope; seen ground and crests cost extra in covered / hidden modes.' },
-        { id: 'search', k: 'step', col: 2, from: ['cost'], t: 'Search for the least total', v: rt ? `R1 ${km(r.routes[0].lengthM)}, ${hrs(r.routes[0].timeH)}` : '—', d: 'Like water finding the lowest way, the search spreads from A and keeps the cheapest path to B.', map: { geo: (rr) => lines(rr.routes.slice(0, 1), 'own', () => 'R1') } },
-        { id: 'alt', k: 'step', col: 3, from: ['search'], t: 'Alternatives on other ground', v: r ? `${r.routes.length - 1} alternative(s)` : '—', d: 'The first route is made expensive and the search runs again.' },
-        { id: 'out', k: 'out', col: 4, from: ['alt'], t: 'Routes and route card', v: rt ? `selected R${(r.sel || 0) + 1}: ${hrs(rt.timeH)} · exposed ${pct(rt.exposedFrac)}` : '—', d: 'Blue line with numbered checkpoints; route card in the bottom dock.', map: { show: ['routes'] }, shot: true },
-      ];
-    },
-    read: () => ['R1 is the best for the chosen mode; alternatives are on different ground.', 'GSP time (route card) is the doctrinal planning time; the model time is from slope only.'],
-    none: [['Fails: “Start / End point is in No-Go”', 'A or B sits on ground this column cannot use.', 'Move the point, or choose foot.'], ['Fails: “not connected”', 'NO-GO ground cuts A off from B.', 'Use foot / mules, or add a track.']],
-    brief: (r) => r && r.routes[0] ? [`Every cell got a crossing time from its slope${r.mode !== 'fastest' ? ', with extra cost where the enemy can see' : ''}.`, `The search found the cheapest way: ${km(r.routes[0].lengthM)} in ${hrs(r.routes[0].timeH)}.`] : [],
-  });
-
-  // ------------------------------------------------------------- Picquets
-  spec({
-    id: 'picquets', gp: ['picquets'], group: 'Move', title: 'Route picquets',
-    q: 'Which heights must be picqueted so the whole route is watched?',
-    result: (S) => S.picquets || null,
-    nodes: sitingNodes({
-      inT: 'Selected route', inV: (S) => (S.routes ? `R${(S.routes.sel || 0) + 1}` : 'none'), inD: 'The route to protect (run Least-time route first).',
-      screenD: 'Keep heights near the route that a picquet can climb in time; throw out the route itself, low ground and steep crags.',
-      shortD: 'Keep the most commanding heights, spaced apart.',
-      scoreT: 'What part of the route each height sees', scoreD: 'For each height, count the route cells it can see.',
-      pickD: 'Take the height that sees most of the route, then the one that sees most of what is still unwatched.',
-      list: (r) => r.picquets, outT: 'Picquets', outV: (r) => `${r.picquets.length} picquets watch ${pct(r.routeCoverage)} of the route`, outD: 'Ordered along the route with the climb time.',
-      outMap: { show: ['picquets', 'routes'] },
-    }),
-    read: () => ['Each PQ symbol is a height to picquet before the column passes.', 'Route not watched = no height sees it: move fast there or picquet with patrols.'],
-    none: [['Fails: “No heights suitable for picquets”', 'All heights fail the screen — the message lists the reasons, biggest first.', 'Raise the offset, the climb time, or lower the landform rule.']],
-    brief: (r) => r && r.trace ? [`${n(r.trace.tested)} points near the route were checked; ${n(r.trace.passed)} are heights a picquet can reach.`, `${r.picquets.length} of them together watch ${pct(r.routeCoverage)} of the route.`] : [],
-  });
-
-  // ------------------------------------------------------------- Helipads
-  spec({
-    id: 'helipads', gp: ['helipads'], group: 'Own', title: 'Helipad sites',
-    q: 'Where can a helicopter land safely, out of enemy view, close to own troops?',
-    result: (S) => S.helipads || null,
-    nodes: (r, S) => {
-      const t = r && r.trace;
-      return [
-        { id: 'in', k: 'in', col: 0, t: 'Use and positions', v: r ? `${r.params.use}: ≤ ${r.pads[0] ? r.pads[0].slopeLimitDeg : '—'}°` : '—', d: 'Regular use ≤ 4°; emergency up to 10° (light) or 20° (cargo).' },
-        { id: 'screen', k: 'step', col: 1, from: ['in'], t: 'Screen every sample point', v: t ? `${n(t.tested)} tested → ${n(t.passed)} pass` : '—', rej: rejOf(t), d: 'The whole pad must be flat enough; not seen by the enemy; not on a crest; reachable and near own troops.' },
-        { id: 'rank', k: 'step', col: 2, from: ['screen'], t: 'Rank: flattest, hidden, nearest', v: t ? `${t.candidates.length} candidates` : '—', d: 'Flatter, hidden and nearer sites rank higher.', map: { geo: () => pts(t ? t.candidates : [], 'cand') } },
-        { id: 'out', k: 'out', col: 3, from: ['rank'], t: 'Helipad sites', v: r ? `${r.pads.length} sites` : '—', d: 'Ⓗ symbols with slope and whether seen.', map: { show: ['helipads'] }, shot: true },
-      ];
-    },
-    read: () => ['Ⓗ marks a landing site; the table gives slope, size and whether the enemy sees it.'],
-    none: [['No sites', 'Nothing flat enough for the chosen use.', 'Choose emergency use, a smaller pad, or untick “concealed”.']],
-    brief: (r) => r && r.trace ? [`${n(r.trace.tested)} points were checked for a flat, hidden pad.`, rejOf(r.trace)[0] ? `Most were rejected because: ${rejOf(r.trace)[0][1]} (${n(rejOf(r.trace)[0][0])}).` : '', `${r.pads.length} sites remain.`] : [],
-  });
-
-  // ------------------------------------------------------------- Route viewshed
-  spec({
-    id: 'routeViewshed', gp: ['routeViewshed'], group: 'Move', title: 'Route viewshed',
-    q: 'From where can a route be seen — or what can a column on it see?',
-    result: (S) => S.rvs || null,
-    nodes: (r) => [
-      { id: 'line', k: 'in', col: 0, t: 'Route', v: r ? r.label : '—', d: 'A computed route, an avenue, or a line you draw.', map: { geo: (rr) => [{ t: 'line', pts: rr.line, s: 'own' }] } },
-      { id: 'st', k: 'step', col: 1, from: ['line'], t: 'Stations along the route', v: r ? `${r.stations} stations` : '—', d: 'Points at equal spacing along the line.' },
-      { id: 'vs', k: 'step', col: 2, from: ['st'], t: 'Viewshed from every station', v: r ? (r.mode === 'exposure' ? 'who can see the route' : 'what the column sees') : '—', d: 'For each station, which cells are in line of sight. Counts are added up.' },
-      { id: 'out', k: 'out', col: 3, from: ['vs'], t: 'Route viewshed', v: r ? `${F.area(r.visibleKm2)} (${pct(r.areaShare)} of the map)` : '—', d: 'Darker = sees (or is seen from) more of the route.', map: { ovl: ['routevs'], show: ['rvs'] }, shot: true },
-      { id: 'watch', k: 'out', col: 3, from: ['vs'], t: 'Best watch points', v: r ? `${r.watch.length} points` : '—', d: 'Where a picquet (or enemy OP) sees most of the route.', map: { geo: (rr) => [{ t: 'line', pts: rr.line, s: 'own' }].concat(pts(rr.watch, 'key', (q, k) => `W${k + 1}`)) } },
-    ],
-    read: () => ['Dark ground sees most of the route: picquet it, or expect enemy OPs there.'],
-    none: [['Very small area', 'The route runs in a deep valley.', 'Good for hiding — or check the observer height.']],
-    brief: (r) => r ? [`We placed ${r.stations} stations along ${r.label}.`, `From each we worked out line of sight and added the results: ${F.area(r.visibleKm2)} of ground can see the route.`] : [],
-  });
-
-  // ------------------------------------------------------------- Sector: ITGs
-  spec({
-    id: 'itgs', gp: ['itgs', 'sectorAll'], group: 'Sector', title: 'Important tactical ground (ITGs)',
-    q: 'Which heights in our sector must we hold, and how big a force does each need?',
-    result: (S) => (S.sec && S.sec.itg) || null,
-    nodes: (r) => {
-      const t = r && r.trace;
-      return [
-        { id: 'in', k: 'in', col: 0, t: 'Sector, border, terrain value', v: r ? `min value ${r.params.minDominance}` : '—', d: 'Terrain value (0–100) = how much a point commands the ground around it.' },
-        { id: 'screen', k: 'step', col: 1, from: ['in'], t: 'Screen sample points', v: t ? `${n(t.tested)} tested → ${n(t.summits)} summits` : '—',
-          rej: t ? [[t.outside, 'outside the sector'], [t.enemySide, 'on the enemy side of the border'], [t.lowValue, `terrain value under ${r.params.minDominance}`], [t.notTop, `not the top within ${km(r.params.peakRadiusM)}`]] : [], d: 'Keep only summits inside our sector, on our side, with high terrain value.' },
-        { id: 'space', k: 'step', col: 2, from: ['screen'], t: 'Space them apart', v: t ? `${t.spaced} kept, ≥ ${km(r.params.minSepM)} apart` : '—', d: 'Two tops on the same hill count as one.', map: { geo: () => pts(t ? t.tops : [], 'cand') } },
-        { id: 'measure', k: 'step', col: 3, from: ['space'], t: 'Measure each ITG', v: r ? 'area, perimeter → force; view; border' : '—', d: 'Footprint = ground within 60 m of the top; its perimeter sets the force (section / platoon / company / battalion). Also: how much of the approaches it sees, and how far from the border.' },
-        { id: 'score', k: 'step', col: 4, from: ['measure'], t: 'Score and rate', v: r ? `${Math.round(r.params.wDominance * 100)}% value + ${Math.round(r.params.wObs * 100)}% view + ${Math.round(r.params.wBorder * 100)}% border` : '—', d: `Good ≥ ${r ? r.params.good : 0.72}, Marginal ≥ ${r ? r.params.marginal : 0.58}, else Not good.` },
-        { id: 'out', k: 'out', col: 5, from: ['score'], t: 'ITGs', v: r ? `${r.itgs.length}: ${['Good', 'Marginal', 'Not good'].map((k) => `${r.itgs.filter((q) => q.rating === k).length} ${k}`).join(' · ')}` : '—', d: 'Outline, force needed and rating for each.', map: { show: ['itgs'], geo: (rr) => pts(rr.itgs, null, (q) => q.id).map((p, k) => Object.assign(p, { s: rateS(rr.itgs[k].rating) })) }, shot: true },
-      ];
-    },
-    read: () => ['Each ITG shows the force needed to hold it and a rating. Good = dominant, sees the approaches, close to the border.'],
-    none: [['Fails / no ITGs', 'No summit on our side passes the value limit.', 'Lower the minimum terrain value, or check the border is drawn the right way round.']],
-    brief: (r) => r && r.trace ? [`${n(r.trace.tested)} points were checked; ${n(r.trace.summits)} are summits on our side with high terrain value.`, `After merging tops on the same hill, ${r.trace.spaced} remain; each was measured for size, view over the approaches and distance to the border.`, `The best ${r.itgs.length} are listed with the force each needs.`] : [],
-  });
-
-  // ------------------------------------------------------------- Sector: deployment
-  spec({
-    id: 'deploy', gp: ['deploy', 'sectorAll'], group: 'Sector', title: 'Deployment plan',
-    q: 'How do we lay out border posts, platoons, companies, HQs and mortars on the ITGs?',
-    result: (S) => (S.sec && S.sec.plan) || null,
-    nodes: (r) => [
-      { id: 'in', k: 'in', col: 0, t: 'ITGs and mode', v: r ? r.modeName : '—', d: 'Forward: strength on the border. Normal: tiers in depth. Strong point: companies on the best ITGs.' },
-      { id: 'bp', k: 'step', col: 1, from: ['in'], t: 'Border posts along the line', v: r ? `${r.borderPosts.length} posts every ${km(r.params.borderPostSpacingM)}` : '—', d: 'On the most dominant ground within the set depth of the border, checked for line of sight to neighbours.', map: { geo: (rr) => pts(rr.borderPosts, null, (q) => q.id).map((p, k) => Object.assign(p, { s: rateS(rr.borderPosts[k].rating) })) } },
-      { id: 'pl', k: 'step', col: 2, from: ['in'], t: 'Platoons on ITGs', v: r ? `${r.platoons.length} platoons` : '—', d: 'Spread over the ITGs by depth tiers (or massed in strong point mode), at most 3 per ITG.', map: { geo: (rr) => pts(rr.platoons, 'own', (q) => q.id) } },
-      { id: 'co', k: 'step', col: 3, from: ['pl'], t: 'Companies and HQs', v: r ? `${r.companies.length} companies` : '—', d: 'Platoons grouped along the border; each HQ on gentle ground behind them, hidden from the enemy.' },
-      { id: 'bn', k: 'step', col: 4, from: ['co'], t: 'Bn HQ and mortars', v: r ? `${r.bnHq ? 'Bn HQ ✓' : 'no Bn HQ'}${r.bnMortar ? ` · mortar reaches ${r.bnMortar.inRange}/${r.bnMortar.of} posts` : ''}` : '—', d: 'Mortar sited to reach the most posts, hidden if possible.' },
-      { id: 'out', k: 'out', col: 5, from: ['bp', 'bn'], t: 'Deployment plan', v: r ? `~${r.troops} all ranks` : '—', d: 'Rated items in the attribute table; notes list ITGs left unoccupied.', map: { show: ['plan', 'itgs'] }, shot: true },
-    ],
-    read: (r) => ['Each post is rated: intervisible with neighbours, dominant and hidden = Good.'].concat(r ? r.notes : []),
-    none: [['No border posts', 'No border line, or no ground on our side within the depth.', 'Draw the border; raise border post depth.'], ['Few platoons placed', 'Too few ITGs.', 'Run ITGs with a lower value limit.']],
-    brief: (r) => r ? [`Mode: ${r.modeName}.`, `${r.borderPosts.length} border posts along the line, ${r.platoons.length} platoons on the ITGs in ${r.companies.length} companies.`, ...r.notes] : [],
-  });
-
-  // ------------------------------------------------------------- Sector: enemy approaches
-  spec({
-    id: 'eappr', gp: ['enemyApproaches', 'sectorAll'], group: 'Sector', title: 'Enemy approaches across the border',
-    q: 'From where across the border can the enemy reach each of our ITGs, by which way, and how much of it do we see?',
-    result: (S) => (S.sec && S.sec.appr) || null,
-    nodes: (r, S) => {
-      const t = r && r.trace, objs = t ? t.perObjective : [];
-      const itg = (id) => (S.sec.itg ? S.sec.itg.itgs.find((q) => q.id === id) : null);
-      const sum = (k) => objs.reduce((a, o) => a + o[k], 0);
-      return [
-        { id: 'border', k: 'in', col: 0, t: 'Border line', v: S.border ? `${km(M_len(S.border, S))}` : 'not drawn', d: 'The LoC as drawn. Enemy side and own side come from it.', map: { geo: () => [{ t: 'line', pts: S.border || [], s: 'border', label: 'LoC' }] } },
-        { id: 'itgs', k: 'in', col: 0, t: 'Our ITGs (objectives)', v: t ? `top ${t.objectives} ITGs` : '—', d: 'The enemy aims for the ground that matters: our best ITGs.', map: { geo: () => pts(objs, 'key', (q) => q.objective) } },
-        { id: 'entry', k: 'step', col: 1, from: ['border'], t: 'Where can he start?', v: t ? `${t.stations} points along the line → ${t.entries} entry points` : '—', rej: t ? [[t.stations - t.entries, 'no passable ground near that point']] : [],
-          d: `Every ${km(r ? r.params.entrySpacingM : 1500)} along the border, go ${km(r ? r.params.entryDepthM : 1500)} back into enemy ground and pick a spot he can move on. These are his forming-up places.`, map: { geo: (rr) => [{ t: 'line', pts: S.border || [], s: 'border' }].concat(pts(rr.entries, 'enemy', (q, k) => `E${k + 1}`)) }, shot: true },
-        { id: 'reach', k: 'step', col: 2, from: ['entry'], t: 'Which ground can he reach at all?', v: t ? `${t.reachAny} of ${t.entries} entries lead into our side` : '—', d: `Spread out from every entry point at ${r ? r.params.profile : 'foot'} speed (slope limits, NO-GO). Crags and cliffs stop him.`, map: { geo: (rr) => pts(rr.entries, 'enemy') } },
-        { id: 'goal', k: 'step', col: 2, from: ['itgs', 'reach'], t: 'Foot of each objective', v: t ? `${objs.filter((o) => o.reachable).length} of ${objs.length} ITGs reachable` : '—', rej: objs.filter((o) => !o.reachable).map((o) => [1, `${o.objective}: ringed by NO-GO within 1.2 km`]),
-          d: 'Summits are often ringed by crags. The nearest reachable spot to each ITG is where his final assault starts.', map: { geo: () => objs.map((o) => ({ t: 'pt', c: o.c, r: o.r, s: o.reachable ? 'key' : 'bad', label: `${o.objective}${o.reachable ? '' : ' ✗'}` })) } },
-        { id: 'rank', k: 'step', col: 3, from: ['goal'], t: 'Fastest entries for each objective', v: t ? `${sum('reached')} entry→objective links; ${sum('kept')} kept` : '—',
-          rej: t ? [[sum('tooClose'), `start within ${km(r.params.entrySpacingM * 1.5)} of one already used`], [sum('duplicate'), 'same path as one already kept'], [sum('spare'), `slower than the ${r.params.perObjective} kept per objective`], [sum('noPath'), 'no path found']] : [],
-          d: `For each ITG, rank all entry points by travel time and keep the ${r ? r.params.perObjective : 2} fastest that start apart and do not share the same path.`, map: { geo: (rr) => lines(rr.approaches, 'enemy', (q) => q.id).concat(pts(objs.filter((o) => o.reachable), 'key', (q) => q.objective)) } },
-        { id: 'measure', k: 'step', col: 4, from: ['rank'], t: 'Describe each approach', v: r ? `${r.approaches.length} measured` : '—', d: 'Type (valley, nullah, ridge, spur), length, time, and how much of its length on our side our posts can see.' },
-        { id: 'out', k: 'out', col: 5, from: ['measure'], t: 'Enemy approaches', v: r ? r.approaches.map((a) => `${a.id}→${a.objective}`).join(' · ') : '—',
-          d: 'Line colour = how well we watch it (green ≥ 60% seen, amber ≥ 30%, red less). Threat = hidden and fast.', map: { geo: (rr) => [{ t: 'line', pts: S.border || [], s: 'border' }].concat(rr.approaches.map((a) => ({ t: 'line', pts: a.line, s: rateS(a.rating), label: `${a.id} ${pct(a.exposure)} seen` })), pts(objs, 'key', (q) => q.objective)) }, shot: true },
-      ];
-    },
-    read: (r) => ['Each line is the enemy’s quickest way from a forming-up place across the border to one of our ITGs.', 'Green = we see most of it; red = he can come mostly unseen — that is where to put an OP, LP or mines.', r ? `Threat High = mostly unseen and quick (${r.approaches.filter((a) => a.threat === 'High').length} here).` : ''],
-    none: [['Fails: “Draw the border line first”', 'No border line.', 'Sector tab ▸ Border Line.'], ['Fails: “No passable entry points”', 'Enemy side is all NO-GO for this movement class at the set depth.', 'Use foot, or reduce the entry depth.'], ['An ITG has no approach', 'Every way to it is blocked by NO-GO, or all entries were too close to ones already used.', 'Shown in the “Foot of each objective” and “Fastest entries” boxes. A naturally protected ITG — say so.'], ['No approaches at all', 'The ITGs are unreachable for this class (e.g. vehicles).', 'Run for foot.']],
-    brief: (r) => {
-      if (!r || !r.trace) return [];
-      const t = r.trace, objs = t.perObjective;
-      const out = [`We marked ${t.stations} points along the LoC and, behind each, a place the enemy could form up: ${t.entries} usable entry points.`,
-        `Our objectives are our top ${objs.length} ITGs; ${objs.filter((o) => o.reachable).length} of them can be reached on ${r.params.profile}.`,
-        `For each ITG we let the computer find the quickest way from every entry point, and kept the ${r.params.perObjective} fastest that start in different places: ${r.approaches.length} approaches.`];
-      const worst = r.approaches.slice().sort((a, b) => a.exposure - b.exposure)[0];
-      if (worst) out.push(worst.exposure < 0.6
-        ? `The most dangerous is ${worst.id} to ${worst.objective}: a ${worst.type} approach, ${hrs(worst.timeH)}, only ${pct(worst.exposure)} seen by us.`
-        : `All approaches are well watched: even the least-watched, ${worst.id} to ${worst.objective}, is ${pct(worst.exposure)} seen by us.`);
-      const un = objs.filter((o) => !o.reachable).map((o) => o.objective);
-      if (un.length) out.push(`${un.join(', ')} cannot be reached at all — crags all round.`);
-      return out;
-    },
-  });
-  const M_len = (line, S) => { let d = 0; for (let k = 1; k < line.length; k++) d += Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]); return d * (S.grid ? S.grid.cs : 1); };
-
-  // ------------------------------------------------------------- Sector: infiltration
-  spec({
-    id: 'infil', gp: ['infiltration', 'sectorAll'], group: 'Sector', title: 'Infiltration routes',
-    q: 'How could small enemy parties slip in to our HQs unseen?',
-    result: (S) => (S.sec && S.sec.infil) || null,
-    nodes: (r, S) => {
-      const t = r && r.trace;
-      return [
-        { id: 'border', k: 'in', col: 0, t: 'Border and our targets', v: t ? `${t.targets} targets (HQs or rear ITGs)` : '—', d: 'Infiltrators go for HQs, guns and admin, not the posts.' },
-        { id: 'seen', k: 'in', col: 0, t: 'What our posts see', v: S.sec && S.sec.plan ? 'from the deployment plan' : 'no plan yet', d: 'Union of what every post and OP sees.' },
-        { id: 'entry', k: 'step', col: 1, from: ['border'], t: 'Entry points close to the line', v: t ? `${t.stations} points → ${t.entries} entries` : '—', rej: t ? [[t.stations - t.entries, 'no passable ground']] : [], d: 'Like the approaches, but only up to 800 m back: infiltrators cross close to the line.', map: { geo: () => pts(t ? t.entryPts : [], 'enemy') } },
-        { id: 'cost', k: 'step', col: 1, from: ['seen'], t: 'Make seen ground expensive', v: r ? `seen ×${1 + r.params.detectW}, nullahs −${pct(r.params.nullahBonus)}` : '—', d: 'A cell our posts see costs many times more; nullahs and dead ground cost less. The cheapest path is then the most hidden one, not the quickest.' },
-        { id: 'paths', k: 'step', col: 2, from: ['entry', 'cost'], t: 'Hidden path to the nearest targets', v: t ? `${t.tried} tried, ${t.candidates} found` : '—', rej: t ? [[t.noPath, 'no path at all']] : [], d: 'From each entry to its 2 nearest targets.' },
-        { id: 'keep', k: 'step', col: 3, from: ['paths'], t: 'Keep the least-watched distinct routes', v: t ? `${t.kept} kept` : '—', rej: t ? [[t.overlap, 'shares more than half its path with one kept'], [t.unused, `more watched than the ${r.params.infilCount} kept`]] : [], d: 'Sorted by how much of the route on our side is watched; near-duplicates dropped.' },
-        { id: 'out', k: 'out', col: 4, from: ['keep'], t: 'Infiltration routes', v: r ? r.routes.map((x) => `${x.id} ${pct(x.detectShare)} seen`).join(' · ') : '—', d: 'Threat High = under 15% watched.', map: { geo: (rr) => rr.routes.map((x) => ({ t: 'line', pts: x.line, s: rateS(x.rating), label: `${x.id} ${pct(x.detectShare)} seen` })) }, shot: true },
-      ];
-    },
-    read: () => ['Each line is a way a small party could come in while staying out of sight.', 'Red = almost unwatched: block with an ambush, LP or mines.'],
-    none: [['No routes', 'No entry connects to a target on foot.', 'Check the border and targets.'], ['All routes well watched', 'Our posts see the gaps.', 'Good — say so.']],
-    brief: (r) => r && r.trace ? [`From ${r.trace.entries} crossing places close to the line we searched for the most hidden way to our HQs: ground our posts see was made ${1 + r.params.detectW} times as costly.`, `${r.routes.length} distinct routes remain; the worst is ${r.routes[0] ? `${r.routes[0].id}, only ${pct(r.routes[0].detectShare)} watched` : '—'}.`] : [],
-  });
-
-  // ------------------------------------------------------------- Sector: enemy options
-  spec({
-    id: 'eopts', gp: ['enemyOptions', 'sectorAll'], group: 'Sector', title: 'Enemy options (courses of action)',
-    q: 'What are the enemy’s 3–4 most likely ways to attack, and which is most dangerous?',
-    result: (S) => (S.sec && S.sec.opts) || null,
-    nodes: (r) => {
-      const t = r && r.trace;
-      return [
-        { id: 'in', k: 'in', col: 0, t: 'ITGs and enemy approaches', v: t ? `${t.itgs} ITGs` : '—', d: 'From the ITG and Enemy Approaches tools.' },
-        { id: 'pair', k: 'step', col: 1, from: ['in'], t: 'For each ITG: main + supporting thrust', v: t ? `${t.scored} ITGs with an approach` : '—', rej: t ? [[t.noApproach, 'ITG has no approach (unreachable)']] : [], d: 'Main thrust = the approach most hidden and fastest. Supporting thrust = another approach from a direction at least 40° different.' },
-        { id: 'score', k: 'step', col: 2, from: ['pair'], t: 'Score each option', v: '35% unseen + 25% speed + 20% two directions + 20% value of ITG', d: 'Higher = more attractive to the enemy.' },
-        { id: 'out', k: 'out', col: 3, from: ['score'], t: 'Enemy options', v: r ? r.options.map((o) => `${o.id.replace('Option ', '')}: ${o.objective}`).join(' · ') : '—', d: 'Option A = most likely. “Most dangerous” = goes for our most valuable ITG.', map: { geo: (rr) => [].concat(...rr.options.map((o) => o.lines.map((l, k) => ({ t: 'line', pts: l, s: k ? 'thin' : 'enemy', label: k ? '' : o.id })))).concat(rr.options.map((o) => ({ t: 'pt', c: o.objectiveRef.c, r: o.objectiveRef.r, s: 'key', label: o.objective }))) }, shot: true },
-      ];
-    },
-    read: (r) => (r ? r.options.map((o) => `${o.id}${o.label ? ` (${o.label})` : ''}: ${o.summary} ${o.recommendation}`) : []),
-    none: [['Fails: “Run Enemy Approaches first”', 'Options are built from approaches.', 'Run Enemy Approaches.'], ['Fewer than 3 options', 'Few ITGs can be reached.', 'Our ground is naturally strong — say so.']],
-    brief: (r) => (r ? [`Each ITG the enemy can reach gives one option: his best hidden, fast approach, plus a second from another direction if there is one.`, `Ranked by how hidden, fast, multi-directional and valuable: ${r.options.map((o) => `${o.id} on ${o.objective}`).join(', ')}.`] : []),
-  });
-
-  const borderGeo = (S) => (S.border ? [{ t: 'line', pts: S.border, s: 'border', label: 'LoC' }] : []);
-  SPECS.filter((sp) => sp.group === 'Sector').forEach((sp) => (sp.base = borderGeo));
-  X.SPECS = SPECS;
-  X.specFor = (gpId) => { const s = SPECS.find((x) => x.gp.includes(gpId)); return s ? s.id : null; };
-  X.get = (id) => SPECS.find((x) => x.id === id);
-
-  // =====================================================================
-  // Failures and last runs (from the Geoprocessing pane)
-  // =====================================================================
-  X.fail = {};
-  GP.onResult = (gpId, err) => {
-    if (gpId === 'weapons') X.lastWeapon = pv('weapons', 'weaponId');
-    for (const s of SPECS) if (s.gp.includes(gpId)) { if (err) X.fail[s.id] = { msg: err, at: Date.now() }; else delete X.fail[s.id]; }
-    if (X.cur && X.visible) X.render();
-  };
-
-  /** Evaluate a spec against the current session. */
-  X.evaluate = (sp) => {
-    const S = UI.S;
-    let r = null;
-    try { r = sp.result(S); } catch (e) { r = null; }
-    let nodes;
-    try { nodes = sp.nodes(r, S); } catch (e) { console.debug('explain', sp.id, e); r = null; nodes = sp.nodes(null, S); }
-    nodes.forEach((nd) => { nd.rej = (nd.rej || []).filter((x) => x[0] && x[0] !== 0); });
-    let script = [];
-    try { script = (sp.brief(r) || []).filter(Boolean); } catch (e) { script = []; }
-    let read = [];
-    try { read = (sp.read(r) || []).filter(Boolean); } catch (e) { read = []; }
-    return { r, nodes, script, read, fail: X.fail[sp.id] || null };
-  };
-
-  // =====================================================================
-  // Diagram (SVG)
-  // =====================================================================
-  const wrap = (s, max) => {
-    const out = [];
-    let line = '';
-    for (const w of String(s).split(/\s+/)) {
-      if (line && (line + ' ' + w).length > max) { out.push(line); line = w; } else line = line ? line + ' ' + w : w;
-    }
-    if (line) out.push(line);
-    return out;
-  };
-  /**
-   * Lay out and draw a model. opts: { print: black-only, sel: node id, failNode }.
-   * Inputs are ovals, process steps rectangles, outputs rounded double-bordered ovals.
-   */
-  X.svg = (ev, opts = {}) => {
-    const BW = 236, GX = 36, GY = 34, PAD = 14, LH = 14.5, CH = 37;
-    const P = opts.print;
-    const col = {}, boxes = {};
-    ev.nodes.forEach((nd) => {
-      const tl = wrap(nd.t, CH - 4), vl = nd.v && nd.v !== '—' ? wrap(nd.v, CH) : [ev.r ? '' : '—'].filter(Boolean);
-      const rl = (nd.rej || []).slice(0, 5).map(([k, why]) => wrap(`✗ ${typeof k === 'number' ? n(k) : k} ${why}`, CH)).flat();
-      const h = 18 + (tl.length + vl.length + rl.length) * LH + (rl.length ? 6 : 0) + (nd.k === 'step' ? 4 : 10);
-      boxes[nd.id] = { nd, tl, vl, rl, h };
-      (col[nd.col] = col[nd.col] || []).push(nd.id);
-    });
-    // top-to-bottom flow: each level is a row, its boxes side by side
-    const levels = Object.keys(col).map(Number).sort((a, b) => a - b);
-    const maxN = Math.max(...levels.map((c) => col[c].length));
-    const W = PAD * 2 + maxN * BW + (maxN - 1) * GX;
-    let y = PAD;
-    levels.forEach((c) => {
-      const ids = col[c], rowH = Math.max(...ids.map((id) => boxes[id].h));
-      const rowW = ids.length * BW + (ids.length - 1) * GX;
-      ids.forEach((id, k) => { const b = boxes[id]; b.x = (W - rowW) / 2 + k * (BW + GX); b.y = y + (rowH - b.h) / 2; });
-      y += rowH + GY;
-    });
-    const H = y - GY + PAD;
-    const C = P ? { inF: '#fff', inS: '#000', stF: '#fff', stS: '#000', outF: '#fff', outS: '#000', txt: '#000', rej: '#000', arr: '#000', sel: '#000' }
-      : { inF: '#dbe8fb', inS: '#3b6fe0', stF: '#fff4c8', stS: '#c49a00', outF: '#d9f1da', outS: '#2f8a3b', txt: '#1b1f24', rej: '#b3261e', arr: '#5b6573', sel: '#e0662b' };
-    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;height:auto" font-family="Arial, Helvetica, sans-serif" font-size="12">`;
-    s += `<defs><marker id="mvArr${P ? 'p' : ''}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="${C.arr}"/></marker></defs>`;
-    // connectors first
-    ev.nodes.forEach((nd) => (nd.from || []).forEach((f) => {
-      const a = boxes[f], b = boxes[nd.id];
-      if (!a || !b) return;
-      const x1 = a.x + BW / 2, y1 = a.y + a.h, x2 = b.x + BW / 2, y2 = b.y, my = (y1 + y2) / 2;
-      s += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2 - 2}" fill="none" stroke="${C.arr}" stroke-width="1.4" marker-end="url(#mvArr${P ? 'p' : ''})"/>`;
-    }));
-    ev.nodes.forEach((nd, idx) => {
-      const b = boxes[nd.id], { x, y, h } = b;
-      const fill = nd.k === 'in' ? C.inF : nd.k === 'out' ? C.outF : C.stF, stroke = nd.k === 'in' ? C.inS : nd.k === 'out' ? C.outS : C.stS;
-      const isFail = opts.failNode === nd.id, isSel = opts.sel === nd.id;
-      const sw = isSel ? 3 : 1.5, st = isFail ? (P ? '#000' : '#b3261e') : isSel ? C.sel : stroke;
-      s += `<g class="mv-node${ev.r ? '' : ' empty'}" data-node="${nd.id}" data-idx="${idx}" style="cursor:pointer">`;
-      if (nd.k === 'step') s += `<rect x="${x}" y="${y}" width="${BW}" height="${h}" rx="3" fill="${fill}" stroke="${st}" stroke-width="${sw}"${isFail ? ' stroke-dasharray="5 3"' : ''}/>`;
-      else {
-        const rx = Math.min(BW / 2, h / 2 + 14);
-        s += `<rect x="${x}" y="${y}" width="${BW}" height="${h}" rx="${rx}" fill="${fill}" stroke="${st}" stroke-width="${sw}"/>`;
-        if (nd.k === 'out') s += `<rect x="${x + 4}" y="${y + 4}" width="${BW - 8}" height="${h - 8}" rx="${Math.max(2, rx - 4)}" fill="none" stroke="${st}" stroke-width="1"/>`;
-      }
-      const tx = x + BW / 2;
-      let ty = y + (nd.k === 'step' ? 17 : 21);
-      if (nd.k === 'step') s += `<text x="${x + 6}" y="${y + 12}" font-size="9.5" fill="${C.txt}" opacity="0.7">${ev.nodes.filter((q) => q.k === 'step').indexOf(nd) + 1}</text>`;
-      b.tl.forEach((l) => { s += `<text x="${tx}" y="${ty}" text-anchor="middle" font-weight="bold" fill="${C.txt}">${esc(l)}</text>`; ty += LH; });
-      b.vl.forEach((l) => { s += `<text x="${tx}" y="${ty}" text-anchor="middle" fill="${C.txt}">${esc(l)}</text>`; ty += LH; });
-      if (b.rl.length) { ty += 4; b.rl.forEach((l) => { s += `<text x="${tx}" y="${ty}" text-anchor="middle" font-size="11" ${P ? 'font-style="italic"' : ''} fill="${C.rej}">${esc(l)}</text>`; ty += LH; }); }
-      s += '</g>';
-    });
-    s += '</svg>';
-    return { svg: s, W, H };
-  };
-
-  /** Which node a failure message points at, and a plain fix. */
-  const failInfo = (sp, ev) => {
-    if (!ev.fail) return null;
-    const row = sp.none.find(([what]) => /^Fails/.test(what) && ev.fail.msg.toLowerCase().includes(what.replace(/^Fails:\s*“?/, '').replace(/[”…]/g, '').trim().toLowerCase().slice(0, 18)));
-    const scr = ev.nodes.find((nd) => nd.id === 'screen' || nd.id === 'entry' || nd.id === 'def') || ev.nodes.find((nd) => nd.k === 'step');
-    return { msg: ev.fail.msg, why: row ? row[1] : 'The tool stopped before producing a result.', fix: row ? row[2] : 'Read the message; adjust the input named in it and run again.', node: scr ? scr.id : null };
-  };
-
-  // =====================================================================
-  // Model view (center pane)
-  // =====================================================================
+  const MB = (UI.MB = {});
+  const M = UI.M, F = UI.F;
   const $ = (id) => document.getElementById(id);
-  X.cur = SPECS[0].id;
-  X.sel = null;
-  X.visible = false;
-  X.tab = 'read';
+  const esc = (s) => String(s === undefined || s === null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const KEY = 'mtnai.model.v1';
+  const CW = 178, RH = 92, X0 = 30, Y0 = 30;
+  const SIZE = { tool: [138, 46], var: [146, 50] };
 
-  X.open = (id) => {
-    if (id) X.cur = id;
-    X.sel = null;
-    UI.app.setView('model');
+  MB.model = null;      // { template, name, question, nodes }
+  MB.rep = null;        // last run report
+  MB.sel = null;
+  MB.view = { x: 0, y: 0, k: 1 };
+  MB.display = {};      // varId -> true (shown on the map)
+  MB.running = false;
+
+  // ---------------------------------------------------------------- model helpers
+  const nodes = () => MB.model.nodes;
+  const node = (id) => nodes().find((n) => n.id === id);
+  const isVar = (n) => n.kind !== 'tool';
+  const graph = () => { try { return M.modelGraph(MB.model); } catch (e) { return null; } };
+  const ctxNow = () => { const S = UI.S; return { own: S.markers.own, threat: S.markers.threat, a: S.markers.a, b: S.markers.b, border: S.border }; };
+  const place = (n) => { if (n.x === undefined) { n.x = X0 + n.col * CW; n.y = Y0 + n.row * RH; } };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ model: MB.model, display: MB.display })); } catch (e) { /* storage off */ } };
+
+  MB.load = (templateId) => {
+    const t = M.MODEL_TEMPLATES[templateId];
+    const m = t.build(ctxNow());
+    MB.model = { template: templateId, name: t.name, question: t.question, nodes: m.nodes };
+    MB.model.nodes.forEach(place);
+    MB.rep = null; MB.sel = null; MB.display = {};
+    MB.model.nodes.forEach((n) => { if (n.display) MB.display[n.id] = true; });
+    clearMap();
+    MB.fit();
+    save();
   };
-  X.show = (on) => {
-    X.visible = on;
+  const restore = () => {
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (o && o.model && o.model.nodes) { MB.model = o.model; MB.display = o.display || {}; MB.model.nodes.forEach(place); return true; }
+    } catch (e) { /* ignore */ }
+    return false;
+  };
+
+  /** Variables that feed a tool (explicit parameters and names used in a Raster Calculator expression). */
+  const edges = () => {
+    const out = [];
+    const G = graph();
+    if (!G) return out;
+    for (const t of nodes().filter((n) => n.kind === 'tool')) {
+      for (const v of G.reads(t)) out.push([v, t.id]);
+      for (const v of Object.values(t.outputs || {})) out.push([t.id, v]);
+    }
+    return out;
+  };
+
+  /** ArcGIS-style element state. */
+  const stateOf = (n) => {
+    const r = MB.rep;
+    if (n.kind === 'tool') {
+      const s = r && r.tools[n.id];
+      if (s && s.state === 'failed') return 'failed';
+      if (s && (s.state === 'done' || s.state === 'cached')) return 'run';
+      return readyTool(n) ? 'ready' : 'notready';
+    }
+    if (n.kind === 'derived') return r && r.vars[n.id] ? 'run' : (producerReady(n) ? 'ready' : 'notready');
+    return hasValue(n) ? 'ready' : 'notready';
+  };
+  const hasValue = (n) => n.src === 'dem' ? !!UI.S.grid : n.value !== undefined && n.value !== null && n.value !== '' && !(Array.isArray(n.value) && !n.value.length);
+  const readyTool = (t) => {
+    const def = M.GPT[t.tool];
+    if (!def) return false;
+    for (const pd of def.params) {
+      if (pd.dir === 'out' || pd.optional) continue;
+      const vid = t.inputs && t.inputs[pd.k];
+      if (vid) { const v = node(vid); if (!v) return false; if (v.kind !== 'derived' && !hasValue(v)) return false; if (v.kind === 'derived' && !producerReady(v)) return false; continue; }
+      const val = t.values && pd.k in t.values ? t.values[pd.k] : pd.def;
+      if (val === undefined || val === null || val === '') return false;
+    }
+    return true;
+  };
+  const producerReady = (v, seen = new Set()) => {
+    const t = nodes().find((n) => n.kind === 'tool' && Object.values(n.outputs || {}).includes(v.id));
+    if (!t || seen.has(t.id)) return false;
+    seen.add(t.id);
+    return readyTool(t);
+  };
+
+  // ---------------------------------------------------------------- short texts on the diagram
+  const valueText = (n) => {
+    const v = n.value;
+    if (n.src === 'dem') return UI.S.grid ? `${UI.S.grid.w}×${UI.S.grid.h} @ ${UI.S.grid.cs} m` : 'no DEM';
+    if (v === undefined || v === null || v === '') return '(not set)';
+    if (n.dt === 'point') return F.listRef(v.r, v.c);
+    if (n.dt === 'line') return `${v.length} vertices`;
+    if (n.dt === 'profile') return (M.MOVEMENT_PROFILES[v] || {}).name ? M.MOVEMENT_PROFILES[v].name.split(' (')[0] : v;
+    if (n.dt === 'remap') return M.parseRemap(v).map((r) => `≤${r.hi}°→${r.name || r.v}`).join(' ');
+    return String(v);
+  };
+  const resultText = (n) => {
+    const s = MB.rep && MB.rep.vars[n.id];
+    if (!s) return '';
+    if (s.dt === 'raster') {
+      if (s.kind === 'backlink') return 'step-back directions';
+      if (s.kind === 'class' && s.classes) return Object.entries(s.counts || {}).map(([k, f]) => `${s.classes[k] || k} ${Math.round(f * 100)}%`).join(' · ');
+      if (s.kind === 'count') return `seen: ${Math.round(s.share * 100)}% of map`;
+      if (s.min === null) return 'all NoData';
+      const fmt = (x) => (Math.abs(x) >= 100 ? Math.round(x) : x.toFixed(x < 10 ? 2 : 1));
+      return `${fmt(s.min)}–${fmt(s.max)} ${s.unit || ''}${s.nodata > 0.005 ? ` · NoData ${Math.round(s.nodata * 100)}%` : ''}`;
+    }
+    if (s.dt === 'points') return `${s.n} point${s.n === 1 ? '' : 's'}${s.dropped && s.dropped.length ? ` (${s.dropped.length} dropped)` : ''}`;
+    if (s.dt === 'lines') return s.lines.map((l) => `${l.label} ${l.attrs && l.attrs.timeH != null ? F.time(l.attrs.timeH) : ''}`).join(' · ') + (s.skipped && s.skipped.length ? ` · ${s.skipped.length} unreachable` : '');
+    if (s.dt === 'table') return `${s.rows.length} row${s.rows.length === 1 ? '' : 's'}`;
+    return '';
+  };
+
+  // ---------------------------------------------------------------- diagram
+  const wrapT = (s, max) => { const o = []; let l = ''; for (const w of String(s).split(/\s+/)) { if (l && (l + ' ' + w).length > max) { o.push(l); l = w; } else l = l ? l + ' ' + w : w; } if (l) o.push(l); return o; };
+  const COL = {
+    data: ['#a9c8f5', '#2f5fb8'], value: ['#dbe8fb', '#3b6fe0'], derived: ['#b9e4ac', '#2f8a3b'], tool: ['#ffe08a', '#b88a00'],
+    notready: ['#eceef1', '#9aa1ab'], failed: '#d0342c', sel: '#e0662b',
+  };
+  let POS = null; // print layout override: id -> {x, y}
+  const at = (n) => (POS ? POS[n.id] : n);
+  const center = (n) => { const [w, h] = n.kind === 'tool' ? SIZE.tool : SIZE.var; const q = at(n); return [q.x + w / 2, q.y + h / 2, w, h]; };
+  MB.svg = (opts = {}) => {
+    const P = !!opts.print, VERT = !!opts.vertical;
+    // vertical (print) layout: the diagram turned so it flows top to bottom and fits a page
+    POS = VERT ? Object.fromEntries(nodes().map((n) => [n.id, { x: X0 + ((n.y - Y0) / RH) * 165, y: Y0 + ((n.x - X0) / CW) * 74 }])) : null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes().forEach((n) => { const [, , w, h] = center(n), q = at(n); minX = Math.min(minX, q.x); minY = Math.min(minY, q.y); maxX = Math.max(maxX, q.x + w); maxY = Math.max(maxY, q.y + h + (VERT ? 4 : 30)); });
+    let s = '';
+    // connectors
+    for (const [a, b] of edges()) {
+      const A = node(a), B = node(b);
+      if (!A || !B) continue;
+      const [ax, ay, aw] = center(A), [bx, by, bw] = center(B);
+      const x1 = ax + aw / 2, x2 = bx - bw / 2;
+      const back = x2 < x1 + 10;
+      const y1v = ay + 25, y2v = by - 25;
+      const d = VERT ? (y2v > y1v + 4 ? `M${ax},${y1v} C${ax},${(y1v + y2v) / 2} ${bx},${(y1v + y2v) / 2} ${bx},${y2v - 3}` : `M${ax + aw / 2},${ay} C${ax + aw / 2 + 60},${ay} ${bx + bw / 2 + 60},${by} ${bx + bw / 2 + 3},${by}`) : back ? `M${ax},${ay + 20} C${ax},${ay + 70} ${bx},${by + 70} ${bx},${by + 22}` : `M${x1},${ay} C${(x1 + x2) / 2},${ay} ${(x1 + x2) / 2},${by} ${x2 - 3},${by}`;
+      const isVal = A.kind === 'value';
+      s += `<path d="${d}" fill="none" stroke="${P ? '#000' : isVal ? '#7a8aa6' : '#4b5563'}" stroke-width="${isVal ? 1.1 : 1.5}"${isVal ? ' stroke-dasharray="4 3"' : ''} marker-end="url(#mbArr${P ? 'P' : ''})"/>`;
+    }
+    for (const n0 of nodes()) {
+      const n = Object.assign({}, n0, at(n0));
+      const st = stateOf(n0), [cx, cy, w, h] = center(n0);
+      const shadow = st === 'run' && !P ? ' filter="url(#mbShadow)"' : '';
+      let [fill, stroke] = n.kind === 'tool' ? COL.tool : COL[n.kind];
+      if (st === 'notready' && !P) [fill, stroke] = COL.notready;
+      if (P) { fill = '#fff'; stroke = '#000'; }
+      const sw = MB.sel === n.id && !P ? 3 : st === 'failed' ? 2.6 : 1.4;
+      const sk = MB.sel === n.id && !P ? COL.sel : st === 'failed' ? COL.failed : stroke;
+      s += `<g class="mb-n" data-id="${n.id}"${shadow}>`;
+      if (n.kind === 'tool') s += `<rect x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="9" fill="${fill}" stroke="${sk}" stroke-width="${sw}"/>`;
+      else {
+        s += `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${h / 2}" fill="${fill}" stroke="${sk}" stroke-width="${sw}"/>`;
+        if (P && n.kind === 'derived') s += `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2 - 4}" ry="${h / 2 - 4}" fill="none" stroke="#000" stroke-width="0.8"/>`;
+        if (P && n.kind === 'value') s += `<ellipse cx="${cx}" cy="${cy}" rx="${w / 2}" ry="${h / 2}" fill="none" stroke="#000" stroke-width="1" stroke-dasharray="3 2"/>`;
+      }
+      const title = wrapT(n.name, n.kind === 'tool' ? 18 : 19);
+      const sub = n.kind === 'value' || n.kind === 'data' ? valueText(n) : '';
+      const lines = title.slice(0, 2).map((t) => [t, 'b']).concat(sub ? [[sub.length > 24 ? sub.slice(0, 23) + '…' : sub, 'v']] : []);
+      let ty = cy - ((lines.length - 1) * 13) / 2 + 4;
+      for (const [t, k] of lines) { s += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="${(k === 'b' ? 11.5 : 10.5) + (VERT ? 1.5 : 0)}" ${k === 'b' ? 'font-weight="600"' : 'fill-opacity="0.8"'} fill="#111">${esc(t)}</text>`; ty += 13; }
+      if (n.P) s += `<text x="${n.x + w - (n.kind === 'tool' ? 8 : 14)}" y="${n.y + 11}" font-size="11" font-weight="700" fill="${P ? '#000' : '#1d4ed8'}">P</text>`;
+      if (n.kind === 'derived' && MB.display[n.id] && !P) s += `<text x="${n.x + 10}" y="${n.y + 11}" font-size="10" font-weight="700" fill="#1f6b2c">D</text>`;
+      if (n.kind === 'tool' && MB.rep && MB.rep.tools[n.id] && MB.rep.tools[n.id].ms !== undefined && !P) s += `<text x="${n.x + w - 4}" y="${n.y + h - 4}" text-anchor="end" font-size="9" fill="#6b4f00">${MB.rep.tools[n.id].state === 'cached' ? 'cached' : `${MB.rep.tools[n.id].ms} ms`}</text>`;
+      if (n.kind === 'tool') { const num = MB.rep ? MB.rep.order.indexOf(n.id) + 1 : 0; if (num) s += `<text x="${n.x + 6}" y="${n.y + 12}" font-size="9.5" fill="#6b4f00">${num}</text>`; }
+      const res = n.kind === 'derived' ? resultText(n) : n.kind === 'tool' && MB.rep && MB.rep.tools[n.id] && MB.rep.tools[n.id].state === 'failed' ? MB.rep.tools[n.id].msg : '';
+      if (res && !VERT) wrapT(res, 34).slice(0, 2).forEach((t, k) => { s += `<text x="${cx}" y="${n.y + h + 13 + k * 12}" text-anchor="middle" font-size="10" fill="${n.kind === 'tool' ? (P ? '#000' : '#b3261e') : P ? '#000' : '#1f5130'}"${P && n.kind === 'tool' ? ' font-style="italic"' : ''}>${esc(t)}</text>`; });
+      s += '</g>';
+    }
+    POS = null;
+    const W = maxX - minX + 60, H = maxY - minY + 50;
+    const defs = `<defs><marker id="mbArr${P ? 'P' : ''}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="${P ? '#000' : '#4b5563'}"/></marker>
+      <filter id="mbShadow" x="-20%" y="-20%" width="150%" height="160%"><feDropShadow dx="3" dy="3" stdDeviation="1.5" flood-color="#000" flood-opacity="0.35"/></filter></defs>`;
+    return { inner: defs + s, box: [minX - 30, minY - 25, W, H] };
+  };
+
+  // ---------------------------------------------------------------- view
+  MB.visible = false;
+  MB.show = (on) => {
+    MB.visible = on;
     const el = $('modelView');
     if (!el) return;
     el.hidden = !on;
-    if (on) X.render();
+    if (on) { if (!MB.model && !restore()) MB.load('route'); buildShell(); MB.render(); }
+  };
+  MB.open = (templateId) => {
+    if (templateId) MB.load(templateId); // fresh, with the current own / enemy / A / B points and border
+    UI.app.setView('model');
+  };
+  MB.fit = () => {
+    const el = $('mbCanvas');
+    if (!el || !MB.model) return;
+    const b = MB.svg().box, W = el.clientWidth || 900, H = el.clientHeight || 500;
+    // readable first: never below 0.7 — a wide model starts at its inputs (left) and is panned
+    const k = Math.max(0.7, Math.min(1.2, W / b[2], H / b[3]));
+    MB.view = { k, x: b[2] * k <= W ? (W - b[2] * k) / 2 - b[0] * k : 16 - b[0] * k, y: b[3] * k <= H ? (H - b[3] * k) / 2 - b[1] * k : 16 - b[1] * k };
   };
 
-  X.render = () => {
+  const buildShell = () => {
     const el = $('modelView');
-    if (!el || el.hidden) return;
-    const sp = X.get(X.cur), ev = X.evaluate(sp), fi = failInfo(sp, ev);
-    const has = (s) => { try { return !!s.result(UI.S); } catch (e) { return false; } };
-    const opts = ['Ground', 'Enemy', 'Own', 'Move', 'Sector'].map((g) => `<optgroup label="${g}">${SPECS.filter((s) => s.group === g).map((s) => `<option value="${s.id}"${s.id === X.cur ? ' selected' : ''}>${has(s) ? '● ' : X.fail[s.id] ? '✗ ' : '○ '}${esc(s.title)}</option>`).join('')}</optgroup>`).join('');
-    const d = X.svg(ev, { sel: X.sel, failNode: fi && fi.node });
-    const nd = X.sel ? ev.nodes.find((q) => q.id === X.sel) : null;
-    const state = fi ? `<div class="mv-state err"><b>Last run failed:</b> ${esc(fi.msg)}<br><b>Why:</b> ${esc(fi.why)}<br><b>What to do:</b> ${esc(fi.fix)}</div>`
-      : ev.r ? '<div class="mv-state ok">Showing this session’s last result. Click a box to see that step on the map.</div>'
-        : '<div class="mv-state">Not run yet — the diagram shows how the tool works. Run it to see the numbers.</div>';
-    const side = nd
-      ? `<div class="mv-card"><div class="mv-kind ${nd.k}">${nd.k === 'in' ? 'Input' : nd.k === 'out' ? 'Output' : 'Step'}</div><h3>${esc(nd.t)}</h3><p>${esc(nd.d || '')}</p>${nd.v ? `<p><b>This run:</b> ${esc(nd.v)}</p>` : ''}${nd.rej && nd.rej.length ? `<p><b>Thrown out:</b></p><ul>${nd.rej.map(([k, w]) => `<li>${typeof k === 'number' ? n(k) : esc(k)} — ${esc(w)}</li>`).join('')}</ul>` : ''}${ev.r && nd.map ? '<button class="btn" data-act="brief-here">Show this step on the map</button>' : ''}</div>`
-      : '';
-    const tabs = [['read', 'How to read the result'], ['none', 'Nothing found / failed'], ['script', 'Brief script']];
-    const body = X.tab === 'read' ? (ev.read.length ? `<ul>${ev.read.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="hint">—</p>')
-      : X.tab === 'none' ? `<table class="mv-tbl"><tr><th>You see</th><th>Why</th><th>What to do</th></tr>${sp.none.map((x) => `<tr>${x.map((y) => `<td>${esc(y)}</td>`).join('')}</tr>`).join('')}</table>`
-        : ev.script.length ? `<ol>${ev.script.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : '<p class="hint">Run the tool to get a script with this run’s numbers.</p>';
-    el.innerHTML = `<div class="mv-head"><select id="mvTool" title="Tool">${opts}</select><div class="mv-q">${esc(sp.q)}</div>
-      <button class="btn" data-act="run">Open tool</button><button class="btn primary" data-act="brief"${ev.r ? '' : ' disabled'}>▶ Brief on map</button><button class="btn" data-act="print">Print / PDF</button></div>
-      ${state}
-      <div class="mv-body"><div class="mv-diagram">${d.svg}<div class="mv-key"><span class="k in">Input</span><span class="k step">Step</span><span class="k out">Output</span><span class="k rej">✗ thrown out, and why</span></div></div>
-      <div class="mv-side">${side}<div class="mv-tabs">${tabs.map(([k, t]) => `<button data-tab="${k}" class="${X.tab === k ? 'on' : ''}">${t}</button>`).join('')}</div><div class="mv-tab">${body}</div></div></div>`;
-    $('mvTool').onchange = (e) => { X.cur = e.target.value; X.sel = null; X.render(); };
-    el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { X.tab = b.dataset.tab; X.render(); }));
-    el.querySelectorAll('.mv-node').forEach((g) => {
-      g.onclick = () => { X.sel = g.dataset.node; X.render(); };
-      g.ondblclick = () => { if (ev.r) X.brief(X.cur, +g.dataset.idx); };
+    if (el.dataset.built) return;
+    el.dataset.built = '1';
+    const tpl = Object.entries(M.MODEL_TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.name)}</option>`).join('');
+    const cats = {};
+    Object.entries(M.GPT).forEach(([k, d]) => (cats[d.cat] = cats[d.cat] || []).push([k, d]));
+    el.innerHTML = `<div class="mb-bar">
+        <label class="mb-lbl">Model</label><select id="mbTpl">${tpl}</select>
+        <button class="btn primary" data-mb="run" title="Run the whole model (F5)">▶ Run</button>
+        <button class="btn" data-mb="validate" title="Check every element is ready">Validate</button>
+        <span class="mb-sep"></span>
+        <select id="mbAddTool"><option value="">Add tool…</option>${Object.entries(cats).map(([c, l]) => `<optgroup label="${esc(c)}">${l.map(([k, d]) => `<option value="${k}">${esc(d.name)}</option>`).join('')}</optgroup>`).join('')}</select>
+        <select id="mbAddVar"><option value="">Add variable…</option><option value="number">Number</option><option value="string">Text</option><option value="point">Point</option><option value="line">Line (border)</option><option value="profile">Movement class</option></select>
+        <button class="btn" data-mb="layout" title="Auto layout">Auto layout</button><button class="btn" data-mb="fit" title="Fit to window">Fit</button>
+        <span class="mb-sep"></span>
+        <button class="btn" data-mb="reset" title="Reload this model with the current own / enemy / A / B points and border">Reset</button>
+        <button class="btn" data-mb="export">Export</button><label class="btn file">Import<input type="file" id="mbImport" accept=".json"></label>
+        <button class="btn" data-mb="report">Report</button>
+        <span class="mb-status" id="mbStatus"></span></div>
+      <div class="mb-q" id="mbQ"></div>
+      <div class="mb-body"><div id="mbCanvas" class="mb-canvas"><svg id="mbSvg"><g id="mbG"></g></svg>
+        <div class="mb-legend"><span class="k data">Input data</span><span class="k value">Value (editable)</span><span class="k tool">Tool</span><span class="k derived">Derived data</span><span class="k nr">Not ready</span><span class="k run">Has run (shadow)</span><span>P = model parameter · D = added to map</span></div></div>
+        <div class="mb-side" id="mbSide"></div></div>`;
+    $('mbTpl').onchange = (e) => { MB.load(e.target.value); MB.render(); };
+    el.querySelector('[data-mb=run]').onclick = () => MB.run();
+    el.querySelector('[data-mb=validate]').onclick = () => validate();
+    el.querySelector('[data-mb=layout]').onclick = () => { autoLayout(); MB.fit(); MB.render(); save(); };
+    el.querySelector('[data-mb=fit]').onclick = () => { MB.fit(); MB.render(); };
+    el.querySelector('[data-mb=reset]').onclick = () => { MB.load(MB.model.template); MB.render(); };
+    el.querySelector('[data-mb=export]').onclick = () => exportModel();
+    el.querySelector('[data-mb=report]').onclick = () => MB.print();
+    $('mbImport').onchange = (e) => importModel(e.target.files[0]);
+    $('mbAddTool').onchange = (e) => { if (e.target.value) addTool(e.target.value); e.target.value = ''; };
+    $('mbAddVar').onchange = (e) => { if (e.target.value) addVar(e.target.value); e.target.value = ''; };
+    // pan / zoom / drag
+    const svg = $('mbSvg');
+    let drag = null;
+    svg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = svg.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+      const f = Math.exp(-e.deltaY * 0.0015), k = Math.max(0.25, Math.min(2.5, MB.view.k * f));
+      MB.view.x = mx - ((mx - MB.view.x) * k) / MB.view.k; MB.view.y = my - ((my - MB.view.y) * k) / MB.view.k; MB.view.k = k;
+      applyView();
+    }, { passive: false });
+    svg.addEventListener('mousedown', (e) => {
+      const g = e.target.closest('.mb-n');
+      if (e.button !== 0) return;
+      if (g) { const n = node(g.dataset.id); drag = { n, sx: e.clientX, sy: e.clientY, x: n.x, y: n.y, moved: false }; }
+      else drag = { pan: true, sx: e.clientX, sy: e.clientY, x: MB.view.x, y: MB.view.y };
     });
-    el.querySelector('[data-act=run]').onclick = () => { UI.app.setView('2d'); UI.GP.open(sp.gp[0]); };
-    el.querySelector('[data-act=brief]').onclick = () => X.brief(X.cur, 0);
-    el.querySelector('[data-act=print]').onclick = () => X.print();
-    const bh = el.querySelector('[data-act=brief-here]');
-    if (bh) bh.onclick = () => X.brief(X.cur, ev.nodes.indexOf(nd));
-  };
-
-  // =====================================================================
-  // Brief mode (map)
-  // =====================================================================
-  let saved = null;
-  X.briefing = null;
-  const LAYERS = ['key', 'posts', 'weapons', 'mfd', 'routes', 'avenues', 'picquets', 'helipads', 'hostileOps', 'secArea', 'ridges', 'nullahs', 'itgs', 'plan', 'eappr', 'infil', 'eopts', 'bwatch', 'firegaps', 'rvs', 'obstacles'];
-  const saveState = () => {
-    const S = UI.S;
-    if (saved) return;
-    saved = { show: Object.assign({}, S.show), ovl: Object.fromEntries(Object.entries(S.overlays).map(([k, o]) => [k, o.visible])), sel: S.sel };
-  };
-  const restoreState = () => {
-    if (!saved) return;
-    const S = UI.S;
-    Object.assign(S.show, saved.show);
-    Object.entries(saved.ovl).forEach(([k, v]) => { if (S.overlays[k]) S.overlays[k].visible = v; });
-    saved = null;
-  };
-  /** Steps worth showing on the map. */
-  const briefSteps = (ev) => ev.nodes.map((nd, i) => ({ nd, i })).filter((x) => x.nd.map || x.nd.k !== 'in');
-
-  X.brief = (id, idx = 0) => {
-    const sp = X.get(id), ev = X.evaluate(sp);
-    if (!ev.r) return;
-    saveState();
-    const steps = briefSteps(ev);
-    let k = steps.findIndex((s) => s.i === idx);
-    if (k < 0) k = 0;
-    X.briefing = { id, k, steps, ev, sp };
-    UI.app.setView('2d');
-    X.applyBrief();
-    fitBrief();
-  };
-  X.applyBrief = () => {
-    const B = X.briefing, S = UI.S;
-    if (!B) return;
-    const { nd } = B.steps[B.k];
-    LAYERS.forEach((l) => { if (l in S.show) S.show[l] = false; });
-    Object.values(S.overlays).forEach((o) => (o.visible = false));
-    const m = nd.map || {};
-    (m.show || []).forEach((l) => (S.show[l] = true));
-    (m.ovl || []).forEach((o) => { if (S.overlays[o] && S.overlays[o].data) S.overlays[o].visible = true; });
-    B.geo = [];
-    try { B.geo = (B.sp.base ? B.sp.base(S) : []).concat(m.geo ? m.geo(B.ev.r) || [] : []); } catch (e) { B.geo = []; }
-    B.veil = (m.ovl || []).length ? 0.12 : 0.42;
-    UI.app.refresh({ base: true });
-    renderBar();
-  };
-  const renderBar = () => {
-    const B = X.briefing, bar = $('briefBar');
-    if (!bar) return;
-    if (!B) { bar.hidden = true; return; }
-    const { nd } = B.steps[B.k];
-    const no = B.steps.filter((s) => s.nd.k === 'step').indexOf(B.steps[B.k]);
-    const tag = nd.k === 'in' ? 'Input' : nd.k === 'out' ? 'Result' : `Step ${no + 1}`;
-    bar.hidden = false;
-    bar.innerHTML = `<div class="bb-top"><span class="bb-tool">${esc(B.sp.title)}</span><span class="bb-n">${B.k + 1} / ${B.steps.length}</span></div>
-      <div class="bb-main"><span class="bb-tag ${nd.k}">${tag}</span><b>${esc(nd.t)}</b>${nd.v && nd.v !== '—' ? ` — ${esc(nd.v)}` : ''}</div>
-      <div class="bb-desc">${esc(nd.d || '')}${nd.rej && nd.rej.length ? `<div class="bb-rej">${nd.rej.slice(0, 4).map(([c, w]) => `✗ ${typeof c === 'number' ? n(c) : esc(c)} ${esc(w)}`).join(' · ')}</div>` : ''}</div>
-      <div class="bb-ctl"><button class="btn" data-b="prev"${B.k ? '' : ' disabled'}>◀ Prev</button><button class="btn primary" data-b="next"${B.k < B.steps.length - 1 ? '' : ' disabled'}>Next ▶</button><button class="btn" data-b="model">Model</button><button class="btn" data-b="exit">Exit</button></div>`;
-    bar.querySelector('[data-b=prev]').onclick = () => X.step(-1);
-    bar.querySelector('[data-b=next]').onclick = () => X.step(1);
-    bar.querySelector('[data-b=model]').onclick = () => { const id = B.id; X.endBrief(); X.open(id); };
-    bar.querySelector('[data-b=exit]').onclick = () => X.endBrief();
-  };
-  /** Zoom to everything the briefing will show (one steady view for all steps), below the caption bar. */
-  const fitBrief = () => {
-    const B = X.briefing, S = UI.S, map = UI.app.map;
-    if (!B || !S.grid) return;
-    let c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
-    const add = (c, r) => { if (!isFinite(c) || !isFinite(r)) return; c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r); };
-    B.steps.forEach(({ nd }) => {
-      let geo = [];
-      try { geo = nd.map && nd.map.geo ? nd.map.geo(B.ev.r) || [] : []; } catch (e) { geo = []; }
-      geo.forEach((q) => (q.t === 'pt' ? add(q.c, q.r) : (q.pts || []).forEach(([c, r]) => add(c, r))));
+    window.addEventListener('mousemove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (drag.pan) { MB.view.x = drag.x + dx; MB.view.y = drag.y + dy; applyView(); return; }
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (drag.moved) { drag.n.x = drag.x + dx / MB.view.k; drag.n.y = drag.y + dy / MB.view.k; drawDiagram(); }
     });
-    ['own', 'threat', 'a', 'b'].forEach((k) => { const q = S.markers[k]; if (q && B.sp.group !== 'Sector') add(q.c, q.r); });
-    if (!isFinite(c0)) { map.fit(); return; }
-    const bar = ($('briefBar') || {}).offsetHeight || 0, padC = 25;
-    c0 -= padC; c1 += padC; r0 -= padC; r1 += padC;
-    const W = map.W, Hh = map.H - bar - 24;
-    const sc = Math.max(0.2, Math.min((W - 60) / (c1 - c0), (Hh - 40) / (r1 - r0), 6));
-    map.centerOn((c0 + c1) / 2, (r0 + r1) / 2 - (bar + 24) / 2 / sc, sc);
+    window.addEventListener('mouseup', () => {
+      if (!drag) return;
+      if (drag.n && !drag.moved) { MB.sel = drag.n.id; MB.render(); } else if (drag.n) save();
+      else if (!drag.moved && Math.abs(MB.view.x - drag.x) + Math.abs(MB.view.y - drag.y) < 3) { MB.sel = null; MB.render(); }
+      drag = null;
+    });
+    svg.addEventListener('dblclick', (e) => {
+      const g = e.target.closest('.mb-n');
+      if (!g) return;
+      MB.sel = g.dataset.id; MB.render();
+      const f = $('mbSide').querySelector('input, textarea, select');
+      if (f) f.focus();
+    });
+    svg.addEventListener('contextmenu', (e) => {
+      const g = e.target.closest('.mb-n');
+      if (!g) return;
+      e.preventDefault();
+      MB.sel = g.dataset.id; MB.render();
+      ctxMenu(node(g.dataset.id), e.clientX, e.clientY);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!MB.visible || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+      if (e.key === 'F5') { e.preventDefault(); MB.run(); }
+      if (e.key === 'Delete' && MB.sel) { delNode(MB.sel); }
+    });
+    new ResizeObserver(() => { if (MB.visible) applyView(); }).observe($('mbCanvas'));
   };
-  X.step = (d) => {
-    const B = X.briefing;
-    if (!B) return;
-    B.k = Math.max(0, Math.min(B.steps.length - 1, B.k + d));
-    X.applyBrief();
+  const applyView = () => { const g = $('mbG'); if (g) g.setAttribute('transform', `translate(${MB.view.x},${MB.view.y}) scale(${MB.view.k})`); };
+  const drawDiagram = () => { const g = $('mbG'); if (!g) return; g.innerHTML = MB.svg().inner; applyView(); };
+
+  MB.render = () => {
+    if (!MB.visible || !MB.model) return;
+    $('mbTpl').value = MB.model.template in M.MODEL_TEMPLATES ? MB.model.template : '';
+    $('mbQ').innerHTML = `<b>${esc(MB.model.name)}</b> — ${esc(MB.model.question || '')}`;
+    drawDiagram();
+    renderSide();
+    status();
   };
-  X.endBrief = () => {
-    if (!X.briefing) return;
-    X.briefing = null;
-    restoreState();
-    renderBar();
+  const status = (txt) => {
+    const el = $('mbStatus');
+    if (!el) return;
+    if (txt) { el.textContent = txt; return; }
+    const r = MB.rep;
+    if (!r) { el.textContent = 'Not run yet'; el.className = 'mb-status'; return; }
+    const t = Object.values(r.tools);
+    el.textContent = r.failed ? 'Run failed — see the red tool' : `Ran ${t.filter((x) => x.state === 'done').length} tool(s), ${t.filter((x) => x.state === 'cached').length} unchanged`;
+    el.className = 'mb-status ' + (r.failed ? 'err' : 'ok');
+  };
+
+  // ---------------------------------------------------------------- side panel
+  const COMPAT = { raster: ['raster'], points: ['points', 'point'], lines: ['lines'], line: ['line', 'lines'], point: ['point'], number: ['number'], string: ['string'], profile: ['profile'], remap: ['remap', 'string'], expr: ['string', 'expr'] };
+  const editor = (dt, val, attrs) => {
+    if (dt === 'profile') return `<select ${attrs}>${Object.entries(M.MOVEMENT_PROFILES).map(([k, p]) => `<option value="${k}"${k === val ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`;
+    if (dt === 'remap' || dt === 'expr') return `<textarea rows="${dt === 'expr' ? 4 : 3}" spellcheck="false" ${attrs}>${esc(val)}</textarea>`;
+    if (dt === 'number') return `<input type="number" step="any" value="${esc(val)}" ${attrs}>`;
+    return `<input type="text" value="${esc(val)}" ${attrs}>`;
+  };
+  const parseVal = (dt, s) => (dt === 'number' ? (s === '' ? null : +s) : s);
+  const pointEditor = (n) => `<div class="mb-pt"><code>${n.value ? esc(F.listRef(n.value.r, n.value.c)) : '(not set)'}</code>
+      <button class="btn" data-pick>Pick on map</button>${['own', 'threat', 'a', 'b', 'target'].filter((k) => UI.S.markers[k]).map((k) => `<button class="btn" data-use="${k}">${{ own: 'Own', threat: 'Enemy', a: 'A', b: 'B', target: 'Target' }[k]}</button>`).join('')}</div>`;
+
+  const renderSide = () => {
+    const el = $('mbSide');
+    const n = MB.sel && node(MB.sel);
+    if (!n) { el.innerHTML = modelPanel(); bindModelPanel(el); return; }
+    if (n.kind === 'tool') { el.innerHTML = toolPanel(n); bindToolPanel(el, n); return; }
+    el.innerHTML = varPanel(n); bindVarPanel(el, n);
+  };
+
+  const steps = () => {
+    const G = graph();
+    if (!G) return [];
+    return G.tools.map((t) => {
+      const ins = G.reads(t).map((v) => node(v)).filter(Boolean).map((v) => v.name);
+      const outs = Object.values(t.outputs || {}).map((v) => node(v)).filter(Boolean).map((v) => v.name);
+      return { t, ins, outs };
+    });
+  };
+  const modelPanel = () => {
+    const r = MB.rep;
+    const params = nodes().filter((n) => n.P);
+    return `<h3>${esc(MB.model.name)}</h3><p class="mb-help">${esc(MB.model.question || '')}</p>
+      <h4>Model parameters</h4><p class="mb-help">The values you are most likely to change. Click one (or any oval) to edit it, then Run.</p>
+      <div class="mb-params">${params.map((n) => `<div class="mb-prow" data-go="${n.id}"><span>${esc(n.name)}</span><b>${esc(valueText(n))}</b></div>`).join('')}</div>
+      <h4>Processing order</h4><ol class="mb-steps">${steps().map(({ t, ins, outs }) => {
+        const s = r && r.tools[t.id];
+        return `<li data-go="${t.id}"><b>${esc(t.name)}</b> <span class="mb-help">(${esc(ins.join(', '))} → ${esc(outs.join(', '))})</span>${s ? `<div class="mb-msg ${s.state}">${s.state === 'failed' ? esc(s.msg) : s.state === 'notrun' ? 'not run' : s.state === 'cached' ? 'unchanged (cached)' : `done in ${s.ms} ms`}</div>` : ''}</li>`;
+      }).join('')}</ol>
+      <p class="mb-help">Tip: right-click an element for Run, Add to Display, Model Parameter, Rename and Delete. Drag to move; wheel to zoom; drag the background to pan.</p>`;
+  };
+  const bindModelPanel = (el) => el.querySelectorAll('[data-go]').forEach((x) => (x.onclick = () => { MB.sel = x.dataset.go; MB.render(); }));
+
+  const toolPanel = (t) => {
+    const def = M.GPT[t.tool];
+    const s = MB.rep && MB.rep.tools[t.id];
+    const vars = nodes().filter(isVar);
+    let h = `<div class="mb-kind tool">Tool</div><h3><input class="mb-name" data-name value="${esc(t.name)}"></h3><p class="mb-arc">${esc(def.arc)}</p><p class="mb-help">${esc(def.help)}</p>`;
+    if (s) h += `<div class="mb-msg ${s.state}">${s.state === 'failed' ? `<b>Failed:</b> ${esc(s.msg)}` : s.state === 'notrun' ? 'Not run — an earlier tool failed.' : s.state === 'cached' ? 'Has been run (inputs unchanged).' : `Has been run — ${s.ms} ms.`}</div>`;
+    h += '<h4>Parameters</h4>';
+    for (const pd of def.params) {
+      if (pd.dir === 'out') {
+        const vid = t.outputs && t.outputs[pd.k];
+        const v = vid && node(vid);
+        h += `<div class="mb-par out"><label>${esc(pd.label)}</label>${v ? `<div class="mb-link" data-go="${v.id}">→ ${esc(v.name)}</div>` : `<button class="btn" data-mkout="${pd.k}">Create output</button>`}</div>`;
+        continue;
+      }
+      const vid = t.inputs && t.inputs[pd.k];
+      const ok = vars.filter((v) => (COMPAT[pd.dt] || [pd.dt]).includes(v.dt));
+      const lit = t.values && pd.k in t.values ? t.values[pd.k] : pd.def;
+      const literalOK = !['raster', 'points', 'lines', 'line', 'point'].includes(pd.dt);
+      h += `<div class="mb-par"><label>${esc(pd.label)}${pd.optional ? ' <i>(optional)</i>' : ''}</label>
+        <select data-src="${pd.k}">${literalOK ? `<option value="">${pd.dt === 'expr' ? 'Expression (below)' : 'Value (below)'}</option>` : '<option value="">— not set —</option>'}${ok.map((v) => `<option value="${v.id}"${v.id === vid ? ' selected' : ''}>${v.kind === 'derived' ? '◉' : '○'} ${esc(v.name)}</option>`).join('')}</select>
+        ${!vid && literalOK ? editor(pd.dt, lit === undefined ? '' : lit, `data-lit="${pd.k}"`) + `<button class="btn mb-expose" data-expose="${pd.k}" title="Create a variable (oval) for this value so it can be edited on the model">Expose as variable</button>` : ''}</div>`;
+      if (pd.dt === 'expr' && !vid) {
+        const ras = vars.filter((v) => v.dt === 'raster'), vals = vars.filter((v) => v.kind === 'value' && v.dt === 'number');
+        h += `<div class="mb-ins">Insert: ${ras.map((v) => `<button class="chip" data-ins='"${esc(v.name)}"'>"${esc(v.name)}"</button>`).join('')}${vals.map((v) => `<button class="chip" data-ins="%${esc(v.name)}%">%${esc(v.name)}%</button>`).join('')}
+          ${['Con( , , )', 'NoData', '==', '>', '&', '|'].map((x) => `<button class="chip" data-ins="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
+      }
+    }
+    h += `<div class="mb-actions"><button class="btn primary" data-act="run">▶ Run this tool</button><button class="btn" data-act="del">Delete</button></div>`;
+    return h;
+  };
+  const bindToolPanel = (el, t) => {
+    const def = M.GPT[t.tool];
+    el.querySelector('[data-name]').onchange = (e) => { t.name = e.target.value; changed(); };
+    el.querySelectorAll('[data-go]').forEach((x) => (x.onclick = () => { MB.sel = x.dataset.go; MB.render(); }));
+    el.querySelectorAll('[data-src]').forEach((s) => (s.onchange = () => {
+      t.inputs = t.inputs || {};
+      if (s.value) t.inputs[s.dataset.src] = s.value; else delete t.inputs[s.dataset.src];
+      changed(); MB.render();
+    }));
+    el.querySelectorAll('[data-lit]').forEach((f) => (f.onchange = () => {
+      const pd = def.params.find((x) => x.k === f.dataset.lit);
+      t.values = t.values || {};
+      t.values[pd.k] = parseVal(pd.dt, f.value);
+      changed(); MB.render();
+    }));
+    el.querySelectorAll('[data-ins]').forEach((b) => (b.onclick = () => {
+      const ta = el.querySelector('[data-lit=expr]');
+      if (!ta) return;
+      const p0 = ta.selectionStart, p1 = ta.selectionEnd;
+      ta.value = ta.value.slice(0, p0) + b.dataset.ins + ta.value.slice(p1);
+      ta.dispatchEvent(new Event('change'));
+    }));
+    el.querySelectorAll('[data-expose]').forEach((b) => (b.onclick = () => {
+      const pd = def.params.find((x) => x.k === b.dataset.expose);
+      const id = uid('v');
+      const val = t.values && pd.k in t.values ? t.values[pd.k] : pd.def;
+      nodes().push({ id, kind: 'value', name: pd.label.replace(/\s*\(.*?\)\s*$/, '').replace(/^Input |^Output /, ''), dt: pd.dt === 'expr' ? 'string' : pd.dt, value: val, x: t.x - 20, y: t.y - 80 });
+      t.inputs = t.inputs || {}; t.inputs[pd.k] = id;
+      if (t.values) delete t.values[pd.k];
+      MB.sel = id; changed(); MB.render();
+    }));
+    el.querySelectorAll('[data-mkout]').forEach((b) => (b.onclick = () => {
+      const pd = def.params.find((x) => x.k === b.dataset.mkout);
+      const id = uid('d');
+      nodes().push({ id, kind: 'derived', name: `${t.name} ${pd.label.replace(/^Output /, '')}`, dt: pd.dt, x: t.x + CW, y: t.y });
+      t.outputs = t.outputs || {}; t.outputs[pd.k] = id;
+      changed(); MB.render();
+    }));
+    el.querySelector('[data-act=run]').onclick = () => MB.run(t.id);
+    el.querySelector('[data-act=del]').onclick = () => delNode(t.id);
+  };
+
+  const varPanel = (n) => {
+    const kind = { data: 'Input data', value: 'Value variable', derived: 'Derived data' }[n.kind];
+    let h = `<div class="mb-kind ${n.kind}">${kind}</div><h3><input class="mb-name" data-name value="${esc(n.name)}"></h3>`;
+    if (n.note) h += `<p class="mb-help">${esc(n.note)}</p>`;
+    const users = nodes().filter((t) => t.kind === 'tool' && (graph() ? graph().reads(t) : []).includes(n.id));
+    if (n.kind === 'value') {
+      h += '<h4>Value</h4>';
+      if (n.dt === 'point') h += pointEditor(n);
+      else if (n.dt === 'line') h += `<div class="mb-pt"><code>${n.value ? `${n.value.length} vertices` : '(not set)'}</code><button class="btn" data-useborder ${UI.S.border ? '' : 'disabled'}>Use the border line</button>${UI.S.tracks.length ? '<button class="btn" data-usetrack>Use the last drawn track</button>' : ''}</div>`;
+      else h += editor(n.dt, n.value === undefined || n.value === null ? '' : n.value, 'data-val');
+      if (n.dt === 'remap') h += '<p class="mb-help">One range per entry: <code>low high : new value name</code>, separated by “;”. Write NoData as the new value to block cells.</p>';
+      h += `<label class="mb-chk"><input type="checkbox" data-p ${n.P ? 'checked' : ''}> Model parameter (P)</label>`;
+    } else if (n.kind === 'data') {
+      h += `<p>${esc(valueText(n))}</p><p class="mb-help">${n.src === 'dem' ? 'The elevation model loaded in the map.' : ''}</p>`;
+    } else {
+      const s = MB.rep && MB.rep.vars[n.id];
+      const prod = nodes().find((t) => t.kind === 'tool' && Object.values(t.outputs || {}).includes(n.id));
+      h += `<p class="mb-help">Made by <a href="#" data-go="${prod ? prod.id : ''}">${esc(prod ? prod.name : '?')}</a>.</p>`;
+      if (!s) h += '<p class="mb-help">No value yet — run the model.</p>';
+      else h += summaryHTML(n, s);
+      if (s && s.dt !== 'table' && s.kind !== 'backlink') h += `<label class="mb-chk"><input type="checkbox" data-disp ${MB.display[n.id] ? 'checked' : ''}> Add to display (show on the map)</label>`;
+      if (s && s.dt !== 'table' && s.kind !== 'backlink') h += '<button class="btn" data-showmap>Show on map ▸</button>';
+    }
+    if (users.length) h += `<h4>Used by</h4>${users.map((t) => `<div class="mb-link" data-go="${t.id}">→ ${esc(t.name)}</div>`).join('')}`;
+    h += `<div class="mb-actions"><button class="btn" data-act="del"${n.src === 'dem' ? ' disabled' : ''}>Delete</button></div>`;
+    return h;
+  };
+  const summaryHTML = (n, s) => {
+    if (s.dt === 'raster') {
+      if (s.kind === 'backlink') return '<p>For every reached cell: which neighbour to step back to on the least-time way to the source. Cost Path follows it.</p>';
+      let h = `<table class="mb-tbl"><tr><td>Minimum</td><td>${s.min === null ? '—' : s.min.toFixed(2)} ${esc(s.unit)}</td></tr><tr><td>Maximum</td><td>${s.max === null ? '—' : s.max.toFixed(2)} ${esc(s.unit)}</td></tr><tr><td>Mean</td><td>${s.mean === null ? '—' : s.mean.toFixed(2)}</td></tr><tr><td>NoData</td><td>${Math.round(s.nodata * 100)}% of cells</td></tr></table>`;
+      if (s.counts) h += `<table class="mb-tbl"><tr><th>Class</th><th>Share</th></tr>${Object.entries(s.counts).map(([k, f]) => `<tr><td>${esc((s.classes || {})[k] || k)}</td><td>${(f * 100).toFixed(1)}%</td></tr>`).join('')}</table>`;
+      return h;
+    }
+    if (s.dt === 'points') return `<table class="mb-tbl"><tr><th>Point</th><th>Grid ref</th></tr>${s.pts.map((q) => `<tr><td>${esc(q.label)}</td><td>${esc(F.listRef(q.r, q.c))}${q.movedM ? ` <i>(moved ${q.movedM} m)</i>` : ''}</td></tr>`).join('')}</table>${s.dropped && s.dropped.length ? `<p class="mb-help">Dropped (no valid cell near): ${esc(s.dropped.join(', '))}</p>` : ''}${s.coverShare !== undefined ? `<p>Together they see <b>${Math.round(s.coverShare * 100)}%</b> of the demand.</p>` : ''}`;
+    if (s.dt === 'lines') return `<table class="mb-tbl"><tr><th>Path</th><th>From</th><th>Time</th></tr>${s.lines.map((l) => `<tr><td>${esc(l.label)}</td><td>${esc(l.from || '')}</td><td>${l.attrs && l.attrs.timeH != null ? F.time(l.attrs.timeH) : ''}</td></tr>`).join('')}</table>${s.skipped && s.skipped.length ? `<p class="mb-help">Not reached: ${esc(s.skipped.join('; '))}</p>` : ''}`;
+    if (s.dt === 'table') return `<table class="mb-tbl">${'<tr>' + s.cols.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>'}${s.rows.map((r) => '<tr>' + s.cols.map((c) => `<td>${esc(r[c])}</td>`).join('') + '</tr>').join('')}</table>`;
+    return '';
+  };
+  const bindVarPanel = (el, n) => {
+    el.querySelector('[data-name]').onchange = (e) => { renameVar(n, e.target.value); };
+    el.querySelectorAll('[data-go]').forEach((x) => (x.onclick = (e) => { e.preventDefault(); if (x.dataset.go) { MB.sel = x.dataset.go; MB.render(); } }));
+    const f = el.querySelector('[data-val]');
+    if (f) f.onchange = () => { n.value = parseVal(n.dt, f.value); changed(); MB.render(); };
+    const p = el.querySelector('[data-p]');
+    if (p) p.onchange = () => { n.P = p.checked; changed(); MB.render(); };
+    el.querySelectorAll('[data-use]').forEach((b) => (b.onclick = () => { const q = UI.S.markers[b.dataset.use]; n.value = { r: Math.round(q.r), c: Math.round(q.c), label: n.value && n.value.label || n.name }; changed(); MB.render(); }));
+    const pk = el.querySelector('[data-pick]');
+    if (pk) pk.onclick = () => {
+      UI.app.setView('2d');
+      UI.app.pickPoint(n.name, (cell) => { n.value = { r: Math.round(cell.r), c: Math.round(cell.c), label: n.value && n.value.label || n.name }; changed(); UI.app.setView('model'); });
+    };
+    const ub = el.querySelector('[data-useborder]');
+    if (ub) ub.onclick = () => { n.value = UI.S.border.map((q) => q.slice()); changed(); MB.render(); };
+    const ut = el.querySelector('[data-usetrack]');
+    if (ut) ut.onclick = () => { n.value = UI.S.tracks[UI.S.tracks.length - 1].map((q) => q.slice()); changed(); MB.render(); };
+    const d = el.querySelector('[data-disp]');
+    if (d) d.onchange = async () => { MB.display[n.id] = d.checked; if (!d.checked) delete MB.display[n.id]; save(); await syncMap(); MB.render(); };
+    const sm = el.querySelector('[data-showmap]');
+    if (sm) sm.onclick = async () => { MB.display[n.id] = true; save(); await syncMap(n.id); UI.app.setView('2d'); zoomTo(n.id); };
+    el.querySelector('[data-act=del]').onclick = () => delNode(n.id);
+  };
+
+  // ---------------------------------------------------------------- editing
+  let uidN = 0;
+  const uid = (p) => { let id; do { id = `${p}${++uidN}`; } while (node(id)); return id; };
+  const changed = () => { MB.rep = MB.rep ? Object.assign({}, MB.rep, { stale: true }) : null; save(); };
+  const renameVar = (n, name) => {
+    const old = n.name;
+    if (!name || name === old) return;
+    if (nodes().some((x) => x !== n && isVar(x) && x.name === name)) { alert('Another variable already has that name.'); MB.render(); return; }
+    n.name = name;
+    // keep Raster Calculator expressions pointing at the renamed variable
+    nodes().filter((t) => t.tool === 'rasterCalc' && t.values && t.values.expr).forEach((t) => {
+      t.values.expr = t.values.expr.split(`"${old}"`).join(`"${name}"`).split(`%${old}%`).join(`%${name}%`);
+    });
+    changed(); MB.render();
+  };
+  const addTool = (tool) => {
+    const def = M.GPT[tool];
+    const el = $('mbCanvas');
+    const x = (el.clientWidth / 2 - MB.view.x) / MB.view.k, y = (el.clientHeight / 2 - MB.view.y) / MB.view.k;
+    const id = uid('t');
+    const t = { id, kind: 'tool', tool, name: def.name, x, y, inputs: {}, values: {}, outputs: {} };
+    def.params.filter((pd) => pd.dir === 'out' && !pd.optional).forEach((pd, k) => {
+      const vid = uid('d');
+      let nm = `${def.name} ${pd.label.replace(/^Output /, '')}`;
+      while (nodes().some((v) => v.name === nm)) nm += '+';
+      nodes().push({ id: vid, kind: 'derived', name: nm, dt: pd.dt, x: x + CW, y: y + k * 70 });
+      t.outputs[pd.k] = vid;
+    });
+    nodes().push(t);
+    MB.sel = id; changed(); MB.render();
+  };
+  const addVar = (dt) => {
+    const el = $('mbCanvas');
+    const id = uid('v');
+    let name = { number: 'Number', string: 'Text', point: 'Point', line: 'Line', profile: 'Movement class' }[dt];
+    while (nodes().some((v) => v.name === name)) name += '+';
+    nodes().push({ id, kind: 'value', name, dt, value: dt === 'number' ? 0 : dt === 'profile' ? 'foot' : dt === 'line' ? UI.S.border : null, x: (40 - MB.view.x) / MB.view.k, y: (el.clientHeight / 2 - MB.view.y) / MB.view.k });
+    MB.sel = id; changed(); MB.render();
+  };
+  const delNode = (id) => {
+    const n = node(id);
+    if (!n || n.src === 'dem') return;
+    MB.model.nodes = nodes().filter((x) => x.id !== id);
+    nodes().filter((t) => t.kind === 'tool').forEach((t) => {
+      for (const k of Object.keys(t.inputs || {})) if (t.inputs[k] === id) delete t.inputs[k];
+      for (const k of Object.keys(t.outputs || {})) if (t.outputs[k] === id) delete t.outputs[k];
+    });
+    if (n.kind === 'tool') Object.values(n.outputs || {}).forEach((v) => { MB.model.nodes = nodes().filter((x) => x.id !== v); delete MB.display[v]; });
+    delete MB.display[id];
+    MB.sel = null; changed(); syncMap(); MB.render();
+  };
+  const ctxMenu = (n, x, y) => {
+    const items = [];
+    if (n.kind === 'tool') items.push(['▶ Run', () => MB.run(n.id)], ['Open', () => {}]);
+    if (n.kind === 'derived') items.push([MB.display[n.id] ? 'Remove from display' : 'Add to display', async () => { if (MB.display[n.id]) delete MB.display[n.id]; else MB.display[n.id] = true; save(); await syncMap(); MB.render(); }]);
+    if (n.kind === 'value') items.push([n.P ? 'Clear model parameter' : 'Model parameter', () => { n.P = !n.P; changed(); MB.render(); }]);
+    items.push(['Rename', () => { const s = prompt('New name', n.name); if (s) { if (isVar(n)) renameVar(n, s); else { n.name = s; changed(); MB.render(); } } }]);
+    if (n.src !== 'dem') items.push(['Delete', () => delNode(n.id)]);
+    let m = $('mbMenu');
+    if (!m) { m = document.createElement('div'); m.id = 'mbMenu'; m.className = 'mb-menu'; document.body.appendChild(m); }
+    m.innerHTML = items.map(([t], k) => `<button data-k="${k}">${esc(t)}</button>`).join('');
+    m.style.left = `${x}px`; m.style.top = `${y}px`; m.hidden = false;
+    m.querySelectorAll('button').forEach((b) => (b.onclick = () => { m.hidden = true; items[+b.dataset.k][1](); }));
+    setTimeout(() => document.addEventListener('mousedown', function off(e) { if (!m.contains(e.target)) { m.hidden = true; document.removeEventListener('mousedown', off); } }), 0);
+  };
+  /** Left-to-right layout by dependency depth (variables sit just before the tool that uses them). */
+  const autoLayout = () => {
+    const G = graph();
+    if (!G) return;
+    const depth = {};
+    G.tools.forEach((t) => { let d = 0; for (const v of G.reads(t)) { const p = G.producer[v]; if (p) d = Math.max(d, depth[p] + 1); } depth[t.id] = d; });
+    const colOf = {};
+    G.tools.forEach((t) => { colOf[t.id] = 1 + depth[t.id] * 2; Object.values(t.outputs || {}).forEach((v) => (colOf[v] = colOf[t.id] + 1)); });
+    nodes().filter(isVar).forEach((v) => { if (colOf[v.id] === undefined) { const us = G.tools.filter((t) => G.reads(t).includes(v.id)); colOf[v.id] = us.length ? Math.max(0, Math.min(...us.map((t) => colOf[t.id])) - 1) : 0; } });
+    const rows = {};
+    const order = nodes().slice().sort((a, b) => (a.y || 0) - (b.y || 0));
+    order.forEach((n) => { const c = colOf[n.id] || 0; rows[c] = (rows[c] || 0) + 1; n.x = X0 + c * CW * 0.92; n.y = Y0 + (rows[c] - 1) * RH; });
+  };
+  const validate = () => {
+    const bad = nodes().filter((n) => n.kind === 'tool' && !readyTool(n));
+    status(bad.length ? `Not ready: ${bad.map((t) => t.name).join(', ')} — select it to see which input is missing.` : 'Valid — every tool is ready to run.');
+    MB.render(); status(bad.length ? `Not ready: ${bad.map((t) => t.name).join(', ')}` : 'Valid — every tool is ready to run.');
+  };
+
+  // ---------------------------------------------------------------- run
+  MB.run = async (upTo) => {
+    if (MB.running) return;
+    if (!UI.S.grid) { status('Load a DEM first.'); return; }
+    MB.running = true;
+    status(upTo ? `Running ${node(upTo).name}…` : 'Running model…');
+    try {
+      MB.rep = await UI.app.engine.call('modelRun', { model: { nodes: nodes().map((n) => Object.assign({}, n)) }, upTo }, (p, m) => status(`Running… ${Math.round(p * 100)}% ${m || ''}`));
+      if (upTo && MB.repAll) MB.rep = merge(MB.repAll, MB.rep);
+      MB.repAll = MB.rep;
+    } catch (e) { status(e.message); MB.running = false; return; }
+    MB.running = false;
+    await syncMap();
+    MB.render();
+  };
+  const merge = (a, b) => ({ tools: Object.assign({}, a.tools, b.tools), vars: Object.assign({}, a.vars, b.vars), order: b.order, failed: b.failed });
+
+  // ---------------------------------------------------------------- map display
+  MB.layers = [];   // vector layers shown: { id, name, dt, pts | lines }
+  MB.rasterId = null;
+  const clearMap = () => {
+    MB.layers = []; MB.rasterId = null;
+    const o = UI.S.overlays && UI.S.overlays.model;
+    if (o) { o.data = null; o.rgba = null; o.visible = false; }
+  };
+  const syncMap = async (prefer) => {
+    const S = UI.S;
+    if (!MB.rep) return;
+    MB.layers = [];
+    let ras = null;
+    for (const id of Object.keys(MB.display)) {
+      const n = node(id), s = MB.rep.vars[id];
+      if (!n || !s) continue;
+      if (s.dt === 'points') MB.layers.push({ id, name: n.name, dt: 'points', pts: s.pts });
+      else if (s.dt === 'lines') MB.layers.push({ id, name: n.name, dt: 'lines', lines: s.lines });
+      else if (s.dt === 'raster' && s.kind !== 'backlink') ras = prefer && MB.display[prefer] && node(prefer) && MB.rep.vars[prefer] && MB.rep.vars[prefer].dt === 'raster' ? prefer : ras || id;
+    }
+    const o = S.overlays.model;
+    if (ras) {
+      const r = await UI.app.engine.call('modelRaster', { id: ras });
+      MB.rasterId = ras;
+      o.data = r.a; o.info = Object.assign({}, r, { a: null, name: node(ras).name }); o.rgba = null; o.visible = true; o.name = `Model — ${node(ras).name}`;
+      o.info.html = legendFor(r, MB.rep.vars[ras]);
+    } else { o.data = null; o.rgba = null; o.visible = false; MB.rasterId = null; }
     UI.app.refresh({ base: true });
   };
-  document.addEventListener('keydown', (e) => {
-    if (!X.briefing || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return;
-    if (e.key === 'ArrowRight' || e.key === 'PageDown') { X.step(1); e.preventDefault(); }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { X.step(-1); e.preventDefault(); }
-    else if (e.key === 'Escape') { X.endBrief(); e.preventDefault(); }
-  }, true);
-
-  // ---------------------------------------------------------------- map drawing
-  const COL = { ok: '#1f8a3c', mid: '#d08a00', bad: '#c8322b', cand: '#6b7280', key: '#111827', enemy: '#d0342c', own: '#2a62d8', thin: '#d0342c', border: '#7c3aed', in: '#2a62d8' };
-  /** Veil over the base map (called by the 2D map after the raster is drawn). */
-  UI.briefVeil = (ctx, W, H) => {
-    const B = X.briefing;
-    if (!B) return;
-    ctx.fillStyle = `rgba(255,255,255,${B.veil})`;
-    ctx.fillRect(0, 0, W, H);
+  /** Show exactly these results on the map (raster: the one to draw). */
+  MB.showOnly = async (ids, raster) => { MB.display = Object.fromEntries(ids.map((i) => [i, true])); await syncMap(raster); };
+  MB.zoomTo = (id) => zoomTo(id);
+  const zoomTo = (id) => {
+    const L = MB.layers.find((l) => l.id === id);
+    if (!L) { UI.app.map.fit(); return; }
+    const P = L.dt === 'points' ? L.pts.map((q) => [q.c, q.r]) : [].concat(...L.lines.map((l) => l.line));
+    if (!P.length) return;
+    const cs = P.map((p) => p[0]), rs = P.map((p) => p[1]);
+    const c0 = Math.min(...cs) - 30, c1 = Math.max(...cs) + 30, r0 = Math.min(...rs) - 30, r1 = Math.max(...rs) + 30;
+    const map = UI.app.map;
+    map.centerOn((c0 + c1) / 2, (r0 + r1) / 2, Math.max(0.3, Math.min(5, map.W / (c1 - c0), map.H / (r1 - r0)) * 0.9));
   };
-  UI.drawBrief = (ctx, P) => {
-    const B = X.briefing;
-    if (!B || !B.geo) return;
-    for (const gq of B.geo) {
-      const col = COL[gq.s] || COL.key;
-      if (gq.t === 'line' && gq.pts && gq.pts.length > 1) {
-        ctx.save();
-        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-        const w = gq.s === 'thin' ? 2 : gq.s === 'border' ? 3 : 4;
-        if (gq.s === 'thin') ctx.setLineDash([7, 6]);
-        ctx.beginPath();
-        gq.pts.forEach(([c, r], k) => { const [x, y] = P.xy(c, r); if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = w + 3; ctx.stroke();
-        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke();
-        ctx.restore();
-        if (gq.label) {
-          const m = gq.pts[Math.floor(gq.pts.length * 0.55)];
-          const [x, y] = P.xy(m[0], m[1]);
-          UI.haloText(ctx, gq.label, x + 8, y - 6, { now: true, color: col, size: 12, bold: true });
-        }
-      } else if (gq.t === 'pt') {
-        const [x, y] = P.xy(gq.c, gq.r);
-        ctx.save();
-        ctx.beginPath();
-        const rad = gq.s === 'cand' ? 4 : 6.5;
-        ctx.arc(x, y, rad, 0, Math.PI * 2);
-        ctx.fillStyle = gq.s === 'cand' ? 'rgba(255,255,255,0.85)' : col;
-        ctx.strokeStyle = gq.s === 'cand' ? col : '#fff';
-        ctx.lineWidth = gq.s === 'cand' ? 1.5 : 2;
-        ctx.fill(); ctx.stroke();
-        if (gq.s === 'bad') { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x - 3, y - 3); ctx.lineTo(x + 3, y + 3); ctx.moveTo(x + 3, y - 3); ctx.lineTo(x - 3, y + 3); ctx.stroke(); }
-        ctx.restore();
-        if (gq.label) UI.haloText(ctx, gq.label, x + 9, y - 7, { now: true, color: gq.s === 'cand' ? '#374151' : col, size: 12, bold: gq.s !== 'cand' });
+  const stretch = (t) => { // light yellow -> orange -> dark purple
+    const s = [[255, 247, 188], [254, 196, 79], [236, 112, 20], [153, 52, 4], [76, 20, 80]];
+    const x = Math.max(0, Math.min(0.9999, t)) * (s.length - 1), k = Math.floor(x), f = x - k;
+    return s[k].map((v, j) => Math.round(v + (s[k + 1][j] - v) * f));
+  };
+  const CLASS_PAL = { 0: [46, 160, 67], 1: [240, 190, 30], 2: [210, 50, 40], 3: [70, 120, 220], 4: [150, 80, 200], 5: [30, 170, 170] };
+  MB.rgba = (o) => {
+    const a = o.data, info = o.info || {}, out = new Uint8ClampedArray(a.length * 4);
+    if (info.kind === 'class') {
+      const keys = Object.keys(info.classes || {}).map(Number);
+      const two = keys.length === 2 && keys.includes(0) && keys.includes(1);
+      for (let i = 0; i < a.length; i++) {
+        const v = a[i];
+        if (v !== v) continue;
+        const c = two ? (v ? [46, 160, 67] : [210, 50, 40]) : CLASS_PAL[v] || CLASS_PAL[((v % 6) + 6) % 6] || [120, 120, 120];
+        out.set([c[0], c[1], c[2], 150], i * 4);
+      }
+      return out;
+    }
+    if (info.kind === 'count') { for (let i = 0; i < a.length; i++) if (a[i] > 0) out.set([40, 110, 230, Math.min(200, 90 + 40 * a[i])], i * 4); return out; }
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < a.length; i++) { const v = a[i]; if (v === v) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+    const span = hi - lo || 1;
+    for (let i = 0; i < a.length; i++) { const v = a[i]; if (v !== v) { out.set([60, 60, 60, 90], i * 4); continue; } const c = stretch((v - lo) / span); out.set([c[0], c[1], c[2], 165], i * 4); }
+    return out;
+  };
+  const legendFor = (r, s) => {
+    if (r.kind === 'class') {
+      const keys = Object.keys(r.classes || {});
+      const two = keys.length === 2 && keys.includes('0') && keys.includes('1');
+      return `<div class="lg">${keys.map((k) => { const c = two ? (+k ? [46, 160, 67] : [210, 50, 40]) : CLASS_PAL[k] || [120, 120, 120]; return `<div><span class="lg-poly" style="background:rgba(${c},.6)"></span><span>${esc(r.classes[k])}</span></div>`; }).join('')}</div>`;
+    }
+    if (r.kind === 'count') return '<div class="lg"><div><span class="lg-poly" style="background:rgba(40,110,230,.6)"></span><span>Seen (darker = by more observers)</span></div></div>';
+    return `<div class="mb-ramp"></div><div class="mb-ramp-l"><span>${s && s.min !== null ? s.min.toFixed(2) : ''} ${esc(r.unit || '')}</span><span>${s && s.max !== null ? s.max.toFixed(2) : ''}</span></div>${s && s.nodata > 0.005 ? '<div class="lg"><div><span class="lg-poly" style="background:rgba(60,60,60,.4)"></span><span>NoData (blocked)</span></div></div>' : ''}`;
+  };
+  /** Contents pane entries for model results. */
+  MB.tocLayers = () => MB.layers.map((L) => ({
+    id: 'mb:' + L.id, name: `Model — ${L.name}`, count: L.dt === 'points' ? L.pts.length : L.lines.length,
+    legend: `<div class="lg"><div><span class="lg-line" style="border-top:3px solid ${L.dt === 'lines' ? '#d0342c' : '#1d4ed8'}"></span><span>${L.dt === 'lines' ? 'Path' : 'Point'}</span></div></div>`,
+    visible: () => !L.hidden, setVisible: (v) => { L.hidden = !v; UI.app.map.render(); },
+    remove: () => { delete MB.display[L.id]; save(); syncMap(); },
+  }));
+  UI.drawModelLayers = (ctx, P) => {
+    for (const L of MB.layers) {
+      if (L.hidden) continue;
+      if (L.dt === 'lines') for (const l of L.lines) {
+        if (!l.line || l.line.length < 2) continue;
+        ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.beginPath(); l.line.forEach(([c, r], k) => { const [x, y] = P.xy(c, r); if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 6; ctx.stroke();
+        ctx.strokeStyle = '#d0342c'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+        const m = l.line[Math.floor(l.line.length * 0.6)], [x, y] = P.xy(m[0], m[1]);
+        UI.haloText(ctx, `${l.label}${l.attrs && l.attrs.timeH != null ? ' ' + F.time(l.attrs.timeH) : ''}`, x + 8, y - 6, { now: true, color: '#9b1c1c', size: 12, bold: true });
+      }
+      if (L.dt === 'points') for (const q of L.pts) {
+        const [x, y] = P.xy(q.c, q.r);
+        ctx.save(); ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fillStyle = '#1d4ed8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke(); ctx.restore();
+        UI.haloText(ctx, q.label, x + 8, y - 6, { now: true, color: '#1d3a8a', size: 11.5, bold: true });
       }
     }
   };
 
-  // =====================================================================
-  // Printable briefing book (Arial 12, black only)
-  // =====================================================================
-  /**
-   * HTML for the briefing book. opts: { ids, shots: { specId: [{ title, src }] }, title, intro }
-   */
-  X.printable = (opts = {}) => {
-    const ids = opts.ids || SPECS.map((s) => s.id);
-    const S = UI.S;
-    let toc = '', body = '';
-    ids.forEach((id, k) => {
-      const sp = X.get(id), ev = X.evaluate(sp), d = X.svg(ev, { print: true });
-      const shots = (opts.shots && opts.shots[id]) || [];
-      toc += `<li>${esc(sp.title)}</li>`;
-      body += `<section class="tool"><h2>${k + 1}. ${esc(sp.title)}</h2>
-        <p><b>Question it answers.</b> ${esc(sp.q)}</p>
-        <h3>The model</h3><div class="dia">${d.svg}</div>
-        <p class="small">Ovals with a single line are inputs; rectangles are steps (numbered); ovals with a double line are results. Lines starting with ✗ show how many points were thrown out at that step and why.</p>
-        <h3>Step by step${ev.r ? ' (with this run’s numbers)' : ''}</h3>
-        <table><tr><th style="width:22%">Box</th><th>What it does</th><th style="width:30%">This run</th></tr>
-        ${ev.nodes.map((nd) => `<tr><td><b>${esc(nd.t)}</b><br><span class="small">${nd.k === 'in' ? 'input' : nd.k === 'out' ? 'result' : 'step'}</span></td><td>${esc(nd.d || '')}</td><td>${esc(nd.v || '—')}${nd.rej && nd.rej.length ? `<br>${nd.rej.map(([c, w]) => `✗ ${typeof c === 'number' ? n(c) : esc(c)} ${esc(w)}`).join('<br>')}` : ''}</td></tr>`).join('')}</table>
-        ${shots.map((sh) => `<figure><img src="${sh.src}"><figcaption>${esc(sh.title)}</figcaption></figure>`).join('')}
-        <h3>How to read the result</h3><ul>${ev.read.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-        <h3>If you get nothing, or it fails</h3><table><tr><th>You see</th><th>Why</th><th>What to do</th></tr>${sp.none.map((x) => `<tr>${x.map((y) => `<td>${esc(y)}</td>`).join('')}</tr>`).join('')}</table>
-        ${ev.script.length ? `<h3>What to say when briefing</h3><ol>${ev.script.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
-      </section>`;
-    });
-    const title = opts.title || 'MtnEye — How Each Tool Thinks';
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-      @page { size: A4; margin: 18mm 16mm; }
-      body { font-family: Arial, Helvetica, sans-serif; font-size: 12pt; color: #000; background: #fff; line-height: 1.35; }
-      h1 { font-size: 20pt; margin: 0 0 8pt; } h2 { font-size: 15pt; margin: 0 0 6pt; border-bottom: 1px solid #000; padding-bottom: 3pt; }
-      h3 { font-size: 12.5pt; margin: 12pt 0 4pt; } p, li { margin: 3pt 0; } .small { font-size: 10pt; }
-      section.tool { page-break-before: always; } table { border-collapse: collapse; width: 100%; margin: 4pt 0; font-size: 10.5pt; }
-      th, td { border: 1px solid #000; padding: 3pt 5pt; vertical-align: top; text-align: left; } th { background: #fff; }
-      .dia { text-align: center; } .dia svg { max-width: 100%; height: auto; max-height: 215mm; } figure { margin: 8pt 0; page-break-inside: avoid; } figure img { width: 100%; border: 1px solid #000; }
-      figcaption { font-size: 10pt; font-style: italic; } tr { page-break-inside: avoid; }
-    </style></head><body>
-      <h1>${esc(title)}</h1>
-      ${opts.intro || `<p>Every MtnEye tool answers one question. This book shows, for each tool, the question, the steps the computer takes (as a ModelBuilder-style diagram), the numbers from ${S.grid ? `the run on ${esc(S.grid.name || 'this terrain')}` : 'a run'}, how to read the result, what it means when the tool finds nothing or fails, and a short script for briefing.</p>`}
-      <p><b>Tools covered</b></p><ol>${toc}</ol>
-      ${body}</body></html>`;
+  // ---------------------------------------------------------------- import / export / report
+  const exportModel = () => {
+    const blob = new Blob([JSON.stringify(MB.model, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `${MB.model.name.replace(/[^\w]+/g, '_')}.model.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
-  X.print = () => {
+  const importModel = async (f) => {
+    if (!f) return;
+    try {
+      const m = JSON.parse(await f.text());
+      if (!m.nodes) throw new Error('Not a MtnEye model file.');
+      MB.model = m; MB.model.nodes.forEach(place); MB.rep = null; MB.sel = null; MB.display = {};
+      clearMap(); MB.fit(); save(); MB.render();
+    } catch (e) { status(e.message); }
+  };
+
+  /** Printable report of the current model (Arial 12, black). opts: { shots: [{ title, src }], intro } */
+  MB.reportHTML = (opts = {}) => {
+    const d = MB.svg({ print: true, vertical: true });
+    const G = graph();
+    const vars = nodes().filter(isVar);
+    const rows = (G ? G.tools : []).map((t, k) => {
+      const def = M.GPT[t.tool];
+      const ins = def.params.filter((pd) => pd.dir === 'in').map((pd) => {
+        const vid = t.inputs && t.inputs[pd.k];
+        const v = vid ? `<b>${esc(node(vid).name)}</b>` : esc(String(t.values && pd.k in t.values ? t.values[pd.k] : pd.def === undefined ? '—' : pd.def));
+        return `${esc(pd.label)}: ${v}`;
+      });
+      if (t.tool === 'rasterCalc') ins.push('Uses: ' + (G.reads(t).map((v) => `<b>${esc(node(v).name)}</b>`).join(', ') || '—'));
+      const outs = Object.values(t.outputs || {}).map((v) => node(v)).filter(Boolean);
+      const s = MB.rep && MB.rep.tools[t.id];
+      return `<tr><td>${k + 1}</td><td><b>${esc(t.name)}</b><br><span class="small">${esc(def.arc)}</span></td><td>${esc(def.help)}</td><td class="small">${ins.join('<br>')}</td>
+        <td class="small">${outs.map((v) => `<b>${esc(v.name)}</b>${resultText(v) ? `: ${esc(resultText(v))}` : ''}`).join('<br>')}${s && s.state === 'failed' ? `<br><i>Failed: ${esc(s.msg)}</i>` : ''}</td></tr>`;
+    }).join('');
+    const params = vars.filter((v) => v.kind === 'value');
+    const tables = vars.filter((v) => v.kind === 'derived' && MB.rep && MB.rep.vars[v.id] && MB.rep.vars[v.id].dt === 'table');
+    return `<h2>${esc(MB.model.name)}</h2><p><b>Question.</b> ${esc(MB.model.question || '')}</p>
+      <h3>The model</h3><div class="dia"><svg xmlns="http://www.w3.org/2000/svg" viewBox="${d.box.join(' ')}" width="${d.box[2]}" font-family="Arial, Helvetica, sans-serif">${d.inner}</svg></div>
+      <p class="small">The model flows from top to bottom. Plain ovals: input data. Dashed ovals: values you can change (P = model parameter). Rounded boxes: tools. Double ovals: derived data. Text under an element: its result in this run.</p>
+      <h3>Values used</h3><table><tr><th>Variable</th><th>Value</th><th>Note</th></tr>${params.map((v) => `<tr><td><b>${esc(v.name)}</b>${v.P ? ' (P)' : ''}</td><td>${esc(v.dt === 'remap' ? v.value : valueText(v))}</td><td class="small">${esc(v.note || '')}</td></tr>`).join('')}</table>
+      <h3>Tools in the order they run</h3><table><tr><th>#</th><th style="width:18%">Tool</th><th>What it does</th><th style="width:24%">Inputs</th><th style="width:22%">Output (this run)</th></tr>${rows}</table>
+      ${(opts.shots || []).map((sh) => `<figure><img src="${sh.src}"><figcaption>${esc(sh.title)}</figcaption></figure>`).join('')}
+      ${tables.map((v) => `<h3>${esc(v.name)}</h3>${summaryHTML(v, MB.rep.vars[v.id]).replace(/class="mb-tbl"/g, '')}`).join('')}
+      ${opts.after || ''}`;
+  };
+  MB.REPORT_CSS = `@page { size: A4; margin: 16mm 15mm; } body { font-family: Arial, Helvetica, sans-serif; font-size: 12pt; color: #000; background: #fff; line-height: 1.35; }
+    h1 { font-size: 20pt; margin: 0 0 8pt; } h2 { font-size: 15pt; margin: 0 0 6pt; border-bottom: 1px solid #000; padding-bottom: 3pt; } h3 { font-size: 12.5pt; margin: 12pt 0 4pt; }
+    p, li { margin: 3pt 0; } .small { font-size: 10pt; } section { page-break-before: always; } table { border-collapse: collapse; width: 100%; margin: 4pt 0; font-size: 10.5pt; }
+    th, td { border: 1px solid #000; padding: 3pt 5pt; vertical-align: top; text-align: left; } tr { page-break-inside: avoid; }
+    .dia { text-align: center; } .dia svg { max-width: 100%; height: auto; max-height: 235mm; } figure { margin: 8pt 0; page-break-inside: avoid; } figure img { width: 100%; border: 1px solid #000; } figcaption { font-size: 10pt; font-style: italic; }`;
+  MB.print = () => {
     const w = window.open('', '_blank');
-    if (!w) { alert('Allow pop-ups to print the briefing book.'); return; }
-    w.document.write(X.printable({ ids: [X.cur] }));
+    if (!w) { alert('Allow pop-ups to print the model report.'); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(MB.model.name)}</title><style>${MB.REPORT_CSS}</style></head><body>${MB.reportHTML()}</body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };
@@ -10002,6 +10673,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       dominance: { name: 'Terrain value (dominance)', legend: 'dominance', opacity: 0.8 },
       firecov: { name: 'Fire coverage (weapons per square)', legend: 'firecov', opacity: 0.9 },
       routevs: { name: 'Route viewshed', legend: 'routevs', opacity: 0.9 },
+      model: { name: 'Model result', legend: 'model', opacity: 0.85 },
     },
     sector: null, border: null, sec: {}, rvs: null, rvsLine: null,
     markers: {}, obstacles: [], tracks: [],
@@ -10343,10 +11015,11 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       case 'dominance': o.rgba = UI.colorDominance(o.data); break;
       case 'routevs': o.rgba = UI.colorCount(o.data, [[120, 190, 255, 0.3], [70, 130, 240, 0.42], [40, 60, 200, 0.55]]); break;
       case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
+      case 'model': o.rgba = UI.MB.rgba(o); break;
     }
     return o.rgba;
   };
-  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'viewshed'];
+  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'model', 'viewshed'];
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -10496,6 +11169,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     if (S.sector || S.border) secL.push(Object.assign({ id: 'secArea', name: 'Sector boundary & border line', legend: swatches([[polySw('transparent', '#000'), 'Sector (area of interest)'], [lineSw('#d00000'), 'Border line (LoC)']]),
       remove: () => { S.sector = null; S.border = null; safe(onSectorChanged)(); } }, showFlag('secArea')));
     return [
+      { id: 'grpModel', name: 'ModelBuilder results', layers: UI.MB ? UI.MB.tocLayers() : [] },
       { id: 'grpSector', name: 'Sector plan', layers: secL },
       { id: 'grpFeat', name: 'Situation & plan', layers: feat },
       { id: 'grpRas', name: 'Analysis rasters', layers: ras },
@@ -11640,12 +12314,12 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
   const setView = (v) => {
     if (v === '3d' && !v3.ok) { toast('WebGL2 is not available — Scene view disabled.', true); return; }
     if (!S.grid && v === '3d') return;
-    if (v !== '2d' && UI.Explain && UI.Explain.briefing) UI.Explain.endBrief();
     S.view = v;
     $('vtMap').classList.toggle('on', v === '2d'); $('vtScene').classList.toggle('on', v === '3d'); $('vtModel').classList.toggle('on', v === 'model');
     $('map2d').hidden = v !== '2d'; $('gl3d').hidden = v !== '3d'; $('ovl3d').hidden = v !== '3d';
     document.body.classList.toggle('model-view', v === 'model');
-    if (UI.Explain) UI.Explain.show(v === 'model');
+    $('app').classList.toggle('mb-full', v === 'model');
+    if (UI.MB) UI.MB.show(v === 'model');
     v3.visible = v === '3d';
     if (v === 'model') { updateRibbonState(); return; }
     if (v === '3d') { v3.resize(); if (S.texDirty) updateTexture(true); v3.render(); } else { v3.stopFly(); map.resize(); }
@@ -11815,7 +12489,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
     gpRefs: { t: 'Grid reference formats…', rb: 'Grid Refs', icon: 'target', run: () => Settings.open('refs') },
     view2d: { t: 'Map view (2D)', rb: 'Map', icon: 'data', k: '2', run: () => setView('2d'), on: () => S.view === '2d' },
     view3d: { t: 'Scene view (3D)', rb: 'Scene', icon: 'terrain', k: '3', need, run: () => setView('3d'), on: () => S.view === '3d' },
-    viewModel: { t: 'Model view — how each tool works, step by step, with this run’s numbers', rb: 'Model', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
+    viewModel: { t: 'ModelBuilder — each analysis as a chain of GIS tools (Slope, Reclassify, Raster Calculator, Path Distance, Cost Path…) you can edit and run', rb: 'ModelBuilder', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
     toggleLeft: { t: 'Contents pane', rb: 'Contents', icon: 'layers', k: 'Ctrl+B', run: () => togglePane('no-left'), on: () => !$('app').classList.contains('no-left') },
     toggleRight: { t: 'Geoprocessing / Attributes pane', rb: 'Side Pane', icon: 'panel', run: () => togglePane('no-right'), on: () => !$('app').classList.contains('no-right') },
     toggleDock: { t: 'Attribute table / profile dock', rb: 'Table Dock', icon: 'log', k: 'Ctrl+J', run: () => setDock($('dock').classList.contains('collapsed')), on: () => !$('dock').classList.contains('collapsed') },
@@ -11900,7 +12574,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
       ['Own Forces', ['*gp:deploy', '*mnuOwn']],
       ['Enemy', ['*gp:enemyApproaches', '*mnuEnemy']],
-      ['Explain', ['*viewModel']],
+      ['Model', ['*viewModel']],
       ['Output', ['*secReport', '*mnuExport']],
     ] },
     { id: 'analysis', name: 'Analysis', groups: [
@@ -11908,7 +12582,7 @@ Suggestions focus reconnaissance — they do not replace it.</p>` };
       ['Visibility', ['*gp:viewshed', '*gp:routeViewshed', '*gp:hostile', '*mnuVis']],
       ['Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
       ['Movement', ['*gp:route', '*gp:picquets', '*gp:helipads', '*mnuMove']],
-      ['Explain', ['*viewModel']],
+      ['Model', ['*viewModel']],
       ['Tools', ['*gpTools', '*history']],
     ] },
     { id: 'edit', name: 'Edit', groups: [

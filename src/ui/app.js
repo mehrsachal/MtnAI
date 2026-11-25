@@ -24,6 +24,7 @@
       dominance: { name: 'Terrain value (dominance)', legend: 'dominance', opacity: 0.8 },
       firecov: { name: 'Fire coverage (weapons per square)', legend: 'firecov', opacity: 0.9 },
       routevs: { name: 'Route viewshed', legend: 'routevs', opacity: 0.9 },
+      model: { name: 'Model result', legend: 'model', opacity: 0.85 },
     },
     sector: null, border: null, sec: {}, rvs: null, rvsLine: null,
     markers: {}, obstacles: [], tracks: [],
@@ -365,10 +366,11 @@
       case 'dominance': o.rgba = UI.colorDominance(o.data); break;
       case 'routevs': o.rgba = UI.colorCount(o.data, [[120, 190, 255, 0.3], [70, 130, 240, 0.42], [40, 60, 200, 0.55]]); break;
       case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
+      case 'model': o.rgba = UI.MB.rgba(o); break;
     }
     return o.rgba;
   };
-  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'viewshed'];
+  const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'model', 'viewshed'];
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -518,6 +520,7 @@
     if (S.sector || S.border) secL.push(Object.assign({ id: 'secArea', name: 'Sector boundary & border line', legend: swatches([[polySw('transparent', '#000'), 'Sector (area of interest)'], [lineSw('#d00000'), 'Border line (LoC)']]),
       remove: () => { S.sector = null; S.border = null; safe(onSectorChanged)(); } }, showFlag('secArea')));
     return [
+      { id: 'grpModel', name: 'ModelBuilder results', layers: UI.MB ? UI.MB.tocLayers() : [] },
       { id: 'grpSector', name: 'Sector plan', layers: secL },
       { id: 'grpFeat', name: 'Situation & plan', layers: feat },
       { id: 'grpRas', name: 'Analysis rasters', layers: ras },
@@ -1662,12 +1665,12 @@
   const setView = (v) => {
     if (v === '3d' && !v3.ok) { toast('WebGL2 is not available — Scene view disabled.', true); return; }
     if (!S.grid && v === '3d') return;
-    if (v !== '2d' && UI.Explain && UI.Explain.briefing) UI.Explain.endBrief();
     S.view = v;
     $('vtMap').classList.toggle('on', v === '2d'); $('vtScene').classList.toggle('on', v === '3d'); $('vtModel').classList.toggle('on', v === 'model');
     $('map2d').hidden = v !== '2d'; $('gl3d').hidden = v !== '3d'; $('ovl3d').hidden = v !== '3d';
     document.body.classList.toggle('model-view', v === 'model');
-    if (UI.Explain) UI.Explain.show(v === 'model');
+    $('app').classList.toggle('mb-full', v === 'model');
+    if (UI.MB) UI.MB.show(v === 'model');
     v3.visible = v === '3d';
     if (v === 'model') { updateRibbonState(); return; }
     if (v === '3d') { v3.resize(); if (S.texDirty) updateTexture(true); v3.render(); } else { v3.stopFly(); map.resize(); }
@@ -1837,7 +1840,7 @@
     gpRefs: { t: 'Grid reference formats…', rb: 'Grid Refs', icon: 'target', run: () => Settings.open('refs') },
     view2d: { t: 'Map view (2D)', rb: 'Map', icon: 'data', k: '2', run: () => setView('2d'), on: () => S.view === '2d' },
     view3d: { t: 'Scene view (3D)', rb: 'Scene', icon: 'terrain', k: '3', need, run: () => setView('3d'), on: () => S.view === '3d' },
-    viewModel: { t: 'Model view — how each tool works, step by step, with this run’s numbers', rb: 'Model', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
+    viewModel: { t: 'ModelBuilder — each analysis as a chain of GIS tools (Slope, Reclassify, Raster Calculator, Path Distance, Cost Path…) you can edit and run', rb: 'ModelBuilder', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
     toggleLeft: { t: 'Contents pane', rb: 'Contents', icon: 'layers', k: 'Ctrl+B', run: () => togglePane('no-left'), on: () => !$('app').classList.contains('no-left') },
     toggleRight: { t: 'Geoprocessing / Attributes pane', rb: 'Side Pane', icon: 'panel', run: () => togglePane('no-right'), on: () => !$('app').classList.contains('no-right') },
     toggleDock: { t: 'Attribute table / profile dock', rb: 'Table Dock', icon: 'log', k: 'Ctrl+J', run: () => setDock($('dock').classList.contains('collapsed')), on: () => !$('dock').classList.contains('collapsed') },
@@ -1922,7 +1925,7 @@
       ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
       ['Own Forces', ['*gp:deploy', '*mnuOwn']],
       ['Enemy', ['*gp:enemyApproaches', '*mnuEnemy']],
-      ['Explain', ['*viewModel']],
+      ['Model', ['*viewModel']],
       ['Output', ['*secReport', '*mnuExport']],
     ] },
     { id: 'analysis', name: 'Analysis', groups: [
@@ -1930,7 +1933,7 @@
       ['Visibility', ['*gp:viewshed', '*gp:routeViewshed', '*gp:hostile', '*mnuVis']],
       ['Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
       ['Movement', ['*gp:route', '*gp:picquets', '*gp:helipads', '*mnuMove']],
-      ['Explain', ['*viewModel']],
+      ['Model', ['*viewModel']],
       ['Tools', ['*gpTools', '*history']],
     ] },
     { id: 'edit', name: 'Edit', groups: [

@@ -286,6 +286,21 @@
         return M.enemyOptions(sectorCtx(), secITG().itgs, S.sec.appr, opts || {});
       },
 
+      // ---------------------------------------------------------- ModelBuilder
+      modelRun({ model, upTo, force }, progress) {
+        need();
+        const E = S.modelEnv || (S.modelEnv = { cache: new Map() });
+        Object.assign(E, { g: S.g, L: S.L, mob });
+        if (E.gridKey !== S.g) { E.cache.clear(); E.gridKey = S.g; }
+        return M.runModel(E, model, { upTo, force }, progress);
+      },
+      /** A model variable's raster (after a run) for display on the map. */
+      modelRaster({ id }) {
+        const d = S.modelEnv && S.modelEnv.lastData && S.modelEnv.lastData[id];
+        if (!d || d.dt !== 'raster') throw new Error('Run the model first — this raster has no value yet.');
+        return { a: d.a.slice(), kind: d.kind, unit: d.unit, classes: d.classes || null };
+      },
+
       crestClearance({ site, target, weaponId, weaponOverrides }) {
         need();
         return M.crestClearance(S.g, site, target, M.weapon(weaponId, weaponOverrides));

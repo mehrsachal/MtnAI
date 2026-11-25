@@ -69,18 +69,21 @@ const { chromium } = require('playwright');
   await p.click('#props [data-close]');
   await p.click('#vtScene'); await p.waitForTimeout(1500);
   await shot('3d');
-  // Model view and Brief mode: the posts model shows its screening numbers, brief steps through
+  // ModelBuilder: run the least-cost route model, edit a value on the model, re-run, show a result on the map
   await p.click('#vtModel'); await p.waitForTimeout(300);
-  await p.selectOption('#mvTool', 'posts'); await p.waitForTimeout(200);
-  const model = await p.evaluate(() => ({ boxes: document.querySelectorAll('#modelView .mv-node').length, txt: document.querySelector('#modelView svg').textContent }));
-  if (model.boxes < 5 || !/points tested/.test(model.txt)) throw new Error('model view incomplete');
+  await p.selectOption('#mbTpl', 'route');
+  const runModel = async () => { await p.click('[data-mb=run]'); await p.waitForFunction(() => !MTN_UI.MB.running && MTN_UI.MB.rep && !MTN_UI.MB.rep.stale, null, { timeout: 120000 }); };
+  await runModel();
+  const m1 = await p.evaluate(() => ({ failed: MTN_UI.MB.rep.failed, route: MTN_UI.MB.rep.vars.route && MTN_UI.MB.rep.vars.route.n, tools: document.querySelectorAll('#mbSvg .mb-n').length }));
+  if (m1.failed || !m1.route || m1.tools < 15) throw new Error('model run failed ' + JSON.stringify(m1));
+  await p.click('#mbSvg .mb-n[data-id=expw]'); await p.fill('#mbSide [data-val]', '0'); await p.press('#mbSide [data-val]', 'Tab');
+  await runModel();
+  const cached = await p.evaluate(() => MTN_UI.MB.rep.tools.t1.state);
+  if (cached !== 'cached') throw new Error('upstream tool was re-run after a downstream value changed');
   await shot('model');
-  await p.click('#modelView [data-act=brief]'); await p.waitForTimeout(300);
-  await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300);
-  const brief = await p.evaluate(() => !document.getElementById('briefBar').hidden && MTN_UI.Explain.briefing.k === 1);
-  if (!brief) throw new Error('brief mode did not step');
-  await shot('brief');
-  await p.keyboard.press('Escape');
+  await p.click('#mbSvg .mb-n[data-id=cost]'); await p.click('#mbSide [data-showmap]'); await p.waitForTimeout(800);
+  if (!(await p.evaluate(() => MTN_UI.S.overlays.model.visible && MTN_UI.MB.layers.length > 0))) throw new Error('model result not on the map');
+  await shot('model_map');
 
   const res = await p.evaluate(() => {
     const S = MTN_UI.S;

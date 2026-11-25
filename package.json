@@ -10,7 +10,7 @@
     "start": "python3 -m http.server 8080",
     "guide": "node tools/guide/params.mjs docs/guide/params.json && python3 tools/guide/flowcharts.py docs/guide/img && node tools/doc-shots.cjs docs/guide/img && python3 tools/guide/prepare_images.py docs/guide/img && python3 tools/guide/number_workspace.py docs/guide/img && node tools/guide/build-guide.cjs",
     "sector": "node tools/sector-run.cjs sector-out",
-    "briefing": "node tools/briefing.cjs docs/guide/MtnEye_How_Each_Tool_Thinks.pdf"
+    "modelbook": "node tools/model-book.cjs docs/guide/MtnEye_ModelBuilder.pdf"
   },
   "engines": {
     "node": ">=20"
