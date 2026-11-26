@@ -121,7 +121,7 @@
     const p = opt('avenues', o);
     // vehicles cannot reach a hill-top locality: end the avenue at the nearest passable ground
     const a = M.nearestPassable(g, mob.cls, threat, 2500), b = M.nearestPassable(g, mob.cls, own, 2500);
-    const routes = a < 0 || b < 0 ? [] : M.findRoutes(g, { cls: mob.cls, slope: o.slope, prof: mob.prof, trackMask: mob.trackMask },
+    const routes = a < 0 || b < 0 ? [] : M.findRoutes(g, { cls: mob.cls, slope: o.slope, prof: mob.prof, trackMask: mob.trackMask, penalty: mob.penalty || null },
       a, b, { alternatives: p.k, separationM: p.separationM }, progress);
     const density = new Float32Array(g.w * g.h);
     const rad = Math.max(2, Math.round(p.bufferM / g.cs));
@@ -258,10 +258,10 @@
   /** Least-time access field (s) from own position for a movement class, or null. */
   const accessField = (T, profileId, enabled) => {
     if (!T.own || enabled === false) return null;
-    const m = T.mob(profileId);
+    const m = T.moveMob ? T.moveMob(profileId) : T.mob(profileId); // IPB: steep ground slows, does not stop
     const seed = M.nearestPassable(T.g, m.cls, T.own);
     if (seed < 0) return null;
-    return M.reachable(T.g, { cls: m.cls, slope: T.L.slope, prof: m.prof, trackMask: m.trackMask }, [seed]);
+    return M.reachable(T.g, { cls: m.cls, slope: T.L.slope, prof: m.prof, trackMask: m.trackMask, penalty: m.penalty || null }, [seed]);
   };
   /** Accept test for access (reachable, optionally within maxAccessH hours). */
   const accessOK = (acc, i, maxH) => !acc || (acc[i] < Infinity && (!maxH || acc[i] <= maxH * 3600));
@@ -551,17 +551,18 @@
     const p = opt('mfd', Object.assign({ tieM: M.CFG.mfdTieM }, o));
     p.maxGapM = p.maxGapM || (type === 'AT' ? 600 : 300);
     p.depthM = p.depthM || (type === 'AT' ? 100 : 40);
-    p.densityPerM = p.densityPerM || (type === 'AT' ? 1 : 3);
+    p.densityPerM = p.densityPerM || 1; // mountain default: 1 mine per metre of front for AT and AP (hand-laid, carried up, rocky soil) — commander may raise it
     p.breachH = p.breachH || (type === 'AT' ? 1.5 : 0.75);
     // AT = barrier (far enough forward to stop vehicles, judged by delay); AP = protective (close in
     // front of posts and across infiltration nullahs, judged by fire cover — men can walk round defiles)
     const protective = type === 'AP';
     p.minDistOwnM = p.minDistOwnM || (protective ? 80 : 300);
     p.maxDistOwnM = p.maxDistOwnM || (protective ? 800 : 3000);
-    if (protective && o.minDelayMin == null) p.minDelayMin = 0;
+    if (protective) p.minDelayMin = 0; // protective fields are judged by fire cover, not by delay
     const anchors = [T.own].concat(o.protect || []); // own position and posts to protect
     const profId = o.profile || (type === 'AP' ? 'foot' : T.threatProfile === 'foot' ? 'tracked' : T.threatProfile);
-    const mob = T.mob(profId);
+    // IPB: ground that is NO-GO only by slope slows foot movement (x4) but does not stop it
+    const mob = T.moveMob ? T.moveMob(profId) : T.mob(profId);
     const cls = mob.cls;
     const maxGap = p.maxGapM / g.cs, depth = p.depthM / g.cs, tie = Math.max(0, p.tieM / g.cs);
     const minSep = Math.max(3, p.minSepM / g.cs);
@@ -574,7 +575,8 @@
     // the enemy's reference trip: his position -> ours
     const start = M.nearestPassable(g, cls, T.threat), goal = M.nearestPassable(g, cls, T.own);
     const ctx0 = { cls, slope: L.slope, prof: mob.prof, trackMask: mob.trackMask };
-    const pen = new Float32Array(g.w * g.h).fill(1);
+    const basePen = mob.penalty || new Float32Array(g.w * g.h).fill(1);
+    const pen = Float32Array.from(basePen);
     const trip = () => M.astar(g, Object.assign({}, ctx0, { penalty: pen }), start, goal);
     const base = start >= 0 && goal >= 0 ? trip() : null;
     if (!base) throw new Error(`The enemy (${mob.prof.name}) cannot reach own position at all — no minefield is needed for this movement class.`);
@@ -665,7 +667,7 @@
     // 4. greedy obstacle plan, lazily re-tested
     const test = (it) => {
       const old = it.cells.map((i) => pen[i]);
-      for (const i of it.cells) pen[i] = Math.max(pen[i], it.mult);
+      for (const i of it.cells) pen[i] = Math.max(pen[i], basePen[i] * it.mult);
       const res = trip();
       it.cells.forEach((i, k) => (pen[i] = old[k]));
       return res;
@@ -693,7 +695,7 @@
       }
       if (!best || best.delayS < p.minDelayMin * 60 || best.val <= 0) break;
       best.used = true;
-      for (const i of best.cells) pen[i] = Math.max(pen[i], best.mult);
+      for (const i of best.cells) pen[i] = Math.max(pen[i], basePen[i] * best.mult);
       const res = best.after && best.stale === round ? best.after : trip();
       // did the enemy go round, or through? (a breach costs at most the breach time)
       const crossed = res.path.some((i) => best.cells.includes(i));
@@ -746,9 +748,9 @@
     const maxOff = p.maxOffsetM / g.cs;
     const onRoute = new Uint8Array(g.w * g.h);
     for (const q of path) onRoute[q] = 1;
-    const foot = T.mob('foot');
+    const foot = T.moveMob ? T.moveMob('foot') : T.mob('foot'); // IPB: steep ground slows the climb, does not stop it
     progress && progress(0.1, 'Climb times from route');
-    const climb = M.reachable(g, { cls: foot.cls, slope: L.slope, prof: foot.prof, trackMask: foot.trackMask }, Array.from(path), p.maxClimbH * 3600);
+    const climb = M.reachable(g, { cls: foot.cls, slope: L.slope, prof: foot.prof, trackMask: foot.trackMask, penalty: foot.penalty || null }, Array.from(path), p.maxClimbH * 3600);
     const nearRoute = (r, c) => {
       for (let k = 0; k < path.length; k += 4) {
         const q = path[k];

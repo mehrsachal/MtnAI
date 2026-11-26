@@ -10,7 +10,8 @@
         ['Ctrl+O', 'Add Data (open elevation model)'], ['Ctrl+S', 'Save plan'], ['Ctrl+P', 'Terrain assessment report'], ['Ctrl+,', 'Settings'],
         ['Ctrl+K or /', 'Command search'], ['Ctrl+G', 'Go To XY'], ['Ctrl+B', 'Contents pane'], ['Ctrl+T', 'Attribute table'], ['Ctrl+J', 'Toggle attribute table / profile dock'],
         ['2 / 3', 'Map view / Scene view'], ['F', 'Zoom to full extent'], ['+ / −', 'Zoom in / out'], ['M', 'Measure'], ['L', 'Line of sight'], ['V', 'Viewshed'],
-        ['Esc', 'Cancel tool, drawing or fly-through'], ['F1', 'User guide'],
+        ['Esc', 'Cancel tool, drawing or fly-through · exit expanded / full-screen map'], ['Ctrl+Z / Ctrl+Y', 'Undo / redo an edit (markers, digitised geometry, sector, symbols)'], ['X', 'Expanded map workspace'], ['F1', 'User guide'], ['E', 'Explain this — method, data and parameters of the selection'], ['Shift+F1', 'Reference library'],
+        ['Ctrl+E', 'Side pane (Geoprocessing / Attributes / Explain / History)'], ['Z', 'Full-screen map'], ['Right-click on map', 'Explain / inspect / copy reference'],
       ];
       return { title: 'Keyboard shortcuts', html: `<table>${keys.map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>
         <h3>Mouse</h3><table><tr><td>2D</td><td>drag = pan · wheel = zoom · click = select / inspect · double-click = zoom in</td></tr>
@@ -30,10 +31,11 @@
         ['Advance (Sec 6)', 'The axis runs through valleys and defiles dominated by flanking heights — picquet the heights for the main body and the supply route.', 'Route Picquets'],
         ['Helicopters (Sec 22)', 'Landing sites ≤ 4° for repeated use; emergency 4–10° light, 4–20° cargo. Conceal the site and its approach; hard ground, rock or grass.', 'Helipad Sites (HLS)'],
         ['Sector defence (Sec 12–13, 15)', 'Hold the dominating features astride the axis; cover gaps by fire, mines and OPs; strong points with staying power; guard every approach against infiltration.', 'Sector tab: ITGs, Deployment Plan, Fire Coverage, Border Watch, Infiltration, Enemy Options'],
-        ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (SLOW-GO ≤ 30°)'],
+        ['Mobility — IPB terrain classification', 'GO: slopes below 30 %; SLOW-GO: 30–45 % uphill; NO-GO: 45 % or more uphill (directional). Elevation variation per km: 0–100 m GO, 100–200 m SLOW-GO, 200–400 m NO-GO. Unfordable rivers, minefields, ditches and barriers are NO-GO. GSP Sec 4 para 13a: surface, gradient and vegetation govern route selection.', 'Go / No-Go and every tool that moves troops (routes, avenues, access)'],
+        ['Animal transport (Annex H)', 'A loaded mule climbs any slope a man can without using his hands; about 16 miles a day, not more than 8 under load; payload 65 kg in hills.', 'Mule movement class (IPB slope limits, as for a man on foot)'],
       ];
-      return { title: 'Doctrine — GSP Mountain Warfare', html: `<h2>How MtnEye applies GSP Mountain Warfare</h2>
-        <p>The rules below come from the GSP Mountain Warfare pamphlet. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the pamphlet.</p>
+      return { title: 'Doctrine — GSP Mountain Warfare and IPB', html: `<h2>How MtnEye applies GSP Mountain Warfare and IPB</h2>
+        <p>The rules below come from the GSP Mountain Warfare pamphlet and, for terrain classification (GO / SLOW-GO / NO-GO), the IPB Basic Book. Each is built into a tool so that the suggestions follow doctrine. Section numbers refer to the GSP.</p>
         <table><tr><th>Subject</th><th>Teaching</th><th>Where in MtnEye</th></tr>${rows.map((r) => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
         <p class="hint">MtnEye is a planning aid. Confirm every suggestion by reconnaissance, as the pamphlet directs.</p>` };
     }
@@ -65,6 +67,20 @@ Results appear on the 2D map, the 3D terrain, the attribute table (bottom dock) 
 <li><b>Map / Scene</b> view tabs switch between the 2D map and the 3D scene.</li>
 </ul>
 
+<h3>New in 1.3</h3>
+<ul>
+<li><b>Map-first ArcGIS Pro-style workspace</b> — ribbon tabs Project · Map · Insert · Analysis · Edit · View · Imagery · Terrain · Symbology · Share · Help (compact mode), Contents pane, map, contextual pane (Properties · Geoprocessing · Routes · Explain · Catalog) and a bottom dock (attribute table, processing history, terrain profile, analysis results, route information, route card, diagnostics) that starts collapsed. One-click GIS / Expanded map / Full screen workspaces, Restore Layout, undo / redo of edits.</li>
+<li><b>Route Analysis &amp; Provenance</b> — every displayed model line has a record: run ID, input data, the producing functions and stages, recorded parameters, start / end origin, every vertex, terrain along the line, warnings and an interpretation that separates calculated, terrain-derived, user-entered, assumed and not-established information. Click a line (a chooser appears where lines overlap) or any of its vertices; export a route report.</li>
+<li><b>Formation / HQ frames</b> — platoon, company and battalion formations are goose eggs; anything marked as a headquarters (isHQ) is a square with its HQ designation, whatever the global style. The same rule is used on the map, in 3D, legends, tables, the editor and exports.</li>
+</ul>
+<h3>New in the workstation edition (1.2)</h3>
+<ul>
+<li><b>Hybrid basemap</b> (default) — satellite imagery (Esri World Imagery, Sentinel-2 cloudless or your own tile server) under hillshade, contours, terrain symbology and analysis layers. Imagery is the only basemap content that needs the internet; offline, and always for the synthetic training area, a clearly labelled <i>simulated</i> terrain colouring is shown. Map ▸ Basemap or the layers button on the map switches to the offline topographic basemap.</li>
+<li><b>Explain This</b> (E, ⓘ in Contents, right-click on the map, “Explain this result” after a tool run) — what is displayed, input dataset, method and formula, units, thresholds, interpretation, parameters actually used, assumptions, limitations, error sources and references.</li>
+<li><b>Reference Library</b> (Shift+F1) — GSP Mountain Warfare citations extracted from MtnEye’s own text, the IPB, APP-6(D) / MIL-STD-2525D and the published methods. Page and document numbers are shown only where MtnEye holds them.</li>
+<li><b>Symbol properties</b> — select a symbol to inspect its standard identity, echelon, status and SIDC; own and enemy markers can be edited (echelon, status, designation). Settings ▸ Symbology offers goose-egg unit outlines.</li>
+<li><b>Map-first layout</b> — collapsible / resizable panes with edge tabs, on-map zoom / 2D-3D / basemap / full-screen controls, layer transparency in Contents and Move Up / Down for analysis rasters.</li>
+</ul>
 <h3>Workflow</h3>
 <ol>
 <li><b>Map ▸ Add Data</b> (SRTM .hgt, GeoTIFF, ASCII grid, .zip), <b>Map ▸ Download DEM</b> (AWS Terrain Tiles or OpenTopography — the only network feature; save the GeoTIFF copy to work offline afterwards) or the demo terrain. Data is resampled into one WGS 84 / UTM analysis grid.</li>

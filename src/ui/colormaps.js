@@ -21,7 +21,8 @@
   };
 
   const PAL = {
-    elevation: [[0, '#2f5d34'], [0.12, '#5f8d46'], [0.28, '#a9ad63'], [0.42, '#b08a58'], [0.58, '#8c6d55'], [0.74, '#9b958e'], [0.88, '#d5d3cf'], [1, '#ffffff']],
+    // holographic hypsometric ramp: deep blue → teal → glacier cyan → pale ice → snow white (monotonic lightness, so order is readable)
+    elevation: [[0, '#0b2545'], [0.16, '#134e6b'], [0.32, '#1c7f8c'], [0.48, '#28b7c5'], [0.62, '#5fd0dc'], [0.76, '#9fe4ec'], [0.9, '#d6f4f7'], [1, '#ffffff']],
     tri: [[0, '#ffffcc'], [0.25, '#fed976'], [0.5, '#fd8d3c'], [0.75, '#e31a1c'], [1, '#800026']],
   };
   const LUT = { elevation: rampLUT(PAL.elevation), tri: rampLUT(PAL.tri) };
@@ -160,7 +161,7 @@
       case 'aspect': return `<h4>Aspect (downslope facing)</h4>` + sw(UI.ASPECT_COLORS.map((c, k) => [c, k < 8 ? UI.M.ASPECT_NAMES[k] : 'Flat']));
       case 'landform': return `<h4>Landforms (TPI)</h4>` + sw(UI.LANDFORM_COLORS.map((c, k) => [c, UI.M.LANDFORMS[k].name]));
       case 'tri': return `<h4>Ruggedness (TRI, m)</h4><div class="ramp" style="background:${ramp(PAL.tri)}"></div><div class="ends"><span>smooth</span><span>${Math.round(info.max || 0)}+</span></div>`;
-      case 'mobility': { const p = UI.mobPalette(); return `<h4>Mobility — ${info.name || ''}</h4>` + sw([[rgba(p[0]), `GO ≤ ${info.go}°`], [rgba(p[1]), `SLOW-GO ≤ ${info.slow}°`], [rgba(p[2]), 'NO-GO']]); }
+      case 'mobility': { const p = UI.mobPalette(); return `<h4>Mobility — ${info.name || ''}</h4>` + sw([[rgba(p[0]), `GO < ${info.go}°`], [rgba(p[1]), `SLOW-GO ${info.go}–${info.slow}°`], [rgba(p[2]), `NO-GO ≥ ${info.slow}°`]]); }
       case 'viewshed': return `<h4>Viewshed</h4>` + sw([[col('ovl.viewshedColor', 0.75), 'Visible from observer']]);
       case 'cover': return `<h4>Observation coverage</h4>` + sw([['rgba(150,230,140,.7)', 'seen by 1 post'], ['rgba(60,190,90,.75)', '2 posts'], ['rgba(20,130,60,.8)', '3+ posts']]);
       case 'dead': return `<h4>Dead ground</h4>` + sw([[col('ovl.deadColor', 0.75), 'In range, unobserved movement ground']]);

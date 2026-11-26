@@ -30,12 +30,28 @@
     markers: {}, obstacles: [], tracks: [],
     threatType: 'foot', ownEchelon: 'battalion',
     key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null,
-    mobStats: {}, snowLine: 0, generalize: false,
+    mobStats: {}, snowLine: 0, generalize: false, relief: false,
     show: { symbols: true, labels: true, markers: true, obstacles: true, key: true, posts: true, weapons: true, mfd: true, routes: true, avenues: true, picquets: true, helipads: true, hostileOps: true,
       secArea: true, ridges: true, nullahs: true, itgs: true, plan: true, eappr: true, infil: true, eopts: true, bwatch: true, firegaps: true },
     tool: null, draft: null, sel: null, view: '2d', baseCanvas: null, texCanvas: null, texDirty: true,
-    sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: { grpGrid: true },
+    sort: { col: 'type', desc: false }, tocSel: null, tocCollapsed: {},
+    // hybrid basemap ground layer, provenance of every engine run, user overlay order, symbol options
+    imagery: { status: 'none', canvas: null, message: 'not requested yet' },
+    runs: [], lastRun: {}, overlayOrder: null, explainTopic: null, hiddenRoutes: {}, markerOrigin: {}, ws: 'default', routePanelKey: null,
+    symOpts: { own: { planned: false, designation: 'OWN', isHQ: false, affil: 'F', func: '', hqDesignation: '', size: 1 }, threat: { echelon: 'battalion', planned: false, designation: 'ENY', isHQ: false, affil: 'H', func: '', hqDesignation: '', size: 1 } },
+    bm: { imagery: true, hillshade: true, terrain: true },
   });
+  /** Marker symbol from the editable symbol options (echelon, HQ status, affiliation, function, status). */
+  UI.markerSpec = (k) => {
+    const o = S.symOpts[k] || {};
+    const ech = k === 'own' ? S.ownEchelon : o.echelon || 'battalion';
+    const icon = o.func || (k === 'threat' ? UI.SYM.threat(S.threatType).icon : 'inf');
+    const spec = { set: 'unit', affil: o.affil || (k === 'own' ? 'F' : 'H'), icon, mods: icon === 'inf' && k === 'own' ? ['mountain'] : [], echelon: ech, planned: !!o.planned };
+    if (o.isHQ) Object.assign(spec, { isHQ: true, hqText: o.hqDesignation || UI.HQ_TEXT[ech] || 'HQ' });
+    return spec;
+  };
+  UI.ownSpec = () => UI.markerSpec('own');
+  UI.threatSpec = () => UI.markerSpec('threat');
   const engine = new UI.Engine();
   let map, v3;
 
@@ -77,15 +93,37 @@
     return { done: (d) => end('ok', 'done', d), fail: (d) => end('err', 'failed', d) };
   };
   UI.jobSeq = 0;
+  UI.runSeq = 0;
+  /** Plain copy of job arguments for the processing record (large arrays / typed arrays dropped). */
+  const sanitizeArgs = (a, depth = 0) => {
+    if (a === null || a === undefined || depth > 4) return a;
+    if (ArrayBuffer.isView(a)) return `[${a.length} values]`;
+    if (Array.isArray(a)) return a.length > 24 ? `[${a.length} items]` : a.map((x) => sanitizeArgs(x, depth + 1));
+    if (typeof a === 'object') { const o = {}; for (const [k, v] of Object.entries(a)) if (k !== 'path' && k !== 'cover') o[k] = sanitizeArgs(v, depth + 1); return o; }
+    return a;
+  };
+  /** Records how a result was produced (shown by Explain This and kept with the plan file). */
+  const recordRun = (label, cmd, args, t0, ok, summary) => {
+    const r = { id: `RUN-${String(++UI.runSeq).padStart(4, '0')}`, label, cmd, args: sanitizeArgs(args), t: Date.now(), dur: performance.now() - t0, ok, summary: summary || '',
+      engine: engine.mode === 'local' ? 'main thread (Web Worker unavailable)' : 'Web Worker', grid: S.grid ? `${S.grid.name} · ${S.grid.w}×${S.grid.h} @ ${S.grid.cs} m` : '' };
+    S.runs.push(r);
+    if (S.runs.length > 200) S.runs.shift();
+    if (ok) S.lastRun[cmd] = r;
+    return r;
+  };
   const run = async (label, cmd, args, summarize) => {
     busy(true, label);
     const entry = logStart(label);
+    const t0 = performance.now();
     try {
       const res = await engine.call(cmd, args, progress);
-      entry.done(summarize ? summarize(res) : '');
+      const sum = summarize ? summarize(res) : '';
+      const rr = recordRun(label, cmd, args, t0, true, sum);
+      entry.done(`${rr.id} · ${sum}`);
       return res;
     } catch (e) {
       entry.fail(e.message);
+      recordRun(label, cmd, args, t0, false, e.message);
       throw e;
     } finally { busy(false); UI.jobSeq++; }
   };
@@ -102,7 +140,7 @@
   const pushConfig = () => { const c = analysisConfig(); M.setConfig(c); return engine.call('config', c); };
   const syncSettings = () => engine.call('settings', {
     own: S.markers.own || null, threat: S.markers.threat || null, target: S.markers.target || null, threatProfile: S.threatType,
-    obstacles: S.obstacles, tracks: S.tracks, profiles: cfg('profiles') || {}, snowLine: S.snowLine, generalize: S.generalize,
+    obstacles: S.obstacles, tracks: S.tracks, profiles: cfg('profiles') || {}, snowLine: S.snowLine, generalize: S.generalize, relief: S.relief,
     sector: S.sector, border: S.border,
   });
   const weaponOf = (id) => M.weapon(id, (cfg('weapons') || {})[id]);
@@ -132,26 +170,37 @@
       S.grid = meta;
       S.L = { z: res.z, slope: res.slope, aspect: res.aspect, landform: res.landform, tri: res.tri, tpiL: res.tpiL, hs: res.hs };
       S.stats = res.stats;
+      S.filledCells = res.filled;
       S.sources = opts.sources || null;
+      S.imagery = { status: 'none', canvas: null, message: 'not requested yet' };
+      imageryGen++;
+      S.lastRun = {}; // results of the previous DEM are cleared below; their records stay in S.runs
+      S.drawerData = null; $('profileTitle').textContent = ''; { const cv = $('chart'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); } // profile of the previous DEM (bug in 1.0.0: it stayed on screen)
       if (opts.full) S.fullGrid = opts.full;
       Object.assign(S, { key: null, posts: null, weapons: [], mfd: null, avenues: null, routes: null, picquets: null, helipads: null, hostile: null, los: null, vsPoint: null, gotoMark: null, sel: null, mobStats: {}, draft: null });
       for (const o of Object.values(S.overlays)) { o.data = null; o.rgba = null; o.visible = false; }
       S.sec = {};
       if (!opts.keepPlan) { S.markers = {}; S.obstacles = []; S.tracks = opts.tracks || []; S.sector = opts.sector || null; S.border = opts.border || null; }
-      if (opts.markers) for (const k in opts.markers) S.markers[k] = snapLowSlope(opts.markers[k]);
+      if (!opts.keepPlan) S.markerOrigin = {};
+      if (opts.markers) for (const k in opts.markers) { S.markers[k] = snapLowSlope(opts.markers[k]); S.markerOrigin[k] = 'demo generator'; }
+      S.hiddenRoutes = {}; S.routePanelKey = null; undoStack.length = 0; redoStack.length = 0; updateUndoButtons();
       await recomputeHillshade(true);
       progress(0.9, 'Contours');
       S.contours = await engine.call('contours', { interval: +cfg('map.contourInterval'), majorEvery: +cfg('map.contourIndex') });
       await syncSettings();
       $('welcome').hidden = true;
       document.body.classList.add('has-grid');
+      $('mapCtl').hidden = false; $('srcChip').hidden = false;
       $('demName').textContent = `${meta.name} — ${meta.w} × ${meta.h} cells @ ${meta.cs} m`;
       updateEnabled();
       composeBase();
       map.fit();
       if (v3.ok) { v3.setTerrain(S.grid, S.L.z); v3.setExaggeration(+cfg('v3.vex')); updateTexture(true); }
       renderAll();
-      entry.done(`${meta.w}×${meta.h} @ ${meta.cs} m · ${F.analysisCRSName()} · ${F.elev(res.stats.elevMin)}–${F.elev(res.stats.elevMax)}`);
+      const sum = `${meta.w}×${meta.h} @ ${meta.cs} m · ${F.analysisCRSName()} · ${F.elev(res.stats.elevMin)}–${F.elev(res.stats.elevMax)}`;
+      entry.done(sum);
+      recordRun(`Add Data — ${meta.name}`, 'init', { tpiSmallM: +cfg('an.tpiSmallM'), tpiLargeM: +cfg('an.tpiLargeM'), hillshadeAzimuth: +cfg('map.hsAzimuth'), hillshadeAltitude: +cfg('map.hsAltitude'), multiDirectional: cfg('map.hsMulti'), resample: cfg('data.resample') }, performance.now(), true, sum);
+      requestImagery();
     } catch (e) {
       console.error(e);
       entry.fail(e.message);
@@ -365,12 +414,104 @@
       case 'viewshed': o.rgba = UI.colorMask(o.data, rgb('ovl.viewshedColor'), 0.42); break;
       case 'dominance': o.rgba = UI.colorDominance(o.data); break;
       case 'routevs': o.rgba = UI.colorCount(o.data, [[120, 190, 255, 0.3], [70, 130, 240, 0.42], [40, 60, 200, 0.55]]); break;
-      case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
       case 'model': o.rgba = UI.MB.rgba(o); break;
+      case 'firecov': o.rgba = UI.colorCount(o.data, [[255, 214, 110, 0.32], [245, 150, 40, 0.42], [210, 70, 20, 0.5]]); break;
     }
     return o.rgba;
   };
   const OVERLAY_ORDER = ['dominance', 'mobility', 'hostile', 'avenues', 'cover', 'wcover', 'dead', 'firecov', 'routevs', 'model', 'viewshed'];
+  /** Drawing order of analysis rasters (bottom first); the user can reorder them in Contents. */
+  const overlayOrder = () => {
+    if (!S.overlayOrder || S.overlayOrder.length !== OVERLAY_ORDER.length) S.overlayOrder = OVERLAY_ORDER.slice();
+    return S.overlayOrder;
+  };
+  const moveOverlay = (id, dir) => {
+    const o = overlayOrder(), i = o.indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= o.length) return;
+    [o[i], o[j]] = [o[j], o[i]];
+    refresh({ base: true });
+  };
+  const basemapMode = () => cfg('map.mode') || 'hybrid';
+
+  // ---------------------------------------------------------------- hybrid basemap ground layer
+  let imageryGen = 0;
+  /** Simulated terrain colouring at grid resolution (offline / synthetic fallback — never called imagery). */
+  const simCanvas = () => {
+    const g = S.grid;
+    if (S._sim && S._sim.hs === S.L.hs && S._sim.w === g.w && S._sim.h === g.h) return S._sim.cv;
+    const cv = document.createElement('canvas');
+    cv.width = g.w; cv.height = g.h;
+    cv.getContext('2d').putImageData(new ImageData(UI.simulatedGround(S.L, S.stats), g.w, g.h), 0, 0);
+    S._sim = { cv, hs: S.L.hs, w: g.w, h: g.h };
+    return cv;
+  };
+  const hsCanvas = () => {
+    const g = S.grid;
+    if (S._hsc && S._hsc.hs === S.L.hs) return S._hsc.cv;
+    const n = g.w * g.h, rgba = new Uint8ClampedArray(n * 4);
+    for (let i = 0; i < n; i++) { const v = S.L.hs[i]; rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = v; rgba[i * 4 + 3] = 255; }
+    const cv = document.createElement('canvas');
+    cv.width = g.w; cv.height = g.h;
+    cv.getContext('2d').putImageData(new ImageData(rgba, g.w, g.h), 0, 0);
+    S._hsc = { cv, hs: S.L.hs };
+    return cv;
+  };
+  const imageryReady = () => S.imagery.status === 'ready' && S.imagery.canvas;
+  const updateSourceChip = () => {
+    const chip = $('srcChip'), at = $('attrib');
+    if (!chip || !S.grid) return;
+    const im = S.imagery, mode = basemapMode();
+    let cls = 'ok', txt, attr = '';
+    if (mode === 'topo') { txt = `Topographic basemap · ${BASE_NAMES[S.base]} (offline)`; }
+    else if (im.status === 'loading') { cls = 'load'; txt = `Loading satellite imagery… ${Math.round((im.progress || 0) * 100)}%`; attr = 'Simulated terrain colouring shown until imagery arrives'; }
+    else if (imageryReady()) { txt = `${mode === 'hybrid' ? 'Hybrid' : 'Imagery'} · ${UI.IMAGERY_SOURCES[im.sourceId].name} · z${im.z}${im.failed ? ` · ${im.failed} tiles missing` : ''}`; attr = UI.IMAGERY_SOURCES[im.sourceId].attribution; if (im.failed) cls = 'warn'; }
+    else { cls = 'warn'; txt = im.status === 'synthetic' ? `${mode === 'hybrid' ? 'Hybrid' : 'Ground'} · simulated terrain colouring (synthetic DEM — not imagery)` : `Imagery unavailable — simulated terrain colouring (${im.status === 'off' ? 'imagery off' : 'offline / blocked'})`; attr = 'Ground colouring is simulated from the DEM — not imagery'; }
+    chip.className = cls;
+    $('srcText').textContent = txt;
+    chip.title = `${im.message || ''}\nClick for data source and methodology.`;
+    at.textContent = attr; at.hidden = !attr || !S.bm.imagery || mode === 'topo' || !imageryReady(); // attribution is required for real imagery; the chip flags simulated colouring
+  };
+  /** Fetch imagery for the loaded DEM (only network use besides DEM download). */
+  const requestImagery = async () => {
+    const g = S.grid;
+    if (!g) return;
+    const my = ++imageryGen;
+    const src = cfg('map.imagerySource');
+    const set = (o) => { S.imagery = Object.assign({ canvas: null }, o); updateSourceChip(); };
+    if (basemapMode() === 'topo') { set({ status: 'none', message: 'Topographic basemap selected — imagery not requested.' }); renderTOC(); return; }
+    if (g.synthetic) { set({ status: 'synthetic', message: 'Synthetic (fictional) terrain: real imagery would not match the ground, so a simulated terrain colouring is shown instead.' }); renderTOC(); refresh({ base: true }); return; }
+    if (src === 'none') { set({ status: 'off', message: 'Imagery source is set to None (Settings ▸ Map display).' }); renderTOC(); refresh({ base: true }); return; }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { set({ status: 'unavailable', sourceId: src, message: 'The browser reports no network connection — imagery is unavailable offline.' }); renderTOC(); refresh({ base: true }); return; }
+    const k = texScale();
+    const cv = document.createElement('canvas');
+    cv.width = g.w * k; cv.height = g.h * k;
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingEnabled = true; cx.drawImage(simCanvas(), 0, 0, cv.width, cv.height);
+    set({ status: 'loading', sourceId: src, progress: 0, message: 'Requesting imagery tiles…' });
+    renderTOC();
+    const entry = logStart(`Basemap imagery — ${(UI.IMAGERY_SOURCES[src] || {}).name || src}`);
+    const t0 = performance.now();
+    let res = null, err = null;
+    try {
+      res = await UI.buildImagery(cv, g, k, src, { customUrl: cfg('map.imageryUrl') }, (p) => { if (my === imageryGen && S.imagery.status === 'loading') { S.imagery.progress = p; updateSourceChip(); } });
+      if (res.loaded) cx.getImageData(0, 0, 1, 1); // throws if the server's tiles tainted the canvas
+    } catch (e) { err = e; }
+    if (my !== imageryGen) return; // superseded by a newer request
+    if (err || !res || !res.loaded) {
+      const why = err ? err.message : res && res.errors.length ? res.errors[0] : 'no tiles returned';
+      set({ status: 'unavailable', sourceId: src, message: `${(UI.IMAGERY_SOURCES[src] || {}).name || 'Imagery server'} could not be used (${/fetch|network|abort/i.test(why) ? 'network unavailable, blocked or no CORS' : why}). A simulated terrain colouring is shown instead.` });
+      entry.fail(S.imagery.message);
+      recordRun('Basemap imagery', 'imagery', { source: src, zoom: res && res.z }, t0, false, S.imagery.message);
+    } else {
+      set({ status: 'ready', canvas: cv, sourceId: src, url: res.source.url, z: res.z, resM: res.resM, tiles: res.tiles, loaded: res.loaded, failed: res.failed,
+        message: `${res.loaded} of ${res.tiles} tiles at zoom ${res.z} (≈ ${res.resM.toFixed(1)} m / px).` });
+      entry.done(S.imagery.message);
+      recordRun('Basemap imagery', 'imagery', { source: src, zoom: res.z, tiles: res.tiles }, t0, true, S.imagery.message);
+    }
+    renderTOC();
+    refresh({ base: true });
+  };
+
   const composeBase = () => {
     const g = S.grid;
     if (!g) return;
@@ -378,12 +519,48 @@
     const tex = S.baseCanvas || document.createElement('canvas');
     tex.width = g.w * k; tex.height = g.h * k;
     const ctx = tex.getContext('2d');
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(putSmall(UI.colorBase(S.base, S.L, S.stats, +cfg('map.blend'))), 0, 0, tex.width, tex.height);
+    const mode = basemapMode();
+    if (mode === 'topo') {
+      ctx.drawImage(putSmall(UI.colorBase(S.base, S.L, S.stats, +cfg('map.blend'))), 0, 0, tex.width, tex.height);
+    } else {
+      // 1 ground: satellite imagery, or the labelled simulated colouring when imagery is unavailable
+      ctx.fillStyle = cfg('map.background'); ctx.fillRect(0, 0, tex.width, tex.height);
+      if (S.bm.imagery) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, +cfg('map.imageryOpacity')));
+        ctx.drawImage(imageryReady() ? S.imagery.canvas : simCanvas(), 0, 0, tex.width, tex.height);
+        ctx.globalAlpha = 1;
+      }
+      if (mode === 'hybrid') {
+        // 2 relief: hillshade blended (overlay) so slopes read on top of photo texture
+        const hsA = +cfg('map.hybridHillshade');
+        if (S.bm.hillshade && hsA > 0) {
+          ctx.globalCompositeOperation = S.bm.imagery ? 'overlay' : 'source-over';
+          ctx.globalAlpha = hsA;
+          ctx.drawImage(hsCanvas(), 0, 0, tex.width, tex.height);
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        }
+        // 3 terrain symbology (slope, aspect, landforms, ruggedness, elevation) as a translucent layer
+        const tA = +cfg('map.terrainOverlay');
+        if (S.bm.terrain && S.base !== 'relief' && tA > 0) {
+          ctx.globalAlpha = tA;
+          ctx.drawImage(putSmall(UI.colorBase(S.base, S.L, S.stats, 0)), 0, 0, tex.width, tex.height);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+    // display-only high-altitude tint (Settings ▸ Map display ▸ snow tint)
+    const snowM = +cfg('map.snowLineM');
+    if (snowM > 0) {
+      const n = g.w * g.h, rgba = new Uint8ClampedArray(n * 4);
+      for (let i = 0; i < n; i++) if (S.L.z[i] >= snowM) { rgba[i * 4] = 226; rgba[i * 4 + 1] = 247; rgba[i * 4 + 2] = 250; rgba[i * 4 + 3] = 110; }
+      ctx.drawImage(putSmall(rgba), 0, 0, tex.width, tex.height);
+    }
     const tmp = document.createElement('canvas');
     tmp.width = tex.width; tmp.height = tex.height;
     const tctx = tmp.getContext('2d');
-    for (const id of OVERLAY_ORDER) {
+    for (const id of overlayOrder()) {
       const o = S.overlays[id];
       if (!o.visible || !o.data) continue;
       ctx.globalAlpha = o.opacity;
@@ -407,9 +584,13 @@
       }
       ctx.globalAlpha = 1;
     }
-    if (cfg('map.contours')) UI.drawContours(ctx, S.contours, { xy: (c, r) => [(c + 0.5) * k, (r + 0.5) * k], lw: Math.max(1, k * 0.55) });
+    if (cfg('map.contours')) {
+      const onImagery = mode !== 'topo' && S.bm.imagery;
+      UI.drawContours(ctx, S.contours, { xy: (c, r) => [(c + 0.5) * k, (r + 0.5) * k], lw: Math.max(1, k * 0.55), cased: onImagery, contourColor: onImagery ? cfg('map.contourHybridColor') : null });
+    }
     S.baseCanvas = tex;
     S.texDirty = true;
+    updateSourceChip();
   };
   let texTimer = 0;
   const updateTexture = (now) => {
@@ -425,6 +606,7 @@
       const P = { xy: (c, r) => [(c + 0.5) * k, (r + 0.5) * k], ppc: k, lw: k * 0.85, cs: S.grid.cs };
       if (cfg('grid.in3d')) UI.drawGrids(ctx, S.grid, P, [-0.5, -0.5, S.grid.w, S.grid.h], { labels: false });
       UI.drawFeatures(ctx, S, P);
+      if (UI.drawRouteMarks) UI.drawRouteMarks(ctx, S, P, { labels: false });
       S.texCanvas = t;
       S.texDirty = false;
       v3.setTexture(t);
@@ -455,6 +637,7 @@
   const BASE_NAMES = { relief: 'Shaded relief', elevation: 'Elevation (hypsometric)', slope: 'Slope', aspect: 'Aspect', landform: 'Landforms (TPI)', tri: 'Ruggedness (TRI)' };
   const showFlag = (k) => ({ visible: () => S.show[k] !== false, setVisible: (v) => { S.show[k] = v; refresh(); } });
   const settingFlag = (k) => ({ visible: () => !!cfg(k), setVisible: (v) => Settings.set(k, v) });
+  const bmFlag = (k) => ({ visible: () => S.bm[k] !== false, setVisible: (v) => { S.bm[k] = v; refresh({ base: true }); } });
 
   /** The layer model behind the Contents pane, attribute table and context menu. */
   const tocModel = () => {
@@ -462,7 +645,7 @@
     const mk = S.markers;
     const feat = [];
     const nMk = Object.keys(mk).filter((k) => mk[k]).length;
-    if (nMk) feat.push(Object.assign({ id: 'markers', name: 'Situation', count: nMk, table: true, legend: swatches([[symSw(UI.SYM.own(S.ownEchelon)), 'Own position'], [symSw(UI.SYM.threat(S.threatType)), 'Enemy'], [symSw(UI.SYM.target()), 'Target area'], [symSw(UI.SYM.sp(), 12), 'Route start (SP) / end (RP)']]),
+    if (nMk) feat.push(Object.assign({ id: 'markers', name: 'Situation', count: nMk, table: true, legend: swatches([[symSw(UI.ownSpec()), 'Own position'], [symSw(UI.threatSpec()), 'Enemy'], [symSw(UI.SYM.target()), 'Target area'], [symSw(UI.SYM.sp(), 12), 'Route start (SP) / end (RP)']]),
       remove: () => { S.markers = {}; safe(syncSettings)(); } }, showFlag('markers')));
     if (S.obstacles.length || S.tracks.length) feat.push(Object.assign({ id: 'obstacles', name: 'Obstacles & tracks', count: S.obstacles.length + S.tracks.length,
       legend: swatches([[polySw('rgba(217,58,50,0.35)', '#ff5b4f'), `No-Go areas (${S.obstacles.length})`], [lineSw('#c8955c', true), `Tracks (${S.tracks.length})`]]),
@@ -486,7 +669,7 @@
     if (S.key) feat.push(Object.assign({ id: 'key', name: 'Key terrain', count: S.key.peaks.length + S.key.passes.length, table: true, legend: swatches([['<span class="lg-txt">▲</span>', `Dominating heights (${S.key.peaks.length})`], ['<span class="lg-txt" style="font-family:Georgia">)(</span>', `Passes / cols (${S.key.passes.length})`]]), remove: () => { S.key = null; } }, showFlag('key')));
     if (S.los) feat.push({ id: 'los', name: 'Line of sight', legend: swatches([[lineSw('#3ddc66'), 'Visible'], [lineSw('#ff4136'), 'Masked']]), visible: () => true, setVisible: () => {}, remove: () => { S.los = null; } });
 
-    const ras = OVERLAY_ORDER.slice().reverse().filter((id) => S.overlays[id].data).map((id) => {
+    const ras = overlayOrder().slice().reverse().filter((id) => S.overlays[id].data).map((id) => {
       const o = S.overlays[id];
       return { id: 'ovl:' + id, name: id === 'mobility' && o.info ? `Mobility — ${o.info.name.split(' (')[0]}` : o.name, raster: true, legend: rasterLegend(o.legend, o.info),
         visible: () => o.visible, setVisible: (v) => { o.visible = v; refresh({ base: true }); },
@@ -501,8 +684,23 @@
       Object.assign({ id: 'g:contours', name: `Contours (${+cfg('map.contourInterval') ? `${cfg('map.contourInterval')} m` : 'auto'})`, legend: swatches([[lineSw(cfg('map.contourColor')), 'Index / intermediate']]), settings: 'map' }, settingFlag('map.contours')),
       Object.assign({ id: 'g:labels', name: 'Labels', settings: 'sym' }, settingFlag('sym.labels')),
     ];
-    const base = [{ id: 'dem', name: S.grid.name, sub: BASE_NAMES[S.base], legend: rasterLegend(S.base, baseInfo()), raster: true, isBase: true,
-      visible: () => true, setVisible: () => {}, settings: 'map' }];
+    const mode = basemapMode(), im = S.imagery;
+    const imStatus = () => {
+      if (im.status === 'loading') return ['load', `Loading tiles… ${Math.round((im.progress || 0) * 100)}%`];
+      if (imageryReady()) return [im.failed ? 'warn' : 'ok', `${im.loaded}/${im.tiles} tiles · zoom ${im.z} · ≈ ${im.resM.toFixed(1)} m/px · internet`];
+      return ['warn', im.status === 'synthetic' ? 'Synthetic DEM — simulated colouring, not imagery' : im.status === 'off' ? 'Imagery off — simulated colouring, not imagery' : 'Unavailable (offline / blocked) — simulated colouring, not imagery'];
+    };
+    const base = mode === 'topo' ? [{ id: 'dem', name: S.grid.name, sub: `${BASE_NAMES[S.base]} · topographic basemap (offline)`, legend: rasterLegend(S.base, baseInfo()), raster: true, isBase: true,
+      visible: () => true, setVisible: () => {}, settings: 'map' }] : [
+      ...(mode === 'hybrid' ? [Object.assign({ id: 'bm:terrain', name: `Terrain symbology — ${BASE_NAMES[S.base]}`, sub: S.base === 'relief' ? 'Relief is shown by the hillshade layer; pick slope / aspect / landforms… from Basemap' : null,
+        legend: S.base === 'relief' ? '' : rasterLegend(S.base, baseInfo()), raster: true, isBm: true, settings: 'map',
+        opacity: () => +cfg('map.terrainOverlay'), setOpacity: (v) => Settings.set('map.terrainOverlay', +v.toFixed(2)) }, bmFlag('terrain')),
+      Object.assign({ id: 'bm:hillshade', name: 'Hillshade (relief)', raster: true, isBm: true, settings: 'map', legend: rasterLegend('relief'),
+        opacity: () => +cfg('map.hybridHillshade'), setOpacity: (v) => Settings.set('map.hybridHillshade', +v.toFixed(2)) }, bmFlag('hillshade'))] : []),
+      Object.assign({ id: 'bm:imagery', name: imageryReady() ? `Satellite imagery — ${UI.IMAGERY_SOURCES[im.sourceId].name}` : 'Ground colouring — SIMULATED (not imagery)', status: imStatus(), raster: true, isBm: true, settings: 'map',
+        opacity: () => +cfg('map.imageryOpacity'), setOpacity: (v) => Settings.set('map.imageryOpacity', +v.toFixed(2)) }, bmFlag('imagery')),
+      { id: 'dem', name: S.grid.name, sub: `Elevation model · ${S.grid.cs} m cells`, raster: true, isBase: true, visible: () => true, setVisible: () => {}, settings: 'map' },
+    ];
     const X = S.sec, secL = [];
     const sl = (id, name, count, legend, remove) => secL.push(Object.assign({ id, name, count, table: true, legend, remove }, showFlag(id)));
     if (X.opts) sl('eopts', 'Enemy courses of action', X.opts.options.length, swatches([[lineSw('#c00000'), 'Main thrust'], [lineSw('#c00000', true), 'Supporting thrust']]), () => { delete X.opts; });
@@ -511,7 +709,7 @@
     if (X.watch) sl('bwatch', `Border watch — ${Math.round(X.watch.observedShare * 100)}% observed`, X.watch.gaps.length + X.watch.extraOPs.length, swatches([[lineSw('#ff00ff'), 'Unwatched stretch'], [symSw(UI.SYM.op(), 12), 'Extra OP (suggested)']]), () => { delete X.watch; });
     if (X.fire) sl('firegaps', 'Fire gaps on approaches', X.fire.gaps.length, swatches([['<span class="lg-txt">◇</span>', 'Under-covered stretch']]), () => { delete X.fire; clearOverlay('firecov'); });
     if (X.plan) sl('plan', `Deployment — ${X.plan.modeName}`, X.plan.platoons.length + X.plan.borderPosts.length + X.plan.companies.length + 1,
-      swatches([[symSw(UI.SYM.post('platoon')), 'Platoon post'], [symSw(UI.SYM.op(), 12), 'Border post'], [symSw(UI.SYM.own('company'), 12), 'Company / Bn HQ'], [symSw(UI.SYM.weapon(M.WEAPONS.mor60), 12), 'Mortar']]), () => { delete X.plan; delete X.fire; delete X.watch; clearOverlay('firecov'); });
+      swatches([[symSw(UI.SYM.post('platoon')), 'Platoon post'], [symSw(UI.SYM.op(), 12), 'Border post'], [symSw(UI.SYM.hq('company'), 12), 'Company / Bn HQ (HQ square)'], [symSw(UI.SYM.weapon(M.WEAPONS.mor60), 12), 'Mortar']]), () => { delete X.plan; delete X.fire; delete X.watch; clearOverlay('firecov'); });
     if (X.itg) sl('itgs', 'ITGs (Important Terrain Grounds)', X.itg.itgs.length, swatches([[polySw('rgba(255,255,255,0.25)', '#000'), 'ITG extent — label shows rating']]), () => { delete X.itg; delete X.plan; });
     if (X.terr) {
       sl('ridges', 'Ridgelines', X.terr.ridges.length, swatches([[lineSw('#5b3a1a'), 'Ridgeline (thicker = higher value)']]), () => { X.terr.ridges = []; });
@@ -523,9 +721,10 @@
       { id: 'grpModel', name: 'ModelBuilder results', layers: UI.MB ? UI.MB.tocLayers() : [] },
       { id: 'grpSector', name: 'Sector plan', layers: secL },
       { id: 'grpFeat', name: 'Situation & plan', layers: feat },
+      { id: 'grpModel', name: 'ModelBuilder results', layers: UI.MB ? UI.MB.tocLayers() : [] },
       { id: 'grpRas', name: 'Analysis rasters', layers: ras },
       { id: 'grpGrid', name: 'Map grids & annotation', layers: grids },
-      { id: 'grpBase', name: 'Elevation', layers: base },
+      { id: 'grpBase', name: mode === 'topo' ? 'Basemap — topographic' : mode === 'hybrid' ? 'Basemap — hybrid satellite + topographic' : 'Basemap — imagery', layers: base },
     ];
   };
   const findLayer = (id) => { for (const g of tocModel()) for (const l of g.layers) if (l.id === id) return l; return null; };
@@ -544,13 +743,21 @@
           const lc = l.id in S.tocCollapsed ? !!S.tocCollapsed[l.id] : !l.isBase;
           return `<div class="toc-l${S.tocSel === l.id ? ' sel' : ''}${l.visible() ? '' : ' off'}" data-layer="${esc(l.id)}">
             <div class="toc-lh"><span class="tw" data-tw="${esc(l.id)}">${l.legend ? (lc ? '▸' : '▾') : ''}</span><input type="checkbox" data-vis="${esc(l.id)}" ${l.visible() ? 'checked' : ''} ${l.isBase || l.id === 'los' ? 'disabled' : ''}>
-            <span class="toc-n" title="${esc(l.name)}">${esc(l.name)}</span>${l.count !== undefined ? `<i class="toc-c">${l.count}</i>` : ''}</div>
-            ${l.sub ? `<div class="toc-sub">${esc(l.sub)}</div>` : ''}${l.legend && !lc ? `<div class="toc-lg">${l.legend}</div>` : ''}</div>`;
+            <span class="toc-n" title="${esc(l.name)}">${esc(l.name)}</span>${l.count !== undefined ? `<i class="toc-c">${l.count}</i>` : ''}${UI.explainTopicForLayer(l.id, S) ? `<button class="toc-x" data-x="${esc(l.id)}" title="Explain this layer — data, method, parameters">${UI.icon('info', 13)}</button>` : ''}</div>
+            ${l.sub ? `<div class="toc-sub">${esc(l.sub)}</div>` : ''}${l.status ? `<div class="toc-st ${l.status[0]}">${esc(l.status[1])}</div>` : ''}
+            ${l.setOpacity && S.tocSel === l.id ? `<div class="toc-op">Transparency <input type="range" min="0" max="0.95" step="0.05" value="${(1 - l.opacity()).toFixed(2)}" data-op="${esc(l.id)}"><span>${pct(1 - l.opacity())}</span></div>` : ''}
+            ${l.legend && !lc ? `<div class="toc-lg">${l.legend}</div>` : ''}</div>`;
         }).join('')}</div>`;
     }).join('');
     el.querySelectorAll('[data-grp]').forEach((h) => h.addEventListener('click', () => { S.tocCollapsed[h.dataset.grp] = !S.tocCollapsed[h.dataset.grp]; renderTOC(); }));
     el.querySelectorAll('[data-tw]').forEach((h) => h.addEventListener('click', (e) => { e.stopPropagation(); const l = findLayer(h.dataset.tw); const cur = h.dataset.tw in S.tocCollapsed ? !!S.tocCollapsed[h.dataset.tw] : !(l && l.isBase); S.tocCollapsed[h.dataset.tw] = !cur; renderTOC(); }));
     el.querySelectorAll('[data-vis]').forEach((cb) => cb.addEventListener('change', (e) => { e.stopPropagation(); const l = findLayer(cb.dataset.vis); if (l) l.setVisible(cb.checked); renderTOC(); }));
+    el.querySelectorAll('[data-x]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); explainLayer(b.dataset.x); }));
+    el.querySelectorAll('[data-op]').forEach((r) => {
+      r.addEventListener('click', (e) => e.stopPropagation());
+      r.addEventListener('input', () => { r.nextElementSibling.textContent = pct(+r.value); });
+      r.addEventListener('change', () => { const l = findLayer(r.dataset.op); if (l) l.setOpacity(1 - +r.value); });
+    });
     el.querySelectorAll('[data-layer]').forEach((n) => {
       n.addEventListener('click', (e) => { if (e.target.matches('input')) return; S.tocSel = n.dataset.layer; renderTOC(); });
       n.addEventListener('dblclick', (e) => { if (e.target.matches('input')) return; openLayerProps(n.dataset.layer); });
@@ -564,7 +771,7 @@
     closeMenus();
     const m = document.createElement('div');
     m.className = 'menu';
-    m.innerHTML = items.map((it, k) => (it === '-' ? '<div class="sep"></div>'
+    m.innerHTML = items.map((it, k) => (it === '-' ? '<div class="sep"></div>' : it.head ? `<div class="mh">${esc(it.head)}</div>`
       : `<button class="mi" data-mi="${k}" ${it.disabled ? 'disabled' : ''}><span class="ck">${it.checked ? '✓' : it.icon ? UI.icon(it.icon, 13) : ''}</span><span class="lb">${esc(it.t)}</span><span class="kb">${it.k || ''}</span></button>`)).join('');
     m.querySelectorAll('[data-mi]').forEach((b) => b.addEventListener('click', () => { closeMenus(); items[+b.dataset.mi].run(); }));
     $('menuLayer').appendChild(m);
@@ -612,14 +819,29 @@
       { t: 'Visible', checked: l.visible(), run: () => { l.setVisible(!l.visible()); renderTOC(); }, disabled: l.isBase || id === 'los' },
     ];
     if (l.setOpacity) items.push({ t: 'Transparency…', run: () => openLayerProps(id) });
-    if (l.isBase) items.push('-', ...Object.entries(BASE_NAMES).map(([k, n]) => ({ t: n, checked: S.base === k, run: () => setBase(k) })));
+    if (id.startsWith('ovl:')) {
+      const o = overlayOrder(), i = o.indexOf(id.slice(4));
+      items.push({ t: 'Move Up (draw above)', run: () => moveOverlay(id.slice(4), +1), disabled: i >= o.length - 1 }, { t: 'Move Down (draw below)', run: () => moveOverlay(id.slice(4), -1), disabled: i <= 0 });
+    }
+    if (l.isBase || l.isBm) items.push('-', ...basemapMenu());
+    if (UI.explainTopicForLayer(id, S)) items.unshift({ t: 'Explain This Layer…', icon: 'help', k: 'E', run: () => explainLayer(id) }, '-');
     items.push('-');
-    if (l.remove) items.push({ t: 'Remove', icon: 'minus', run: () => { l.remove(); if (S.tocSel === id) S.tocSel = null; S.sel = null; renderAll(); refresh({ base: true }); } });
+    if (l.remove) items.push({ t: 'Remove', icon: 'minus', run: () => { if (['markers', 'obstacles', 'secArea'].includes(id)) pushUndo(`Remove ${l.name}`); l.remove(); if (S.tocSel === id) S.tocSel = null; S.sel = null; renderAll(); refresh({ base: true }); } });
     if (l.settings) items.push({ t: 'Symbology settings…', icon: 'gear', run: () => Settings.open(l.settings) });
     items.push({ t: 'Properties…', icon: 'doc', run: () => openLayerProps(id) });
     popupMenu(x, y, items);
   };
-  const setBase = (k) => { S.base = k; Settings.set('map.base', k); };
+  const setBase = (k) => { S.base = k; S.bm.terrain = true; Settings.set('map.base', k); };
+  const MODE_NAMES = { hybrid: 'Hybrid — satellite + topographic', imagery: 'Satellite imagery only', topo: 'Topographic / analysis (offline)' };
+  const SRC_NAMES = { esri: 'Imagery: Esri World Imagery', eox: 'Imagery: Sentinel-2 cloudless (EOX)', custom: 'Imagery: custom tile server', none: 'Imagery: none (offline)' };
+  /** Basemap menu: mode, imagery source, terrain symbology. */
+  const basemapMenu = () => [
+    ...Object.entries(MODE_NAMES).map(([k, n]) => ({ t: n, checked: basemapMode() === k, run: () => Settings.set('map.mode', k) })), '-',
+    ...Object.entries(SRC_NAMES).map(([k, n]) => ({ t: n, checked: cfg('map.imagerySource') === k, disabled: basemapMode() === 'topo', run: () => Settings.set('map.imagerySource', k) })),
+    { t: 'Reload imagery', icon: 'download', disabled: basemapMode() === 'topo' || !S.grid, run: () => requestImagery() }, '-',
+    ...Object.entries(BASE_NAMES).map(([k, n]) => ({ t: `Terrain: ${n}`, checked: S.base === k, run: () => setBase(k) })), '-',
+    { t: 'Explain basemap data source…', icon: 'help', run: () => openExplain(basemapMode() === 'topo' ? (S.base === 'relief' ? 'hillshade' : S.base) : 'imagery') },
+  ];
 
   // ---------------------------------------------------------------- layer properties dialog
   const pgrid = (rows) => rows.map(([k, v]) => (v === null ? `<tr class="sub"><td colspan="2">${esc(k)}</td></tr>` : `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)).join('');
@@ -655,7 +877,7 @@
         let n = 0;
         for (const v of o.data) if (v) n++;
         rows.push(['Statistics', null], ['Non-zero cells', `${n.toLocaleString()} (${pct(n / o.data.length, 1)})`], ['Area', F.area((n * S.grid.cs * S.grid.cs) / 1e6)]);
-        if (id === 'ovl:mobility' && o.info) rows.push(['Movement class', o.info.name], ['GO / SLOW-GO limits', `≤ ${o.info.go}° / ≤ ${o.info.slow}°`]);
+        if (id === 'ovl:mobility' && o.info) rows.push(['Movement class', o.info.name], ['GO / NO-GO slope limits', `GO < ${o.info.go}° · SLOW-GO ${o.info.go}–${o.info.slow}° · NO-GO ≥ ${o.info.slow}° (${o.info.src || ''})`]);
       }
       const p = id === 'posts' ? S.posts && S.posts.params : id.startsWith('weapons:') ? S.weapons[+id.slice(8)] && S.weapons[+id.slice(8)].params : null;
       if (p) rows.push(['Tool parameters used', null], ...Object.entries(p).filter(([, v]) => typeof v !== 'object' || Array.isArray(v)).slice(0, 30).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v)]));
@@ -763,6 +985,7 @@
     if (!d) return;
     const pts = d.pts.filter((p, k) => k === 0 || Math.hypot(p[0] - d.pts[k - 1][0], p[1] - d.pts[k - 1][1]) > 0.5);
     if (d.purpose === 'rvsline' && pts.length >= 2) { S.rvsLine = pts; setTool(null); GP.set('routeViewshed', 'source', 'drawn'); GP.open('routeViewshed'); GP.run('routeViewshed'); return; }
+    if ((d.purpose && pts.length >= (d.purpose === 'sector' ? 3 : 2)) || (!d.purpose && pts.length >= (d.kind === 'poly' ? 3 : 2))) pushUndo(d.purpose === 'sector' ? 'Sector boundary' : d.purpose === 'border' ? 'Border line' : d.kind === 'poly' ? 'No-Go area' : 'Track');
     if (d.purpose === 'sector' && pts.length >= 3) { S.sector = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose === 'border' && pts.length >= 2) { S.border = pts; setTool(null); safe(onSectorChanged)(); return; }
     if (d.purpose) { toast('Not enough vertices.', true); setTool(null); return; }
@@ -800,7 +1023,9 @@
     return best;
   };
   const placeMarker = async (k, cell) => {
+    pushUndo(`Place ${MARKER_LABEL[k] || k}`);
     S.markers[k] = cell;
+    S.markerOrigin[k] = 'user';
     if (k === 'own' || k === 'threat') { S.avenues = null; S.hostile = null; clearOverlay('hostile'); clearOverlay('avenues'); }
     await syncSettings();
     renderAll();
@@ -813,8 +1038,18 @@
     const inside = c >= -0.5 && r >= -0.5 && c <= g.w - 0.5 && r <= g.h - 0.5;
     const tool = S.tool;
     if (!tool) {
+      // vertices of the inspected generated line first, then symbols, then lines (with a chooser when they overlap)
+      const vh = S.view === '2d' ? vertexHit(ev.x, ev.y) : null;
+      if (vh) { selectVertex(vh.key, vh.v); return; }
       const ref = nearestSymbol(ev.x, ev.y);
       if (ref) { select(ref, false, true); return; }
+      const hits = S.view === '2d' ? routeHits(ev.x, ev.y) : [];
+      if (hits.length === 1) { selectRoute(hits[0].key); return; }
+      if (hits.length > 1) {
+        const rc = $('map2d').getBoundingClientRect();
+        popupMenu(rc.left + ev.x + 6, rc.top + ev.y + 6, [{ head: `${hits.length} overlapping features — choose one` }, ...hits.map((r) => ({ t: `${r.id} — ${RCAT[r.cat].short}`, icon: 'route', run: () => selectRoute(r.key) }))]);
+        return;
+      }
       if (S.helipads && S.show.helipads !== false) {
         const k = S.helipads.pads.findIndex((q) => { const [sx, sy] = S.view === '3d' ? [-1e9, -1e9] : map.toScreen(q.c, q.r); return Math.hypot(sx - ev.x, sy - ev.y) < 14; });
         if (k >= 0) { select({ kind: 'hls', idx: k }, false, true); return; }
@@ -888,7 +1123,7 @@
   const computeMobility = async (v, quiet) => {
     needGrid();
     const id = v.profile;
-    S.snowLine = +v.snowLine || 0; S.generalize = !!v.generalize;
+    S.snowLine = +v.snowLine || 0; S.generalize = !!v.generalize; S.relief = !!v.relief;
     await syncSettings();
     const res = await run(`Go / No-Go — ${M.MOVEMENT_PROFILES[id].name}`, 'mobility', { profile: id },
       (r) => `GO ${pct(r.stats.go)} · SLOW ${pct(r.stats.slow)} · NO-GO ${pct(r.stats.nogo)}`);
@@ -898,7 +1133,7 @@
     renderAll(); refresh({ base: true });
     const s = res.stats, area = S.stats.areaKm2;
     if (!quiet) toast(`${res.profile.name}: ${pct(s.go)} GO, ${pct(s.slow)} SLOW-GO, ${pct(s.nogo)} NO-GO.`);
-    return `${res.profile.name} (GO ≤ ${res.profile.go}°, SLOW-GO ≤ ${res.profile.slow}°)\nGO ${pct(s.go)} · ${F.area(s.go * area)}\nSLOW-GO ${pct(s.slow)} · ${F.area(s.slow * area)}\nNO-GO ${pct(s.nogo)} · ${F.area(s.nogo * area)}`;
+    return `${res.profile.name} (GO < ${res.profile.go}°, NO-GO ≥ ${res.profile.slow}°${res.profile.src ? ' — ' + res.profile.src : ''})\nGO ${pct(s.go)} · ${F.area(s.go * area)}\nSLOW-GO ${pct(s.slow)} · ${F.area(s.slow * area)}\nNO-GO ${pct(s.nogo)} · ${F.area(s.nogo * area)}`;
   };
   const H = {};
   H.downloadDEM = gpDownloadDEM;
@@ -993,7 +1228,8 @@
     await syncSettings();
     const res = await run('Avenues of Approach', 'avenues', { profile: v.threatType, k: +v.k, separationM: +v.separationM, bufferM: +v.bufferM },
       (r) => r.routes.map((x, k) => `AA${k + 1} ${F.dist(x.lengthM)} / ${F.time(x.timeH)}`).join('\n'));
-    S.avenues = { routes: res.routes };
+    S.avenues = { routes: res.routes, src: 'avenues', from: S.markers.threat, to: S.markers.own };
+    annotateRun('avenues', runContext());
     setOverlay('avenues', res.density);
     renderAll(); refresh({ base: true });
     return `${M.MOVEMENT_PROFILES[v.threatType].name}:\n` + res.routes.map((r, k) => `AA${k + 1}  ${F.dist(r.lengthM)} · ${F.time(r.timeH)} · slow-go ${pct(r.slowFrac)}`).join('\n');
@@ -1049,7 +1285,7 @@
     const opts = Object.assign({}, v, { profile: v.profile === 'auto' ? undefined : v.profile, cover, protect });
     const res = await run(`Minefields — ${v.type}`, 'minefields', opts, (r) => `${r.fields.length} fields · enemy +${Math.round(r.totalDelayMin)} min`);
     S.mfd = res;
-    if (!S.avenues) S.avenues = { routes: res.avenues };
+    if (!S.avenues) S.avenues = { routes: res.avenues, src: 'minefields' };
     S.show.mfd = true;
     renderAll(); refresh();
     const head = res.purpose === 'barrier'
@@ -1068,6 +1304,7 @@
     }, (r) => r.routes.map((x, k) => `R${k + 1} ${F.dist(x.lengthM)} · ${F.time(x.timeH)}`).join('\n'));
     S.routes = { routes: res.routes, sel: 0, profile: v.profile, mode: v.mode, night: !!v.night };
     S.picquets = null;
+    annotateRun('route', runContext());
     renderAll(); showRouteProfile(); refresh();
     renderRouteCard();
     return `${M.MOVEMENT_PROFILES[v.profile].name} · ${v.mode}\n` + res.routes.map((r, k) => `R${k + 1}  ${F.dist(r.lengthM)} · model ${F.time(r.timeH)} · GSP ${gspRange(v.night ? r.gspNight : r.gspDay)} · ↑${F.height(r.ascentM)} ↓${F.height(r.descentM)} · exposed ${pct(r.exposedFrac)}`).join('\n') +
@@ -1153,7 +1390,9 @@
   H.enemyApproaches = async (v) => {
     needBorder();
     await syncSettings();
+    const ctxNow = runContext();
     const r = await run('Enemy Approaches', 'enemyApproaches', v, (x) => `${x.approaches.length} approaches`);
+    annotateRun('enemyApproaches', Object.assign(ctxNow, { entryPoints: r.entries.length, defaultsApplied: r.params }));
     S.sec.appr = r; delete S.sec.opts;
     if (!S.sec.itg) S.sec.itg = await engine.call('itgs', null);
     secDone({ eappr: true });
@@ -1162,7 +1401,9 @@
   H.infiltration = async (v) => {
     needBorder();
     await syncSettings();
+    const ctxNow = runContext();
     const r = await run('Infiltration Routes', 'infiltration', v, (x) => `${x.routes.length} routes`);
+    annotateRun('infiltration', Object.assign(ctxNow, { defaultsApplied: r.params, targets: S.sec.plan ? 'deployment-plan HQs (Bn HQ + company HQs)' : 'the 3 ITGs farthest from the border' }));
     S.sec.infil = r;
     secDone({ infil: true });
     return r.routes.map((a) => `${a.id}: ${a.type} to ${a.target} · ${F.dist(a.lengthM)}, ${F.time(a.timeH)} · ${Math.round(a.detectShare * 100)}% watched · threat ${a.threat}`).join('\n') + (S.sec.plan ? '' : '\nTip: run Deployment Plan first — routes are then judged against your posts.');
@@ -1189,7 +1430,9 @@
   H.enemyOptions = async (v) => {
     needBorder();
     if (!S.sec.appr) await H.enemyApproaches(GP.values('enemyApproaches'));
+    const ctxNow = runContext();
     const r = await run('Enemy Courses of Action', 'enemyOptions', v, (x) => `${x.options.length} options`);
+    annotateRun('enemyOptions', ctxNow);
     S.sec.opts = r;
     secDone({ eopts: true });
     return r.options.map((o) => `${o.id}${o.label ? ` (${o.label})` : ''} — threat ${o.threat}\n  ${o.summary}\n  Recommendation: ${o.recommendation}`).join('\n');
@@ -1227,10 +1470,10 @@
       P.borderPosts.forEach((q, k) => add('plan', `bp${k}`, { id: q.id, type: 'Border post', sym: UI.SYM.op(), r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons, detail: q.reasons.join(' · ') }));
       P.platoons.forEach((q, k) => add('plan', `pl${k}`, { id: q.id, type: `Platoon post (${q.role})`, sym: UI.SYM.post('platoon'), r: q.r, c: q.c, z: q.z, rating: q.rating, reasons: q.reasons, detail: q.reasons.join(' · ') }));
       P.companies.forEach((co, k) => {
-        add('plan', `hq${k}`, { id: co.hq.id, type: 'Company HQ', sym: UI.SYM.own('company'), r: co.hq.r, c: co.hq.c, z: co.hq.z, rating: co.hq.rating, reasons: co.hq.reasons, detail: `${co.platoons.map((q) => q.id).join(', ')} · ${co.hq.reasons[0]}` });
+        add('plan', `hq${k}`, { id: co.hq.id, type: 'Company HQ', sym: UI.SYM.hq('company'), r: co.hq.r, c: co.hq.c, z: co.hq.z, rating: co.hq.rating, reasons: co.hq.reasons, detail: `${co.platoons.map((q) => q.id).join(', ')} · ${co.hq.reasons[0]}` });
         if (co.mortar) add('plan', `mo${k}`, { id: co.mortar.id, type: '60 mm mortar', sym: UI.SYM.weapon(M.WEAPONS.mor60), r: co.mortar.r, c: co.mortar.c, z: co.mortar.z, rating: co.mortar.rating, reasons: co.mortar.reasons, detail: co.mortar.reasons[0] });
       });
-      if (P.bnHq) add('plan', 'bn', { id: 'Bn HQ', type: 'Battalion HQ', sym: UI.SYM.own('battalion'), r: P.bnHq.r, c: P.bnHq.c, z: P.bnHq.z, rating: P.bnHq.rating, reasons: P.bnHq.reasons, detail: P.bnHq.reasons[0] });
+      if (P.bnHq) add('plan', 'bn', { id: 'Bn HQ', type: 'Battalion HQ', sym: UI.SYM.hq('battalion'), r: P.bnHq.r, c: P.bnHq.c, z: P.bnHq.z, rating: P.bnHq.rating, reasons: P.bnHq.reasons, detail: P.bnHq.reasons[0] });
       if (P.bnMortar) add('plan', 'bnm', { id: P.bnMortar.id, type: '81 mm mortar', sym: UI.SYM.weapon(M.WEAPONS.mor81), r: P.bnMortar.r, c: P.bnMortar.c, z: P.bnMortar.z, rating: P.bnMortar.rating, reasons: P.bnMortar.reasons, detail: P.bnMortar.reasons[0] });
     }
     if (X.fire) {
@@ -1276,6 +1519,8 @@
       case 'avenue': return S.avenues && S.avenues.routes[ref.idx] && { c: S.avenues.routes[ref.idx].line[0][0], r: S.avenues.routes[ref.idx].line[0][1] };
       case 'cp': return S.routes && S.routes.routes[S.routes.sel || 0].checkpoints[ref.idx];
       case 'point': return { c: ref.c, r: ref.r };
+      case 'rline': { const rr = recByKey(ref.key); return rr ? { c: rr.line[0][0], r: rr.line[0][1] } : null; }
+      case 'rvertex': { const rr = recByKey(ref.key); return rr && rr.line[ref.v] ? { c: rr.line[ref.v][0], r: rr.line[ref.v][1] } : null; }
       case 'sec': return secItems().find((x) => x.layer === ref.layer && x.idx === ref.idx) || null;
       default: return null;
     }
@@ -1323,7 +1568,7 @@
     if (!p || !S.grid) { el.innerHTML = '<p class="hint pad">Select a feature on the map or in the attribute table. Click empty ground to inspect a location.</p>'; return; }
     let icon = '', title = '', sub = '';
     const rows = [];
-    const mk = { own: ['Own position', UI.SYM.own(S.ownEchelon)], threat: ['Enemy', UI.SYM.threat(S.threatType)], target: ['Target area', UI.SYM.target()], a: ['Route start (SP)', UI.SYM.sp()], b: ['Route end (RP)', UI.SYM.rp()] };
+    const mk = { own: ['Own position', UI.ownSpec()], threat: ['Enemy', UI.threatSpec()], target: ['Target area', UI.SYM.target()], a: ['Route start (SP)', UI.SYM.sp()], b: ['Route end (RP)', UI.SYM.rp()] };
     switch (ref.kind) {
       case 'post': {
         const P = S.posts;
@@ -1388,6 +1633,19 @@
         break;
       case 'cp': icon = UI.symbolHTML(UI.SYM.cp(ref.idx + 1), 20); title = `CKP ${ref.idx + 1}`; sub = `Checkpoint — km ${(p.d / 1000).toFixed(1)}`; break;
       case 'point': title = 'Location'; sub = 'Inspected point'; break;
+      case 'rline': {
+        const rr = recByKey(ref.key);
+        icon = UI.icon('route', 22); title = rr.id; sub = `${RCAT[rr.cat].name} — model output, not a prediction`;
+        rows.push(['Generated line', null], ['Run', rr.run ? `${rr.run.id} · ${rr.run.label}` : NR], ['Vertices', String(rr.line.length)], ['Length', rr.src.lengthM !== undefined ? F.dist(rr.src.lengthM) : NR],
+          ['Start origin', endpointOrigin(rr, 0)[0]], ['End origin', endpointOrigin(rr, 1)[0]], ['Full provenance', 'Side pane ▸ Routes (audit trail, parameters, vertices)']);
+        break;
+      }
+      case 'rvertex': {
+        const vr = vertexRows(ref);
+        icon = UI.icon('target', 22); title = `${vr.r.id} — ${vr.role}`; sub = 'Point of a generated line (model output)';
+        rows.push(...vr.rows);
+        break;
+      }
       case 'sec':
         icon = p.sym ? UI.symbolHTML(p.sym, 24) : ''; title = p.id; sub = p.type;
         rows.push(['Assessment', null], ['Rating', p.rating || '—'], ...(p.reasons || []).map((x, k) => [k ? '' : 'Why', x]));
@@ -1395,21 +1653,230 @@
         break;
       default: title = ref.kind;
     }
+    const topic = UI.explainTopicForRef(ref);
+    const routeBlock = ref.kind === 'route' || ref.kind === 'cp' ? routeInfoHTML(ref.kind === 'route' ? ref.idx : S.routes.sel || 0) : '';
     el.innerHTML = `<div class="sel-head">${icon}<div><div class="t">${esc(title)}</div><div class="s">${esc(sub)}</div></div></div>
-      <table class="pgrid">${pgrid(rows.concat(positionRows(p.r, p.c)))}</table>
-      <div class="sel-actions"><button class="btn sm" data-act="copy">Copy reference</button><button class="btn sm" data-act="zoom">Zoom to</button><button class="btn sm" data-act="vs">Viewshed from here</button></div>`;
+      ${routeBlock}
+      <table class="pgrid${ref.kind === 'rline' || ref.kind === 'rvertex' ? ' ex-t' : ''}">${pgrid(rows.concat(positionRows(p.r, p.c)))}</table>
+      <div class="sel-actions">${topic ? '<button class="btn sm ex-go" data-act="explain">Explain this result</button>' : ''}<button class="btn sm" data-act="copy">Copy reference</button><button class="btn sm" data-act="zoom">Zoom to</button><button class="btn sm" data-act="vs">Viewshed from here</button></div>
+      ${ref.kind === 'weapon' ? weaponObjectHTML(ref, p) : ''}${symbolPanelHTML(ref, p)}`;
+    if (topic) el.querySelector('[data-act=explain]').onclick = () => openExplain(topic, { ref });
+    wireSymbolPanel(el, ref, p);
     el.querySelector('[data-act=copy]').onclick = () => copyText(F.listRef(p.r, p.c));
     el.querySelector('[data-act=zoom]').onclick = () => (S.view === '3d' ? v3.lookAtCell(p.c, p.r, 3500) : map.centerOn(p.c, p.r, Math.max(map.view.scale, 3)));
     el.querySelector('[data-act=vs]').onclick = () => { GP.set('viewshed', 'observer', { c: Math.round(p.c), r: Math.round(p.r) }); GP.open('viewshed'); GP.run('viewshed'); };
   };
+
+  // =================================================================== route information, object & symbol inspectors
+  /** Recorded inputs and processing history of a generated route (no recommendation implied). */
+  const routeInfoHTML = (idx) => {
+    if (!S.routes) return '';
+    const rt = S.routes.routes[idx];
+    if (!rt) return '';
+    const run = S.lastRun.route;
+    const prof = profileOf(S.routes.profile);
+    const mk = S.markers;
+    const modeName = S.routes.mode === 'custom' ? 'Custom weights' : (M.ROUTE_MODES[S.routes.mode] || {}).name || S.routes.mode;
+    const rows = [
+      ['Route information', null],
+      ['Selected start (A)', mk.a ? F.listRef(mk.a.r, mk.a.c) : '—'], ['Selected destination (B)', mk.b ? F.listRef(mk.b.r, mk.b.c) : '—'],
+      ['Distance (plan / along slope)', `${F.dist(rt.lengthM)} / ${F.dist(rt.length3dM || rt.lengthM)}`], ['Elevation profile', 'Bottom dock ▸ Elevation profile'],
+      ['Terrain datasets used', `${S.grid.name} (${S.grid.cs} m) → slope (Horn) → mobility classes${S.obstacles.length || S.tracks.length ? ` + ${S.obstacles.length} No-Go areas, ${S.tracks.length} tracks` : ''}`],
+      ['Processing method', `A* least-cost search, ${cfg('an.routeNeighbours') === 8 ? 8 : 16}-connected; cost = modelled travel time${S.routes.mode !== 'fastest' ? ' × weighted penalties' : ''}`],
+      ['Movement class', `${prof.name} — GO < ${prof.go}°, NO-GO ≥ ${prof.slow}°, ${prof.speed} km/h level`], ['Cost mode', modeName],
+      ['Run recorded', run ? `${new Date(run.t).toLocaleTimeString()} · ${(run.dur / 1000).toFixed(1)} s · ${run.engine}` : 'not recorded in this session (loaded from a plan file?)'],
+    ];
+    return `<div class="ex-banner">Generated by the terrain cost model for the parameters recorded below. It is <b>not</b> a verified or recommended real-world route — confirm by reconnaissance.</div>
+      <table class="pgrid">${pgrid(rows)}</table>`;
+  };
+
+  const ECH_NAMES = { 11: 'Team / crew', 12: 'Squad', 13: 'Section', 14: 'Platoon / detachment', 15: 'Company / battery', 16: 'Battalion', 17: 'Regiment / group', 18: 'Brigade' };
+  /** Field-by-field reading of a 20-digit 2525D / APP-6D SIDC as generated by MtnEye. */
+  const decodeSIDC = (s) => [
+    ['Version', s.slice(0, 2)], ['Context', { 0: 'Reality', 1: 'Exercise', 2: 'Simulation' }[s[2]] || s[2]],
+    ['Standard identity', { 0: 'Pending', 1: 'Unknown', 2: 'Assumed friend', 3: 'Friend', 4: 'Neutral', 5: 'Suspect', 6: 'Hostile' }[s[3]] || s[3]],
+    ['Symbol set', { 10: 'Land unit', 15: 'Land equipment', 25: 'Control measure' }[s.slice(4, 6)] || s.slice(4, 6)],
+    ['Status', s[6] === '1' ? 'Planned / anticipated' : 'Present'], ['HQ / task force / dummy', s[7]],
+    ['Amplifier (echelon / mobility)', ECH_NAMES[s.slice(8, 10)] || s.slice(8, 10)], ['Entity · type · subtype', `${s.slice(10, 12)} · ${s.slice(12, 14)} · ${s.slice(14, 16)}`],
+    ['Sector 1 / sector 2 modifier', `${s.slice(16, 18)} / ${s.slice(18, 20)}`],
+  ];
+  const ICON_NAMES = { inf: 'Infantry', armr: 'Armour', mech: 'Mechanised infantry', at: 'Anti-tank', recce: 'Reconnaissance', arty: 'Artillery', ad: 'Air defence', engr: 'Engineer',
+    mg: 'Machine gun', atrl: 'Anti-tank rocket launcher', rcl: 'Recoilless gun', atgm: 'Anti-tank missile launcher', mortar: 'Mortar', how: 'Howitzer / gun', sam: 'Air defence missile launcher', adgun: 'Air defence gun',
+    op: 'Observation post', fo: 'Forward observer', cp: 'Checkpoint', sp: 'Start point', rp: 'Release point', trp: 'Target reference point', atmine: 'Anti-tank mine', apmine: 'Anti-personnel mine' };
+  /** SIDC for a symbol spec, using the export module's builder (null when the export has no code for it). */
+  const sidcForSpec = (spec) => UI.sidcForSpec(spec);
+  /** Symbol spec of the selected item (null when it has no map symbol). */
+  const specOf = (ref, p) => {
+    switch (ref.kind) {
+      case 'marker': return { own: UI.ownSpec(), threat: UI.threatSpec(), target: UI.SYM.target(), a: UI.SYM.sp(), b: UI.SYM.rp() }[ref.idx];
+      case 'post': return S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon);
+      case 'weapon': return UI.SYM.weapon(S.weapons[ref.idx].weapon);
+      case 'picquet': return UI.SYM.picquet();
+      case 'cp': return UI.SYM.cp(ref.idx + 1);
+      case 'mfd': return UI.SYM.mine(p.type);
+      case 'sec': return p.sym || null;
+      default: return null;
+    }
+  };
+  const FUNC_OPTS = [['', 'Automatic'], ['inf', 'Infantry'], ['armr', 'Armour'], ['mech', 'Mechanised infantry'], ['recce', 'Reconnaissance'], ['at', 'Anti-tank'], ['arty', 'Artillery'], ['ad', 'Air defence'], ['engr', 'Engineer']];
+  const symbolPanelHTML = (ref, p) => {
+    const spec = specOf(ref, p);
+    if (!spec) return '';
+    const sidc = sidcForSpec(spec);
+    const fk = UI.frameKindOf(spec);
+    const editable = ref.kind === 'marker' && (ref.idx === 'own' || ref.idx === 'threat');
+    const o = editable ? S.symOpts[ref.idx] : null;
+    const ech = editable ? (ref.idx === 'own' ? S.ownEchelon : o.echelon) : spec.echelon;
+    const custom = cfg('sym.unitConvention') !== 'app6';
+    const attrs = [
+      ['Symbol', null], ['Standard', 'APP-6(D) / MIL-STD-2525D (MtnEye renderer subset)'],
+      ['Symbol set', { unit: 'Land unit', equip: 'Land equipment', cm: 'Control measure (point)' }[spec.set]],
+      ['Affiliation', { F: 'Friend', H: 'Hostile', N: 'Neutral', U: 'Unknown' }[spec.affil || 'F']],
+      ['Status', spec.planned ? 'Planned / anticipated (dashed)' : 'Present (solid)'],
+      ['Function icon', ICON_NAMES[spec.icon] || spec.icon],
+    ];
+    if (spec.set === 'unit') attrs.push(['Echelon amplifier', ech ? ech[0].toUpperCase() + ech.slice(1) : '—'], ['Headquarters (isHQ)', spec.isHQ === true ? `yes — “${spec.hqText || 'HQ'}”` : 'no (formation)'],
+      ['Frame', UI.FRAME_NAMES[fk] + (custom && (fk === 'hq' || fk === 'goose') ? ' — custom cartographic convention, not an official APP-6(D) frame' : '')],
+      ['Frame rule', spec.isHQ ? 'HQ status overrides the formation frame' : UI.GOOSE_ECHELONS.includes(ech) ? 'Platoon / company / battalion formation' : 'Other echelons keep the standard frame'],
+      ['Modifiers', (spec.mods || []).includes('mountain') ? 'Mountain (sector 2)' : 'none']);
+    if (spec.rng) attrs.push(['Range amplifier', `${spec.rng} bar(s) (light / medium / heavy)`]);
+    attrs.push(['Display', `${cfg('sym.size')} px${editable && +o.size !== 1 ? ` × ${o.size}` : ''} · ${cfg('sym.colorMode')} colours · ${cfg('sym.filled') ? 'filled' : 'unfilled'} frames`]);
+    const sel = (k, opts, v) => `<select data-sym-k="${k}">${opts.map(([x, n]) => `<option value="${x}" ${String(x) === String(v) ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+    const edit = editable ? `<div class="sel-edit">
+        <label>Formation echelon${sel('echelon', ['team', 'squad', 'section', 'platoon', 'company', 'battalion', 'regiment', 'brigade'].map((e) => [e, e[0].toUpperCase() + e.slice(1)]), ech)}</label>
+        <label class="chk" style="margin-top:14px"><input type="checkbox" data-sym-k="isHQ" ${o.isHQ ? 'checked' : ''}> Headquarters (square frame)</label>
+        <label>Affiliation${sel('affil', [['F', 'Friend'], ['H', 'Hostile'], ['N', 'Neutral'], ['U', 'Unknown']], o.affil || (ref.idx === 'own' ? 'F' : 'H'))}</label>
+        <label>Unit function${sel('func', FUNC_OPTS, o.func || '')}</label>
+        <label>Status${sel('planned', [['0', 'Present'], ['1', 'Planned / anticipated']], o.planned ? '1' : '0')}</label>
+        <label>Display size${sel('size', [['0.75', '75 %'], ['1', '100 %'], ['1.25', '125 %'], ['1.5', '150 %']], String(o.size || 1))}</label>
+        <label>Unit designation (label)<input type="text" data-sym-k="designation" value="${esc(o.designation || '')}" maxlength="24" spellcheck="false"></label>
+        <label>HQ designation<input type="text" data-sym-k="hqDesignation" value="${esc(o.hqDesignation || '')}" placeholder="${esc(UI.HQ_TEXT[ech] || 'HQ')}" maxlength="16" spellcheck="false" ${o.isHQ ? '' : 'disabled'}></label>
+        ${ref.idx === 'threat' ? `<label class="wide">Enemy movement type (analysis)${sel('type', [['foot', 'Infantry'], ['jeep', 'Wheeled / mech'], ['tracked', 'Armour'], ['mule', 'Animal transport'], ['truck', 'Trucks']], S.threatType)}</label>` : ''}
+      </div><p class="sel-note">HQ status is stored separately from the echelon: a battalion formation and a battalion HQ are different symbols. The global frame convention (Settings ▸ Symbology) never turns an HQ into a goose egg. Edits apply to the 2D map, 3D scene, legends, attribute table, GeoJSON (SIDC, frame fields), plan file and PNG export, which all use the same renderer.</p>`
+      : '<p class="sel-note">Tool outputs carry the symbol set by the tool (suggestions are drawn as planned; sector-plan HQs are explicit headquarters). Size, colour mode and frame convention: Settings ▸ Symbology.</p>';
+    return `<h5 class="subh">${UI.icon('tactical', 13)} Symbol properties & editor</h5>
+      <div class="sym-prev">${UI.symbolHTML(spec, 46)}</div>${edit}
+      <table class="pgrid">${pgrid(attrs)}</table>
+      ${sidc ? `<table class="pgrid"><tr class="sub"><td colspan="2">Symbol identification code (export)</td></tr><tr><td>SIDC</td><td class="sidc"><b>${sidc.slice(0, 4)}</b>${sidc.slice(4, 10)}<b>${sidc.slice(10, 16)}</b>${sidc.slice(16)}</td></tr>${pgrid(decodeSIDC(sidc))}</table>
+        <p class="sel-note">Field layout per the 2525D / APP-6D 20-digit SIDC. Entity, modifier and HQ codes are those generated by MtnEye and have <b>not</b> been independently verified against the standard tables. The goose egg / HQ square are display conventions and are not encoded in the SIDC.</p>` : '<p class="sel-note">Not available — MtnEye has no verified SIDC entity code for this function, so none is generated.</p>'}
+      <div class="sel-actions"><button class="btn sm" data-act="symExplain">About the symbology</button><button class="btn sm" data-act="symMatrix">Frame matrix…</button><button class="btn sm" data-act="symSettings">Symbology settings…</button></div>`;
+  };
+  const wireSymbolPanel = (el, ref, p) => {
+    const b1 = el.querySelector('[data-act=symExplain]'), b2 = el.querySelector('[data-act=symSettings]'), b3 = el.querySelector('[data-act=symMatrix]');
+    if (b1) b1.onclick = () => openExplain('symbols', { ref });
+    if (b2) b2.onclick = () => Settings.open('sym');
+    if (b3) b3.onclick = () => openSymbolMatrix();
+    el.querySelectorAll('[data-sym-k]').forEach((inp) => inp.addEventListener('change', async () => {
+      const k = inp.dataset.symK, v = inp.type === 'checkbox' ? inp.checked : inp.value, o = S.symOpts[ref.idx];
+      pushUndo(`Symbol ${k}`);
+      if (k === 'echelon') { if (ref.idx === 'own') S.ownEchelon = v; else o.echelon = v; }
+      else if (k === 'planned') o.planned = v === '1';
+      else if (k === 'isHQ') o.isHQ = !!v;
+      else if (k === 'size') o.size = +v;
+      else if (['designation', 'hqDesignation'].includes(k)) o[k] = String(v).trim();
+      else if (k === 'affil' || k === 'func') o[k] = v;
+      else if (k === 'type') { S.threatType = v; S.avenues = null; clearOverlay('avenues'); await syncSettings(); }
+      syncRibbonInputs(); renderAll(); refresh({ base: k === 'type' });
+    }));
+    el.querySelectorAll('[data-unit]').forEach((inp) => inp.addEventListener('change', () => { p.unit = inp.value.trim(); renderAttrTable(); toast('Associated unit saved with the plan.'); }));
+    el.querySelectorAll('[data-docref]').forEach((b) => (b.onclick = () => openDocs(b.dataset.docref)));
+  };
+  /** Test matrix of the frame rule, drawn with the real renderer. */
+  const openSymbolMatrix = () => {
+    const echs = ['platoon', 'company', 'battalion'];
+    const rows = [];
+    const expect = (hq) => (cfg('sym.unitConvention') === 'app6' ? (hq ? 'app6hq' : 'standard') : hq ? 'hq' : 'goose');
+    let pass = 0, total = 0;
+    for (const affil of ['F', 'H']) for (const hq of [false, true]) for (const ech of echs) {
+      const cells = [false, true].map((planned) => {
+        const spec = { set: 'unit', affil, icon: affil === 'F' ? 'inf' : 'inf', mods: affil === 'F' ? ['mountain'] : [], echelon: ech, planned };
+        if (hq) Object.assign(spec, { isHQ: true, hqText: UI.HQ_TEXT[ech] });
+        const svg = UI.symbolSVG(spec), ok = svg.frameKind === expect(hq);
+        total++; if (ok) pass++;
+        return `<td><div class="sm-sym">${UI.symbolHTML(spec, 34)}</div><div class="sm-cap">${svg.frameKind} · ${UI.sidcForSpec(spec) || '—'}</div><div class="${ok ? 'sm-ok' : 'sm-bad'}">${ok ? '✓ correct' : '✗ wrong'}</div></td>`;
+      });
+      rows.push(`<tr><td class="lbl">${affil === 'F' ? 'Friendly' : 'Hostile'} ${ech}${hq ? ' <b>HQ</b>' : ''}</td><td class="lbl">${UI.FRAME_NAMES[expect(hq)]}</td>${cells.join('')}</tr>`);
+    }
+    // the rule must hold whatever the global convention: other echelons keep the standard frame
+    const sec = UI.symbolSVG({ set: 'unit', affil: 'F', icon: 'inf', echelon: 'section' });
+    const okSec = sec.frameKind === 'standard'; total++; if (okSec) pass++;
+    rows.push(`<tr><td class="lbl">Friendly section (non-listed echelon)</td><td class="lbl">${UI.FRAME_NAMES.standard}</td><td colspan="2"><div class="sm-sym">${UI.symbolHTML({ set: 'unit', affil: 'F', icon: 'inf', echelon: 'section' }, 34)}</div><div class="${okSec ? 'sm-ok' : 'sm-bad'}">${okSec ? '✓ correct' : '✗ wrong'}</div></td></tr>`);
+    $('symMatrixBody').innerHTML = `<p class="hint">Rendered live by the same function used for the 2D map, 3D scene, legends, attribute table, editor and exports (UI.symbolSVG → UI.frameKindOf). Convention: <b>${cfg('sym.unitConvention') === 'app6' ? 'APP-6(D) frames' : 'MtnEye overlay convention — goose egg = formation, square = headquarters (custom, not official APP-6(D) frames)'}</b>.</p>
+      <table class="sm-t"><thead><tr><th>Object</th><th>Expected frame</th><th>Present</th><th>Planned</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+    $('symMatrixNote').textContent = `${pass} / ${total} frame checks correct`;
+    UI._symMatrixResult = { pass, total };
+    if (!$('symMatrix').open) $('symMatrix').showModal();
+  };
+  /** Weapon / equipment object: attributes with their origin (user-entered, built-in table, calculated). */
+  const weaponObjectHTML = (ref, p) => {
+    const res = S.weapons[ref.idx];
+    const w = res.weapon, ov = (cfg('weapons') || {})[w.id] || {};
+    const grp = (M.WEAPON_GROUPS.find((gr) => gr.ids.includes(w.id)) || {}).name || w.cat;
+    const tag = (k) => (k in ov ? '<span class="orig user">user</span>' : '<span class="orig table">table</span>');
+    const ll = M.cellToLatLon(S.grid, p.r, p.c);
+    const row = (k, v, t) => `<tr><td>${esc(k)}</td><td>${v}${t || ''}</td></tr>`;
+    const sidc = UI.sidcFor.weapon(w);
+    return `<h5 class="subh">${UI.icon('data', 13)} Object information</h5>
+      <table class="pgrid ex-t">
+        ${row('Object name', esc(w.name), '<span class="orig table">table</span>')}
+        ${row('Category', esc(grp), '<span class="orig table">table</span>')}
+        ${row('Symbol identification', `<span class="sidc">${esc(sidc)}</span>`, '<span class="orig calc">calculated</span>')}
+        ${row('Recorded coordinates', `${esc(F.listRef(p.r, p.c))}<br>${esc(M.formatLatLon(ll.lat, ll.lon, 'dd', 6))}`, '<span class="orig calc">calculated</span>')}
+        ${row('Associated unit / formation', `<input type="text" data-unit value="${esc(p.unit || '')}" placeholder="not entered" spellcheck="false" style="width:100%">`, '<span class="orig user">user</span>')}
+        ${row('Range band', `${esc(F.dist(w.minR))} – ${esc(F.dist(w.maxR))}`, tag('maxR'))}
+        ${row('Maximum site slope', `${w.siteSlope}°`, tag('siteSlope'))}
+        ${row('Data source', `MtnEye built-in table — indicative open-source planning values${Object.keys(ov).length ? `; user-edited fields: ${esc(Object.keys(ov).join(', '))}` : ''}. Confirm against current unit data.`)}
+        ${row('Display settings', `${cfg('sym.size')} px symbol, ${esc(cfg('sym.colorMode'))} colours, planned (dashed)`)}
+        ${row('Documentation', `<button class="link" data-docref="app6d">APP-6(D)</button> · <button class="link" data-docref="gsp-mw">GSP Mountain Warfare</button>`)}
+      </table>
+      <p class="sel-note"><span class="orig user">user</span> entered or edited by you · <span class="orig table">table</span> built-in default · <span class="orig calc">calculated</span> derived by MtnEye. The rows above the actions are results calculated by the siting tool from the terrain model.</p>`;
+  };
+
+  // =================================================================== Explain This / Reference Library
+  const openExplain = (topic, extra = {}) => {
+    if (!topic) { toast('Nothing to explain — select a result, a layer or a tool first.', true); return; }
+    S.explainTopic = { topic, extra };
+    $('explainBody').innerHTML = UI.explainHTML(topic, extra);
+    $('explainBody').scrollTop = 0;
+    $('explainBody').querySelectorAll('[data-ref]').forEach((b) => (b.onclick = () => openDocs(UI.resolveRef(b.dataset.ref, b.dataset.sec))));
+    UI.applyIcons($('explainBody'));
+    showRightTab('explain');
+  };
+  const explainLayer = (id) => { S.tocSel = id; renderTOC(); openExplain(UI.explainTopicForLayer(id, S), { layer: id }); };
+  /** Explain whatever is in focus: selection, then the Contents selection, then the open tool, then the DEM. */
+  const explainCurrent = () => {
+    if (!S.grid) { openExplain('elevation'); return; }
+    const t = UI.explainTopicForRef(S.sel) || UI.explainTopicForLayer(S.tocSel, S) || (GP.current() && UI.EXPLAIN_TOPICS[GP.current()] ? GP.current() : null) || 'elevation';
+    openExplain(t, { ref: S.sel, layer: S.tocSel });
+  };
+  let libSel = null;
+  const renderLibrary = () => {
+    const r = UI.libraryHTML($('libSearch').value, libSel);
+    $('libList').innerHTML = r.list; $('libDetail').innerHTML = r.detail;
+    $('libCount').textContent = `${r.count} entries · citations are extracted from MtnEye’s own text; page numbers are not held by the application`;
+    const on = $('libList').querySelector('.on');
+    if (on) { libSel = on.dataset.lib; on.scrollIntoView({ block: 'nearest' }); }
+    const box = $('docs');
+    box.querySelectorAll('[data-lib]').forEach((b) => (b.onclick = () => { libSel = b.dataset.lib; renderLibrary(); }));
+    box.querySelectorAll('[data-libtool]').forEach((b) => (b.onclick = () => { box.close(); GP.open(b.dataset.libtool); }));
+    box.querySelectorAll('[data-libhelp]').forEach((b) => (b.onclick = () => { box.close(); openHelp(b.dataset.libhelp); }));
+    box.querySelectorAll('[data-libex]').forEach((b) => (b.onclick = () => { box.close(); openExplain(b.dataset.libex); }));
+  };
+  const openDocs = (sel) => {
+    libSel = sel || libSel;
+    if (sel) $('libSearch').value = '';
+    renderLibrary();
+    if (!$('docs').open) $('docs').showModal();
+  };
+  UI.openExplain = (t, x) => openExplain(t, x);
 
   // =================================================================== attribute table
   const attrRows = () => {
     const rows = [];
     const add = (layer, sym, type, id, p, detail, ref, z) => rows.push({ layer, sym, type, id, r: p.r, c: p.c, z: z ?? M.sample(S.grid, S.L.z, p.r, p.c), detail, ref });
     const mk = S.markers;
-    if (mk.own) add('markers', UI.SYM.own(S.ownEchelon), 'Own position', 'OWN', mk.own, S.ownEchelon, { kind: 'marker', idx: 'own' });
-    if (mk.threat) add('markers', UI.SYM.threat(S.threatType), 'Enemy', 'ENY', mk.threat, M.MOVEMENT_PROFILES[S.threatType].name, { kind: 'marker', idx: 'threat' });
+    if (mk.own) add('markers', UI.ownSpec(), 'Own position', 'OWN', mk.own, S.ownEchelon, { kind: 'marker', idx: 'own' });
+    if (mk.threat) add('markers', UI.threatSpec(), 'Enemy', 'ENY', mk.threat, M.MOVEMENT_PROFILES[S.threatType].name, { kind: 'marker', idx: 'threat' });
     if (mk.target) add('markers', UI.SYM.target(), 'Target area', 'TGT', mk.target, '', { kind: 'marker', idx: 'target' });
     if (mk.a) add('markers', UI.SYM.sp(), 'Route start', 'A / SP', mk.a, '', { kind: 'marker', idx: 'a' });
     if (mk.b) add('markers', UI.SYM.rp(), 'Route end', 'B / RP', mk.b, '', { kind: 'marker', idx: 'b' });
@@ -1467,6 +1934,7 @@
     });
     const cols = ATTR_COLS.filter((c) => c.k !== 'sec' || F.secondaryCRS());
     $('attrCount').textContent = `(${rows.length})`;
+    if (!rows.length) { tbl.innerHTML = `<tbody><tr><td class="wrap">${q || lay ? 'No feature matches the filter.' : 'No features yet — place situation markers (Map ▸ Situation) or run a tool; its results are listed here.'}</td></tr></tbody>`; UI._attrRows = rows; return; }
     tbl.innerHTML = `<thead><tr>${cols.map((c) => `<th data-col="${c.k}" class="${sc.col === c.k ? 'sort' + (sc.desc ? ' desc' : '') : ''}">${esc(typeof c.t === 'function' ? c.t() : c.t)}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r, i) => `<tr data-i="${i}" class="${S.sel && r.ref && JSON.stringify(S.sel) === JSON.stringify(r.ref) ? 'sel' : ''}">${cols.map((c) => c.k === 'sym'
         ? `<td>${r.sym ? UI.symbolHTML(r.sym, 12) : ''}</td>` : `<td class="${['ref', 'sec', 'z'].includes(c.k) ? 'm' : c.k === 'detail' ? 'det' : c.k === 'rating' ? `rt rt-${String(r.rating || '').replace(' ', '')}` : ''}"${c.k === 'detail' ? ` title="${esc(attrValue(r, c.k))}"` : ''}>${esc(attrValue(r, c.k))}</td>`).join('')}</tr>`).join('')}</tbody>`;
@@ -1534,9 +2002,11 @@
     document.querySelector('[data-dockpanel-tools]').hidden = tab !== 'table';
     if (tab === 'card') renderRouteCard();
     if (tab === 'profile' && S.drawerData) UI.drawProfile($('chart'), S.drawerData);
+    if (tab === 'routes') renderRouteTable();
+    if (tab === 'diag') renderDiagnostics();
+    if (tab === 'results') renderResults();
   };
-  const setDock = (open) => { $('dock').classList.toggle('collapsed', !open); $('dockToggle').textContent = open ? '▾' : '▴'; saveLayout(); updateRibbonState(); };
-  /** The profile is prepared; the dock opens only if it is already open (keeps the map large). */
+  const setDock = (open) => { if (open && document.body.classList.contains('ws-expanded')) document.body.classList.remove('ws-expanded', 'rb-min'); $('dock').classList.toggle('collapsed', !open); $('dockToggle').textContent = open ? '▾' : '▴'; saveLayout(); relayout(); };
   const openProfile = (title, data) => {
     S.drawerData = data;
     $('profileTitle').textContent = title;
@@ -1550,37 +2020,488 @@
       { profile: rt.profile, gradeColors: true, markers: rt.checkpoints.map((c, k) => ({ d: c.d, label: `CKP ${k + 1}` })) });
   };
 
+  // =================================================================== edit history (undo / redo)
+  // Snapshots of the user-edited state only (markers, digitised geometry, sector, symbol options).
+  // Analysis results are not part of undo: they are recomputed by re-running the tool.
+  const undoStack = [], redoStack = [];
+  const editSnapshot = () => JSON.parse(JSON.stringify({ markers: S.markers, markerOrigin: S.markerOrigin, obstacles: S.obstacles, tracks: S.tracks, sector: S.sector, border: S.border,
+    symOpts: S.symOpts, ownEchelon: S.ownEchelon, threatType: S.threatType }));
+  const pushUndo = (label) => {
+    if (!S.grid) return;
+    undoStack.push({ label, snap: editSnapshot() });
+    if (undoStack.length > 60) undoStack.shift();
+    redoStack.length = 0;
+    updateUndoButtons();
+  };
+  const updateUndoButtons = () => {
+    const u = $('qbUndo'), r = $('qbRedo');
+    if (u) { u.disabled = !undoStack.length; u.title = undoStack.length ? `Undo ${undoStack[undoStack.length - 1].label} (Ctrl+Z)` : 'Nothing to undo'; }
+    if (r) { r.disabled = !redoStack.length; r.title = redoStack.length ? `Redo ${redoStack[redoStack.length - 1].label} (Ctrl+Y)` : 'Nothing to redo'; }
+  };
+  const restoreEdit = async (snap) => {
+    const before = editSnapshot();
+    Object.assign(S, JSON.parse(JSON.stringify(snap)));
+    const changed = (k) => JSON.stringify(before[k]) !== JSON.stringify(snap[k]);
+    if (changed('sector') || changed('border')) { S.sec = {}; clearOverlay('dominance'); clearOverlay('firecov'); }
+    if (changed('markers') && (JSON.stringify(before.markers.own) !== JSON.stringify(snap.markers.own) || JSON.stringify(before.markers.threat) !== JSON.stringify(snap.markers.threat))) { S.avenues = null; S.hostile = null; clearOverlay('hostile'); clearOverlay('avenues'); }
+    await syncSettings();
+    if ((changed('obstacles') || changed('tracks')) && S.overlays.mobility.data) await computeMobility(GP.values('mobility'), true);
+    syncRibbonInputs(); renderAll(); refresh({ base: true });
+  };
+  const undo = async () => { const e = undoStack.pop(); if (!e) return; redoStack.push({ label: e.label, snap: editSnapshot() }); await restoreEdit(e.snap); updateUndoButtons(); toast(`Undone: ${e.label}`); };
+  const redo = async () => { const e = redoStack.pop(); if (!e) return; undoStack.push({ label: e.label, snap: editSnapshot() }); await restoreEdit(e.snap); updateUndoButtons(); toast(`Redone: ${e.label}`); };
+
+  // =================================================================== run context (provenance)
+  /** Inputs that are not tool parameters but shape the result: user geometry, markers, earlier runs. */
+  const runContext = () => {
+    const mk = {};
+    for (const [k, v] of Object.entries(S.markers)) if (v) mk[k] = { c: v.c, r: v.r, origin: (S.markerOrigin || {})[k] || 'not recorded' };
+    return { dem: S.grid ? `${S.grid.name} (${S.grid.w}×${S.grid.h} @ ${S.grid.cs} m)` : null, borderVertices: S.border ? S.border.length : 0, sectorVertices: S.sector ? S.sector.length : 0,
+      markers: mk, obstacles: S.obstacles.length, tracks: S.tracks.length, planPresent: !!(S.sec && S.sec.plan), itgCount: S.sec && S.sec.itg ? S.sec.itg.itgs.length : 0,
+      itgRun: S.lastRun.itgs ? S.lastRun.itgs.id : null, planRun: S.lastRun.deploy ? S.lastRun.deploy.id : null, approachesRun: S.lastRun.enemyApproaches ? S.lastRun.enemyApproaches.id : null,
+      infiltrationRun: S.lastRun.infiltration ? S.lastRun.infiltration.id : null, profileOverrides: Object.keys(cfg('profiles') || {}) };
+  };
+  const annotateRun = (cmd, ctx) => { const r = S.lastRun[cmd]; if (r) r.context = sanitizeArgs(ctx); };
+
+  // =================================================================== Route Analysis & Provenance
+  const NR = 'Not recorded in this analysis run.';
+  const CANNOT = 'Cannot be determined from the terrain model alone.';
+  const PV = { calc: 'Calculated by the software', terrain: 'Derived from terrain data', user: 'Entered by the user', assumed: 'Assumed by the model', na: 'Not established by the available data' };
+  const pv = (k) => `<span class="pv ${k}" title="${PV[k]}">${{ calc: 'calculated', terrain: 'terrain', user: 'user input', assumed: 'model assumption', na: 'not established' }[k]}</span>`;
+  const RCAT = {
+    route: { name: 'Route A→B — least-cost path', short: 'Route A→B', cmd: 'route', color: () => cfg('sym.routeColor'), fn: 'job route → M.findRoutes → M.astar → M.routeStats → M.routeCard (core/routing.js)', explain: 'route' },
+    avenue: { name: 'Avenue of approach — model output', short: 'Avenue (model)', cmd: 'avenues', color: () => cfg('sym.avenueColor'), fn: 'job avenues → M.avenuesOfApproach → M.nearestPassable, M.findRoutes → M.astar → M.routeStats (core/tactical.js)', explain: 'avenues' },
+    eappr: { name: 'Sector approach to an ITG — model output', short: 'Sector approach (model)', cmd: 'enemyApproaches', color: () => '#ff4136', fn: 'job enemyApproaches → M.enemyApproaches → entryPoints, M.reachable, reachGoal, M.astar, M.routeStats, classify (core/sector.js)', explain: 'enemyApproaches' },
+    infil: { name: 'Infiltration route — model output', short: 'Infiltration (model)', cmd: 'infiltration', color: () => '#b0202a', fn: 'job infiltration → M.infiltrationRoutes → entryPoints, M.reachable, reachGoal, M.astar (penalised cost), M.routeStats, classify (core/sector.js)', explain: 'infiltration' },
+    eopt: { name: 'Course-of-action line — copy of an approach / infiltration line', short: 'COA line (copy)', cmd: 'enemyOptions', color: () => '#c00000', fn: 'job enemyOptions → M.enemyOptions (selects existing lines; computes no new path) (core/sector.js)', explain: 'enemyOptions' },
+  };
+  const lineLen = (line) => { let d = 0; for (let k = 1; k < line.length; k++) d += Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]) * S.grid.cs; return d; };
+  const gridZ = () => Object.assign({}, S.grid, { z: S.L.z });
+  /** Every displayed model line, one record each, from the live state (no copies kept elsewhere). */
+  const routeRecords = () => {
+    if (!S.grid) return [];
+    const out = [], X = S.sec || {}, sh = S.show;
+    const add = (cat, k, id, line, src, extra = {}) => {
+      if (!line || line.length < 2) return;
+      const key = `${cat}:${k}`;
+      out.push(Object.assign({ key, cat, id, line, src, color: RCAT[cat].color(), run: S.lastRun[extra.cmd || RCAT[cat].cmd] || null, catVisible: true, visible: !UI.routeHidden(key) }, extra));
+    };
+    if (S.routes) S.routes.routes.forEach((rt, k) => add('route', k, `R${k + 1}`, rt.line, rt, { catVisible: sh.routes, alt: k !== (S.routes.sel || 0) }));
+    if (S.avenues) S.avenues.routes.forEach((rt, k) => add('avenue', k, `AA${k + 1}`, rt.line, rt, { catVisible: sh.avenues, cmd: S.avenues.src === 'minefields' ? 'minefields' : 'avenues' }));
+    if (X.appr) X.appr.approaches.forEach((a, k) => add('eappr', k, a.id, a.line, a, { catVisible: sh.eappr !== false }));
+    if (X.infil) X.infil.routes.forEach((a, k) => add('infil', k, a.id, a.line, a, { catVisible: sh.infil !== false }));
+    if (X.opts) X.opts.options.forEach((o, k) => o.lines.forEach((ln, j) => add('eopt', `${k}:${j}`, `${o.id} · ${j === 0 ? `main (${o.main})` : j === 1 && o.support ? `support (${o.support})` : 'infiltration'}`, ln, o, { catVisible: sh.eopts !== false, part: j })));
+    out.forEach((r) => (r.visible = r.visible && r.catVisible !== false));
+    return out;
+  };
+  UI._routeRecords = routeRecords;
+  const recByKey = (key) => routeRecords().find((r) => r.key === key) || null;
+  { const base = UI.explainTopicForRef; UI.explainTopicForRef = (ref) => { if (ref && (ref.kind === 'rline' || ref.kind === 'rvertex')) { const r = recByKey(ref.key); return r ? RCAT[r.cat].explain : null; } return base(ref); }; }
+
+  /** Terrain along the drawn line, sampled from the DEM and the derived rasters (UI-side, labelled). */
+  const lineTerrain = (line) => {
+    const g = gridZ(), prof = M.terrainProfile(g, line, g.cs);
+    const lf = new Array(6).fill(0), mobC = [0, 0, 0];
+    let up = 0, down = 0, sMax = 0, sSum = 0, zMin = Infinity, zMax = -Infinity, n = 0;
+    const mob = S.overlays.mobility.data;
+    for (let k = 0; k < prof.length; k++) {
+      const q = prof[k], i = Math.round(q.r) * g.w + Math.round(q.c);
+      if (i < 0 || i >= g.z.length) continue;
+      n++; lf[S.L.landform[i]]++; sSum += S.L.slope[i]; sMax = Math.max(sMax, S.L.slope[i]); zMin = Math.min(zMin, q.z); zMax = Math.max(zMax, q.z);
+      if (mob) mobC[mob[i]]++;
+      if (k) { const dz = q.z - prof[k - 1].z; if (dz > 0) up += dz; else down -= dz; }
+    }
+    return { n, lf: lf.map((v) => v / (n || 1)), slopeMean: sSum / (n || 1), slopeMax: sMax, zMin, zMax, up, down, mob: mob ? mobC.map((v) => v / (n || 1)) : null, mobProfile: S.overlays.mobility.profile };
+  };
+  const val = (o, k, fmt) => (o && o[k] !== undefined && o[k] !== null ? (fmt ? fmt(o[k]) : String(o[k])) : `<span class="na">${NR}</span>`);
+  const params = (r) => (r.run ? Object.assign({}, r.run.args || {}, (r.run.context && r.run.context.defaultsApplied) || {}) : null);
+
+  /** The computation stages that produced a line, with recorded values (or an explicit gap). */
+  const routeStages = (r) => {
+    const p = params(r), ctx = r.run && r.run.context, mkO = (k) => (ctx && ctx.markers && ctx.markers[k] ? ctx.markers[k].origin : null);
+    const prof = (id) => { const q = profileOf(id); return q ? `${q.name}: GO < ${q.go}°, NO-GO ≥ ${q.slow}°, ${q.speed} km/h level (${q.src})` : NR; };
+    const st = [];
+    const S_ = (stage, fn, text, vals = []) => st.push({ stage, fn, text, vals });
+    if (r.cat === 'route') {
+      S_('Inputs', '—', 'Start A and end B are the situation markers; obstacles and tracks are user-digitised geometry.', [['A / B origin', mkO('a') ? `${mkO('a')} / ${mkO('b')}` : NR], ['No-Go areas / tracks', ctx ? `${ctx.obstacles} / ${ctx.tracks}` : NR]]);
+      S_('Movement surface', 'M.classifyMobility, M.slowPassMob', 'Each cell classed GO / SLOW-GO / NO-GO from the Horn slope and the class limits; for foot classes slope NO-GO up to 45° becomes SLOW-GO with a ×4 time penalty.', [['Movement class', p ? prof(p.profile) : NR]]);
+      S_('Cost weights', 'M.routeMode', 'Cost multipliers for the chosen mode (exposure to modelled observation, crest cells, valley-floor cells).', [['Mode', p ? p.mode : NR], ['Exposure / skyline / nullah weight', p ? `${p.exposureW} / ${p.skylineW} / ${p.nullahW}` : NR]]);
+      S_('Search', 'M.findRoutes → M.astar', `A* over ${cfg('an.routeNeighbours') === 8 ? 8 : 16}-connected moves; cost = time from M.moveSpeed × multipliers; alternatives penalise a corridor (×3) around earlier paths and drop ≥ 75 % overlaps.`, [['Alternatives requested', p ? p.alternatives : NR], ['Separation', p ? `${p.separationM} m` : NR]]);
+      S_('Statistics & simplification', 'M.routeStats, M.simplify', 'Length, climb, model time and GSP march time on the cell path; the drawn line is the cell path simplified with Ramer–Douglas–Peucker (0.6 cell).', [['Checkpoint spacing', p ? `${p.cpEveryM} m` : NR]]);
+    } else if (r.cat === 'avenue') {
+      S_('Inputs', '—', 'From the enemy marker to the own marker (user situation markers).', [['Enemy / own marker origin', mkO('threat') ? `${mkO('threat')} / ${mkO('own')}` : NR]]);
+      S_('Endpoints', 'M.nearestPassable', 'Each marker is moved to the nearest cell that is not NO-GO for the movement class (search up to 2 500 m).', []);
+      S_('Movement surface', 'M.classifyMobility, M.slowPassMob', 'As for routes.', [['Movement class', p ? prof(p.profile || p.type || 'foot') : NR]]);
+      S_('Search', 'M.findRoutes → M.astar', 'k least-time alternatives; each later search penalises a corridor around the earlier ones.', [['Number requested (k)', p ? p.k : NR], ['Separation', p && p.separationM ? `${p.separationM} m` : NR], ['Corridor half-width', p && p.bufferM ? `${p.bufferM} m` : NR]]);
+      if (r.run && r.run.cmd === 'minefields') S_('Origin of this layer', 'M.siteMinefields', 'This avenue layer was produced as an intermediate result of the minefield tool.', []);
+    } else if (r.cat === 'eappr' || r.cat === 'infil' || r.cat === 'eopt') {
+      const infil = r.cat === 'infil' || (r.cat === 'eopt' && r.part >= 2);
+      S_('Sector frame', 'M.sectorFrame', 'Own / enemy side of the user-drawn border line, decided by the own marker (else the sector polygon).', [['Border line vertices (user)', ctx ? ctx.borderVertices : NR], ['Sector polygon vertices (user)', ctx ? ctx.sectorVertices : NR]]);
+      if (r.cat !== 'eopt') {
+        S_('Entry points (start candidates)', 'entryPoints → M.lineStations, pickSite', `Stations every “entry spacing” along the border; at each, the cell on the enemy side within ±300 m of the target depth that is not NO-GO and lies closest to that depth.`,
+          [['Entry spacing', p ? `${p.entrySpacingM} m` : NR], ['Target depth beyond border', p ? `${infil ? Math.min(800, p.entryDepthM) : p.entryDepthM} m${infil ? ' (capped at 800 m for infiltration)' : ''}` : NR], ['Entry points found', ctx && ctx.entryPoints !== undefined ? ctx.entryPoints : NR]]);
+        if (!infil) {
+          S_('Objectives (end candidates)', 'ITG list (M.findITGs)', 'The first N ITGs in ITG score order; each end point is the reachable cell nearest the ITG summit within 1 200 m (reachGoal, after M.reachable from all entries ≤ 12 h).', [['Objectives considered', p ? p.objectives : NR], ['ITG run', ctx && ctx.itgRun ? ctx.itgRun : NR]]);
+          S_('Entry ranking', 'M.reachable (from the end point, ≤ 6 h)', 'Entries ordered by modelled travel time to the end point; up to “per objective” kept, at least 1.5 × spacing apart.', [['Approaches per objective', p ? p.perObjective : NR]]);
+          S_('Path', 'M.astar on M.enemyMoveCtx', 'Least-time path; foot movement crosses slope NO-GO ≤ 45° at ¼ speed. Paths overlapping an earlier one to the same objective by > 60 % are dropped.', [['Movement class', p ? prof(p.profile) : NR]]);
+        } else {
+          S_('Targets (end candidates)', 'reachGoal', 'Targets are the deployment-plan HQs if a plan exists, else the 3 ITGs farthest from the border; end point = reachable cell nearest the target within 1 500 m.', [['Targets used', ctx && ctx.targets ? ctx.targets : NR], ['Deployment plan present at run time', ctx ? (ctx.planPresent ? `yes (${ctx.planRun || 'run id not recorded'})` : 'no') : NR]]);
+          S_('Cost surface', 'penalty array', 'Time cost × (1 + detection weight) on cells seen by own posts (viewshed count, 3 000 m, observer 2 m, target 1.5 m) × (1 − nullah preference) on nullah / valley-floor cells.', [['Detection weight', p ? `${p.detectW}×` : NR], ['Nullah preference', p ? p.nullahBonus : NR]]);
+          S_('Path & selection', 'M.astar, sort', 'Each entry to its 2 nearest targets; candidates sorted by observed share then time; > 50 % overlap dropped; first N kept.', [['Routes reported', p ? p.infilCount : NR]]);
+        }
+        S_('Statistics & labels', 'M.routeStats, classify', 'Length / time / GSP time on the cell path; type = the larger share of valley / nullah / ridge cells (≥ 20 %, else “spur / slope”); drawn line simplified (RDP 0.6 cell).', []);
+        S_('Rating text', infil ? 'M.infiltrationRoutes (templates)' : 'M.enemyApproaches (templates)', 'Threat / rating words come from fixed formulas over observed share and time (e.g. threat = 0.5·(1 − exposure) + 0.5·(1 − time/6 h)). They are model conventions, not evidence.', []);
+      } else {
+        S_('Selection of lines', 'M.enemyOptions', 'Re-uses approach lines (and, for the second option, the least-observed infiltration line). No new path is computed; scores weight ease (observation, GSP time) and, where a deployment plan exists, line of sight to own positions.', [['Approaches run', ctx && ctx.approachesRun ? ctx.approachesRun : NR], ['Infiltration run', ctx && ctx.infiltrationRun ? ctx.infiltrationRun : NR]]);
+      }
+    }
+    return st;
+  };
+
+  /** Endpoint provenance for start (0) or end (1). Returns [origin text, tag]. */
+  const endpointOrigin = (r, which) => {
+    const ctx = r.run && r.run.context, pt = which ? r.line[r.line.length - 1] : r.line[0];
+    const same = (m) => m && Math.round(m.c) === Math.round(pt[0]) && Math.round(m.r) === Math.round(pt[1]);
+    if (r.cat === 'route') { const k = which ? 'b' : 'a', o = ctx && ctx.markers && ctx.markers[k] ? ctx.markers[k].origin : (S.markerOrigin || {})[k]; return [`${which ? 'End B' : 'Start A'} — situation marker (${o || 'origin not recorded'})`, o === 'demo generator' ? 'calc' : 'user']; }
+    if (r.cat === 'avenue') {
+      const m = which ? S.avenues.to : S.avenues.from;
+      if (!m) return [`Derived from the ${which ? 'own' : 'enemy'} marker by M.nearestPassable — marker position at run time ${NR.toLowerCase()}`, 'calc'];
+      return same(m) ? [`The ${which ? 'own' : 'enemy'} marker cell (user input, passable)`, 'user'] : [`Nearest passable cell to the ${which ? 'own' : 'enemy'} marker (M.nearestPassable), ${F.dist(Math.hypot(m.c - pt[0], m.r - pt[1]) * S.grid.cs)} from it — algorithmically derived`, 'calc'];
+    }
+    if (r.cat === 'eopt') return ['Copied from the referenced approach / infiltration line', 'calc'];
+    if (!which) return ['Entry point generated by entryPoints() — algorithmically derived, not a user input', 'calc'];
+    if (r.cat === 'eappr') return [`End cell from reachGoal(): reachable cell nearest ITG ${r.src.objective} (${F.dist(r.src.assaultM || 0)} from its summit) — algorithmically derived`, 'calc'];
+    return [`End cell from reachGoal(): reachable cell nearest the target “${r.src.target}” within 1 500 m — algorithmically derived`, 'calc'];
+  };
+
+  const routeDetailHTML = (r) => {
+    const g = S.grid, ctx = r.run && r.run.context, src = r.src;
+    const T = lineTerrain(r.line);
+    const row = (k, v, tag) => `<tr><td>${esc(k)}</td><td>${v}</td><td>${tag ? pv(tag) : ''}</td></tr>`;
+    const a = r.line[0], b = r.line[r.line.length - 1], zAt = (q) => M.sample(g, S.L.z, q[1], q[0]);
+    const so = endpointOrigin(r, 0), eo = endpointOrigin(r, 1);
+    const missing = [];
+    const miss = (k) => { missing.push(k); return `<span class="na">${NR}</span>`; };
+    const lenRec = src.lengthM;
+    const LF = M.LANDFORMS.map((x) => x.name.split(' (')[0]);
+    const lfTxt = T.lf.map((v, i) => [LF[i], v]).filter(([, v]) => v >= 0.05).sort((x, y) => y[1] - x[1]).map(([n, v]) => `${n} ${Math.round(v * 100)} %`).join(' · ');
+    const warn = [];
+    if (g.synthetic) warn.push('DEM is synthetic (fictional terrain) — no real-world inference is possible.');
+    if (S.filledCells) warn.push(`${S.filledCells} void cells in the DEM were filled by interpolation.`);
+    warn.push(`The drawn line is a simplification of the computed cell path (RDP, 0.6 cell = ${(0.6 * g.cs).toFixed(0)} m); intermediate vertices are simplification points, not decision points.`);
+    if (!src.path) warn.push('The full cell path is not kept with the displayed result (only the simplified line), so cell-by-cell costs cannot be re-inspected.');
+    if (!r.run) warn.push('No processing record for this line in the session (e.g. loaded from a plan saved without records or produced before this version).');
+    if (r.run && r.run.fromPlan) warn.push('Processing record restored from the plan file.');
+    if (T.mob && r.cat !== 'route' && S.overlays.mobility.profile && params(r) && params(r).profile && params(r).profile !== S.overlays.mobility.profile) warn.push('The Go / No-Go layer shown is for a different movement class than this line.');
+    const st = routeStages(r);
+    const rules = [];
+    if (src.type) rules.push(['Path type label', esc(src.type)]);
+    if (src.threat) rules.push(['Threat word', esc(src.threat)]);
+    if (src.rating) rules.push(['Rating word', esc(src.rating)]);
+    if (src.reasons) rules.push(['Reasons text', esc(src.reasons.join(' · '))]);
+    if (src.summary && r.cat === 'eopt') rules.push(['Summary text', esc(src.summary)]);
+    if (src.recommendation && r.cat === 'eopt') rules.push(['Recommendation text', esc(src.recommendation)]);
+    const verts = r.line.map((q, i) => {
+      const ii = Math.round(q[1]) * g.w + Math.round(q[0]);
+      return `<tr data-vtx="${i}"><td>${i === 0 ? 'S' : i === r.line.length - 1 ? 'E' : i}</td><td>${esc(F.listRef(q[1], q[0]))}</td><td>${F.elevNum(zAt(q))}</td><td>${S.L.slope[ii] !== undefined ? S.L.slope[ii].toFixed(0) + '°' : '—'}</td><td>${S.L.landform[ii] !== undefined ? esc(LF[S.L.landform[ii]]) : '—'}</td></tr>`;
+    }).join('');
+    const html = `<div class="rt-detail">
+      <div class="rt-notice"><b>Model output, not a prediction.</b> This line is what MtnEye’s terrain cost model computed for the recorded inputs. It is <b>not</b> confirmation of real-world movement, routes or intent, and it has not been verified on the ground.</div>
+      <div class="pv-legend">${Object.keys(PV).map(pv).join('')}</div>
+      <h4><span class="k">A</span>Route identity</h4><table class="rt-t">
+        ${row('Route identifier', `<b>${esc(r.id)}</b>`, 'calc')}${row('Output category', esc(RCAT[r.cat].name), 'calc')}
+        ${row('Analysis run', r.run ? `${esc(r.run.id)} — ${esc(r.run.label)}, ${esc(new Date(r.run.t).toLocaleString())}` : miss('Analysis run'), r.run ? 'calc' : 'na')}
+        ${row('Associated objective / reference', src.objective ? `ITG ${esc(src.objective)}` : src.target ? esc(src.target) : r.cat === 'route' ? 'Situation markers A and B' : r.cat === 'avenue' ? 'Enemy marker → own marker' : r.cat === 'eopt' ? `${esc(src.objective)} (option “${esc(src.id)}”)` : '—', r.cat === 'route' || r.cat === 'avenue' ? 'user' : 'calc')}
+      </table>
+      <h4><span class="k">B</span>Input provenance</h4><table class="rt-t">
+        ${row('Elevation model', esc(g.name) + (g.synthetic ? ' — synthetic' : ''), g.synthetic ? 'calc' : 'user')}
+        ${row('DEM resolution', `${g.cs} m cells (${g.w} × ${g.h})`, 'terrain')}${row('Spatial reference', esc(F.analysisCRSName()), 'calc')}
+        ${row('Analysis extent', `${F.dist(g.w * g.cs)} × ${F.dist(g.h * g.cs)} · NW ${esc(F.listRef(0, 0))}`, 'terrain')}
+        ${row('Border / boundary input', r.cat === 'route' || r.cat === 'avenue' ? 'Not used by this computation' : ctx ? `Border ${ctx.borderVertices} vertices · sector ${ctx.sectorVertices} vertices (user-drawn)` : miss('Border geometry'), r.cat === 'route' || r.cat === 'avenue' ? '' : ctx ? 'user' : 'na')}
+        ${row('Obstacles / tracks', ctx ? `${ctx.obstacles} No-Go areas · ${ctx.tracks} tracks` : miss('Obstacles'), ctx ? 'user' : 'na')}
+        ${row('Movement profile', params(r) && (params(r).profile || r.cat === 'infil') ? esc(profileOf(params(r).profile || 'foot').name) + (ctx && ctx.profileOverrides && ctx.profileOverrides.length ? ` (user-edited classes: ${esc(ctx.profileOverrides.join(', '))})` : '') : miss('Movement profile'), params(r) ? 'user' : 'na')}
+        ${row('Run timestamp / ID', r.run ? `${esc(r.run.id)} · ${esc(new Date(r.run.t).toISOString())} · ${(r.run.dur / 1000).toFixed(2)} s · ${esc(r.run.engine)}` : miss('Run timestamp'), r.run ? 'calc' : 'na')}
+      </table>
+      <h4><span class="k">C</span>Computational audit trail</h4>
+      <div class="hint">Producing function: <code>${esc(RCAT[r.cat].fn)}</code></div>
+      ${st.map((x, i) => `<div class="rt-stage"><b>${i + 1}. ${esc(x.stage)}</b> <code>${esc(x.fn)}</code><div>${x.text}</div>${x.vals.length ? `<div class="vals">${x.vals.map(([k, v]) => `${esc(k)}: ${String(v).includes('class="na"') ? v : String(v) === NR ? `<span class="na">${NR}</span>` : esc(v)}`).join('<br>')}</div>` : ''}</div>`).join('')}
+      <div class="hint">All parameters recorded for the run:</div>
+      <table class="rt-t">${params(r) ? Object.entries(params(r)).filter(([, v]) => typeof v !== 'object' || Array.isArray(v)).map(([k, v]) => row(k, esc(Array.isArray(v) ? v.join(', ') : String(v)), (r.run.args || {})[k] !== undefined ? 'user' : 'assumed')).join('') : row('Parameters', miss('Parameters'), 'na')}</table>
+      <h4><span class="k">D</span>Output information</h4><table class="rt-t">
+        ${row('Start coordinate', `${esc(F.listRef(a[1], a[0]))}<br><span class="hint">${esc(so[0])}</span>`, so[1])}
+        ${row('End coordinate', `${esc(F.listRef(b[1], b[0]))}<br><span class="hint">${esc(eo[0])}</span>`, eo[1])}
+        ${row('Why these locations (real world)', `<span class="na">${CANNOT}</span>`, 'na')}
+        ${row('Intermediate vertices', `${r.line.length - 2} (table below; click a row or the map to inspect)`, 'calc')}
+        ${row('Total length (computed path)', lenRec !== undefined ? F.dist(lenRec) : miss('Length'), lenRec !== undefined ? 'calc' : 'na')}
+        ${row('Length of drawn line', F.dist(lineLen(r.line)), 'calc')}
+        ${row('Model travel time', src.timeH !== undefined ? F.time(src.timeH) : miss('Time'), src.timeH !== undefined ? 'calc' : 'na')}
+        ${row('GSP march time (day / night)', src.gspDay ? `${F.time(src.gspDay.minH)}–${F.time(src.gspDay.maxH)} / ${F.time(src.gspNight.minH)}–${F.time(src.gspNight.maxH)}` : miss('GSP time'), src.gspDay ? 'calc' : 'na')}
+        ${row('Climb / descent (computed path)', src.ascentM !== undefined ? `${F.height(src.ascentM)}${src.descentM !== undefined ? ` / ${F.height(-src.descentM)}` : ''}` : miss('Climb'), src.ascentM !== undefined ? 'calc' : 'na')}
+        ${row('Elevation along drawn line', `${F.elev(T.zMin)} – ${F.elev(T.zMax)} · ↑${F.height(T.up)} ↓${F.height(-T.down)}`, 'terrain')}
+        ${row('Slope along line (mean / max)', `${T.slopeMean.toFixed(1)}° / ${T.slopeMax.toFixed(0)}°`, 'terrain')}
+        ${row('Landform classes crossed', esc(lfTxt || '—'), 'terrain')}
+        ${row('Go / No-Go along line', T.mob ? `GO ${Math.round(T.mob[0] * 100)} % · SLOW ${Math.round(T.mob[1] * 100)} % · NO-GO ${Math.round(T.mob[2] * 100)} % (${esc(M.MOVEMENT_PROFILES[T.mobProfile].name.split(' (')[0])} layer)` : 'Go / No-Go layer not computed', T.mob ? 'terrain' : '')}
+        ${src.exposure !== undefined ? row('Share watched by own posts (model)', `${Math.round(src.exposure * 100)} %`, 'calc') : ''}${src.detectShare !== undefined ? row('Share watched by own posts (model)', `${Math.round(src.detectShare * 100)} %`, 'calc') : ''}
+        ${row('Positional uncertainty', `Vertices are cell centres (± ${(g.cs / 2).toFixed(1)} m quantisation) and the line deviates up to ${(0.6 * g.cs).toFixed(0)} m from the cell path.`, 'calc')}
+        ${row('Confidence / probability', '<span class="na">Not computed — the model produces no statistical confidence or likelihood for any line.</span>', 'na')}
+      </table>
+      <div class="rt-vtx"><table><thead><tr><th>#</th><th>Grid ref</th><th>Elev</th><th>Slope</th><th>Landform</th></tr></thead><tbody>${verts}</tbody></table></div>
+      ${warn.length ? `<h4><span class="k">!</span>Data-quality warnings</h4><ul class="ex-b">${warn.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+      ${rules.length ? `<h4><span class="k">≈</span>Rule-generated labels (model conventions)</h4><table class="rt-t">${rules.map(([k, v]) => row(k, v, 'assumed')).join('')}</table><div class="hint">Produced by fixed text templates and score thresholds in the source code. They are not observations and say nothing certain about real intent.</div>` : ''}
+      <h4><span class="k">E</span>Interpretation</h4><table class="rt-t">
+        ${row('1. Calculated by the software', 'The path geometry, lengths, times, shares and every statistic above.', 'calc')}
+        ${row('2. Derived from terrain data', 'Slope, landform, elevation and Go / No-Go values sampled along the line from the DEM.', 'terrain')}
+        ${row('3. Entered by the user', `${r.cat === 'route' ? 'Markers A and B, ' : r.cat === 'avenue' ? 'Enemy and own markers, ' : 'Border line, sector polygon, own marker, '}obstacles / tracks, tool parameters.`, 'user')}
+        ${row('4. Assumed by the model', 'Movement speeds (Tobler form, class speeds), slope limits, cost weights, penalty factors, thresholds and rating formulas.', 'assumed')}
+        ${row('5. Not established by the available data', `Whether any real force would use this line or its end points, its intent, timing or strength; vegetation, snow, rivers and other unmapped obstacles; ${CANNOT.toLowerCase()}`, 'na')}
+      </table>
+      <div class="rt-notice">A computed path is <b>not</b> confirmation of real-world movement or intent.</div>
+      <div class="sel-actions"><button class="btn sm ex-go" data-rt-explain>Method & references</button><button class="btn sm" data-rt-zoom>Zoom to line</button><button class="btn sm" data-rt-profile>Terrain profile</button><button class="btn sm" data-rt-report>Export route report</button></div>
+    </div>`;
+    return { html, missing };
+  };
+
+  const renderRoutesPanel = () => {
+    const el = $('routesBody');
+    if (!el) return;
+    const recs = routeRecords();
+    if (!recs.length) { el.innerHTML = '<p class="hint pad">No generated lines yet. Run Route A→B, Avenues of Approach or the sector tools; every displayed line then gets its own provenance record here.</p>'; return; }
+    const selKey = S.sel && (S.sel.kind === 'rline' || S.sel.kind === 'rvertex') ? S.sel.key : S.routePanelKey;
+    const sel = recs.find((r) => r.key === selKey) || null;
+    const cats = [...new Set(recs.map((r) => r.cat))];
+    const list = cats.map((c) => `<div class="rt-cat">${esc(RCAT[c].short)}</div>` + recs.filter((r) => r.cat === c).map((r) => `<div class="rt-item${sel && sel.key === r.key ? ' on' : ''}" data-rt="${esc(r.key)}">
+        <input type="checkbox" data-rtvis="${esc(r.key)}" ${UI.routeHidden(r.key) ? '' : 'checked'} title="Show / hide this line"><i class="sw" style="background:${r.color}"></i><span>${esc(r.id)}${r.catVisible === false ? ' <span class="hint">(layer off)</span>' : ''}</span><small>${r.src.lengthM !== undefined ? F.dist(r.src.lengthM) : F.dist(lineLen(r.line))} · ${r.run ? r.run.id : 'no run record'}</small></div>`).join('')).join('');
+    el.innerHTML = `<div class="rt-tools"><b style="font-size:12px">Route Analysis &amp; Provenance</b><span class="grow"></span><button class="btn sm" data-rt-all="1">Show all</button><button class="btn sm" data-rt-all="0">Hide all</button><button class="btn sm" data-rt-report>Report…</button></div>
+      <div class="rt-list">${list}</div>${sel ? routeDetailHTML(sel).html : '<p class="hint pad">Select a line in the list or click it on the map. Where lines overlap, the map offers a list of the features under the cursor.</p>'}`;
+    el.querySelectorAll('[data-rt]').forEach((n) => n.addEventListener('click', (e) => { if (e.target.matches('input')) return; selectRoute(n.dataset.rt, true); }));
+    el.querySelectorAll('[data-rtvis]').forEach((cb) => cb.addEventListener('change', () => { S.hiddenRoutes[cb.dataset.rtvis] = !cb.checked; if (cb.checked) delete S.hiddenRoutes[cb.dataset.rtvis]; refresh(); renderRouteTable(); }));
+    el.querySelectorAll('[data-rt-all]').forEach((b) => (b.onclick = () => { if (b.dataset.rtAll === '1') S.hiddenRoutes = {}; else recs.forEach((r) => (S.hiddenRoutes[r.key] = true)); refresh(); renderRoutesPanel(); }));
+    el.querySelectorAll('[data-rt-report]').forEach((b) => (b.onclick = () => exportRouteReport(sel ? [sel] : null)));
+    if (sel) {
+      const q = (s) => el.querySelector(s);
+      q('[data-rt-explain]').onclick = () => openExplain(RCAT[sel.cat].explain, { ref: { kind: 'rline', key: sel.key } });
+      q('[data-rt-zoom]').onclick = () => zoomToLine(sel.line);
+      q('[data-rt-profile]').onclick = () => openProfile(`${sel.id} — terrain along the drawn line (${RCAT[sel.cat].short})`, { profile: M.terrainProfile(gridZ(), sel.line, S.grid.cs) });
+      el.querySelectorAll('[data-vtx]').forEach((tr) => tr.addEventListener('click', () => selectVertex(sel.key, +tr.dataset.vtx)));
+    }
+  };
+  const renderRouteTable = () => {
+    const tbl = $('rtTable');
+    if (!tbl) return;
+    const recs = routeRecords();
+    $('rtCount').textContent = recs.length ? `(${recs.length})` : '';
+    if (!recs.length) { tbl.innerHTML = '<tbody><tr><td class="wrap">No generated lines. Run a routing or sector tool.</td></tr></tbody>'; return; }
+    tbl.innerHTML = `<thead><tr><th></th><th>ID</th><th>Category</th><th>Run</th><th>Start</th><th>End</th><th>Length</th><th>Model time</th><th>Vertices</th><th>Start origin</th><th>Missing metadata</th></tr></thead><tbody>${recs.map((r) => {
+      const a = r.line[0], b = r.line[r.line.length - 1], so = endpointOrigin(r, 0), miss = (r.run ? 0 : 3) + (r.src.timeH === undefined ? 1 : 0) + (r.src.lengthM === undefined ? 1 : 0);
+      return `<tr data-rtk="${esc(r.key)}" class="${S.sel && S.sel.key === r.key ? 'sel' : ''}"><td><i style="display:block;width:14px;height:3px;background:${r.color}"></i></td><td>${esc(r.id)}</td><td>${esc(RCAT[r.cat].short)}</td><td class="m">${r.run ? esc(r.run.id) : '—'}</td><td class="m">${esc(F.listRef(a[1], a[0]))}</td><td class="m">${esc(F.listRef(b[1], b[0]))}</td>
+        <td class="m">${r.src.lengthM !== undefined ? F.dist(r.src.lengthM) : '—'}</td><td class="m">${r.src.timeH !== undefined ? F.time(r.src.timeH) : '—'}</td><td class="m">${r.line.length}</td><td class="wrap">${esc(so[0].split(' — ')[0])}</td><td>${miss ? `${miss} field(s) not recorded` : 'none'}</td></tr>`;
+    }).join('')}</tbody>`;
+    tbl.querySelectorAll('[data-rtk]').forEach((tr) => tr.addEventListener('click', () => selectRoute(tr.dataset.rtk, true)));
+  };
+  const zoomToLine = (line) => {
+    const cs = line.map((p) => p[0]), rs = line.map((p) => p[1]);
+    const c0 = Math.min(...cs), c1 = Math.max(...cs), r0 = Math.min(...rs), r1 = Math.max(...rs), span = Math.max(c1 - c0, r1 - r0, 30) * 1.25;
+    if (S.view === '3d') v3.lookAtCell((c0 + c1) / 2, (r0 + r1) / 2, span * S.grid.cs * 1.4); else map.centerOn((c0 + c1) / 2, (r0 + r1) / 2, Math.min(map.W, map.H) / span);
+  };
+  const selectRoute = (key, zoom) => {
+    const r = recByKey(key);
+    if (!r) return;
+    S.routePanelKey = key;
+    if (r.cat === 'route') { S.routes.sel = +key.split(':')[1]; S.picquets = null; showRouteProfile(); renderRouteCard(); }
+    S.sel = { kind: 'rline', key };
+    if (zoom) zoomToLine(r.line);
+    showRightTab('routes');
+    renderAll(); refresh();
+  };
+  const selectVertex = (key, v) => { S.sel = { kind: 'rvertex', key, v }; S.routePanelKey = key; showRightTab('attr'); renderAll(); refresh(); };
+  /** Screen-space hits on displayed lines (2D map). */
+  const segDist = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)); return Math.hypot(ax + t * dx - px, ay + t * dy - py); };
+  const routeHits = (x, y, tol = 7) => routeRecords().filter((r) => r.visible).map((r) => {
+    let d = Infinity;
+    for (let k = 1; k < r.line.length; k++) { const a = map.toScreen(...r.line[k - 1]), b = map.toScreen(...r.line[k]); d = Math.min(d, segDist(x, y, a[0], a[1], b[0], b[1])); }
+    return { r, d };
+  }).filter((h) => h.d <= tol).sort((a, b) => a.d - b.d).map((h) => h.r);
+  const vertexHit = (x, y) => {
+    if (!S.sel || (S.sel.kind !== 'rline' && S.sel.kind !== 'rvertex')) return null;
+    const r = recByKey(S.sel.key);
+    if (!r) return null;
+    let best = null, bd = 8;
+    r.line.forEach((q, i) => { const [sx, sy] = map.toScreen(q[0], q[1]); const d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = i; } });
+    return best === null ? null : { kind: 'rvertex', key: r.key, v: best };
+  };
+  /** Point inspector rows for a vertex of a generated line. */
+  const vertexRows = (ref) => {
+    const r = recByKey(ref.key);
+    if (!r) return null;
+    const q = r.line[ref.v], last = r.line.length - 1, g = S.grid;
+    const rr = Math.round(q[1]), cc = Math.round(q[0]), i = rr * g.w + cc, en = M.cellToEN(g, rr, cc);
+    const role = ref.v === 0 ? 'Start point' : ref.v === last ? 'End point' : `Intermediate vertex ${ref.v} of ${last - 1}`;
+    const origin = ref.v === 0 ? endpointOrigin(r, 0) : ref.v === last ? endpointOrigin(r, 1) : ['Cell of the computed path kept by M.simplify (Ramer–Douglas–Peucker, 0.6 cell) — algorithmically derived; it marks a change of direction of the simplified line, not a decision point', 'calc'];
+    const stage = ref.v === 0 ? (r.cat === 'eappr' || r.cat === 'infil' ? 'entryPoints() → pickSite' : r.cat === 'avenue' ? 'M.nearestPassable' : r.cat === 'route' ? 'User marker → cell index' : 'copied line') : ref.v === last ? (r.cat === 'eappr' || r.cat === 'infil' ? 'reachGoal()' : r.cat === 'avenue' ? 'M.nearestPassable' : r.cat === 'route' ? 'User marker → cell index' : 'copied line') : 'M.astar → M.routeStats → M.simplify';
+    const mob = S.overlays.mobility.data;
+    return { r, role, rows: [
+      ['Generated point', null], ['Feature', `${r.id} — ${RCAT[r.cat].short}`], ['Role', role],
+      ['How it was produced', origin[0] + (/algorithmically derived|user input|entered/i.test(origin[0]) ? '' : origin[1] === 'user' ? ' — entered by the user' : ' — algorithmically derived')], ['Function / processing stage', stage],
+      ['Why a real force would choose it', CANNOT],
+      ['Source raster cell', `row ${rr}, column ${cc} (index ${i}) · cell centre ${Math.round(en.E)} mE ${Math.round(en.N)} mN · ${g.cs} m cell`],
+      ['Source metadata', `${g.name}${g.synthetic ? ' (synthetic)' : ''} · ${S.sources ? S.sources.map((s) => s.name).join(', ').slice(0, 90) : 'no file metadata'} · vertical datum setting ${F.vdatum()}`],
+      ['Slope (cell)', `${S.L.slope[i].toFixed(1)}°`], ['Landform (cell)', M.LANDFORMS[S.L.landform[i]].name], ...(mob ? [['Go / No-Go (cell)', `${M.CLASS_NAMES[mob[i]]} — ${M.MOVEMENT_PROFILES[S.overlays.mobility.profile].name.split(' (')[0]} layer`]] : []),
+    ], c: q[0], rr: q[1] };
+  };
+
+  /** Route-analysis report (HTML file) built only from the records above. */
+  const exportRouteReport = (only) => {
+    const recs = only || routeRecords();
+    if (!recs.length) { toast('No generated lines to report.', true); return; }
+    const parts = recs.map((r) => `<section><h2>${esc(r.id)} — ${esc(RCAT[r.cat].name)}</h2>${routeDetailHTML(r).html.replace(/<div class="sel-actions">[\s\S]*?<\/div>\s*<\/div>$/, '</div>')}</section>`).join('');
+    const hist = S.runs.map((x) => `<tr><td>${esc(x.id || '')}</td><td>${esc(new Date(x.t).toLocaleString())}</td><td>${esc(x.label)}</td><td>${x.ok ? 'done' : 'failed'}</td><td>${(x.dur / 1000).toFixed(2)} s</td><td>${esc(x.summary || '')}</td></tr>`).join('');
+    const css = `body{font:12px/1.45 "Segoe UI",Arial,sans-serif;color:#10202a;max-width:1000px;margin:24px auto;padding:0 16px}h1{font-size:20px}h2{font-size:15px;border-bottom:2px solid #28b7c5;padding-bottom:3px;margin-top:28px}h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#156a75;margin:14px 0 4px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #c9d8de;padding:3px 6px;text-align:left;vertical-align:top}.na{color:#9a5b00;font-style:italic}.pv{font-size:10px;border:1px solid #888;border-radius:7px;padding:0 5px;white-space:nowrap}.rt-notice{border:1px solid #d77;border-left:4px solid #c33;background:#fff4f4;padding:6px 9px;margin:8px 0}.rt-stage{border-left:3px solid #28b7c5;padding:2px 8px;margin:6px 0}.hint{color:#556}.rt-vtx{max-height:none}.pv-legend{display:flex;gap:6px;flex-wrap:wrap}code{font-size:11px}`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>MtnEye route analysis report</title><style>${css}</style></head><body>
+      <h1>MtnEye ${esc(M.VERSION)} — Route Analysis & Provenance Report</h1>
+      <p>Project: <b>${esc(S.projectName)}</b> · DEM: ${esc(S.grid.name)} (${S.grid.w}×${S.grid.h} @ ${S.grid.cs} m, ${esc(F.analysisCRSName())}) · generated ${esc(new Date().toLocaleString())} · ${recs.length} line(s)</p>
+      <div class="rt-notice">Every line in this report is a model output computed from terrain data and the recorded parameters. None of them is a verified route or a prediction of real-world movement or intent. Fields marked “Not recorded in this analysis run.” were not retained by the application; “Cannot be determined from the terrain model alone.” marks questions the model cannot answer.</div>
+      ${parts}<h2>Processing history (this session${S.runs.some((x) => x.fromPlan) ? ', including records restored from the plan file' : ''})</h2><table><tr><th>Run</th><th>Time</th><th>Tool</th><th>Status</th><th>Duration</th><th>Summary</th></tr>${hist}</table></body></html>`;
+    UI.download(fileName('route_report.html'), html, 'text/html');
+    toast(`Route report exported (${recs.length} line${recs.length > 1 ? 's' : ''}).`);
+  };
+
+  // =================================================================== analysis results, diagnostics, catalog
+  S.results = [];
+  UI.onToolResult = (id, msg) => {
+    if (!msg || msg.running) return;
+    const tool = GP.TOOLS[id];
+    const cmdOf = { mobility: 'mobility', keyTerrain: 'keyTerrain', viewshed: 'viewshed', los: 'los', hostile: 'hostileObservation', avenues: 'avenues', posts: 'posts', weapons: 'weapons', mfd: 'minefields', route: 'route', picquets: 'picquets', helipads: 'helipads', sectorTerrain: 'sectorTerrain', itgs: 'itgs', deploy: 'deploy', enemyApproaches: 'enemyApproaches', infiltration: 'infiltration', fireCoverage: 'fireCoverage', borderWatch: 'borderWatch', enemyOptions: 'enemyOptions' }[id];
+    S.results.unshift({ t: Date.now(), tool: tool ? tool.name : id, id, title: msg.title, text: msg.text || '', err: !!msg.err, run: cmdOf && S.lastRun[cmdOf] ? S.lastRun[cmdOf].id : null });
+    if (S.results.length > 100) S.results.pop();
+    renderResults();
+    if (!msg.err) { renderRouteTable(); if (!$('routesBody').hidden) renderRoutesPanel(); }
+  };
+  const renderResults = () => {
+    const el = $('resultsBody');
+    if (!el) return;
+    el.innerHTML = S.results.length ? S.results.map((r) => `<div class="res-item${r.err ? ' err' : ''}"><b>${esc(r.title)}</b><span class="hint">${esc(new Date(r.t).toLocaleTimeString())}${r.run ? ` · ${esc(r.run)}` : ''}${UI.EXPLAIN_TOPICS[r.id] ? ` · <button class="link" data-resx="${esc(r.id)}">Explain</button>` : ''}</span><pre>${esc(r.text)}</pre></div>`).join('') : '<p class="hint">Tool results appear here after each run.</p>';
+    el.querySelectorAll('[data-resx]').forEach((b) => (b.onclick = () => openExplain(b.dataset.resx)));
+  };
+  S.diag = [];
+  const diag = (lvl, msg) => { S.diag.push({ t: Date.now(), lvl, msg: String(msg).slice(0, 400) }); if (S.diag.length > 300) S.diag.shift(); const c = S.diag.filter((d) => d.lvl !== 'info').length; const n = $('diagCount'); if (n) n.textContent = c ? `(${c})` : ''; };
+  UI.diag = diag;
+  { const ow = console.warn.bind(console), oe = console.error.bind(console); console.warn = (...a) => { diag('warn', a.join(' ')); ow(...a); }; console.error = (...a) => { diag('error', a.map((x) => (x && x.message) || x).join(' ')); oe(...a); }; }
+  window.addEventListener('error', (e) => diag('error', `${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+  window.addEventListener('unhandledrejection', (e) => diag('error', `Unhandled promise rejection: ${(e.reason && e.reason.message) || e.reason}`));
+  const renderDiagnostics = () => {
+    const el = $('diagBody');
+    if (!el) return;
+    let storage = 'available'; try { localStorage.setItem('mtneye.probe', '1'); localStorage.removeItem('mtneye.probe'); } catch (e) { storage = 'unavailable (settings and layout are not persisted)'; }
+    const checks = [['MtnEye version', M.VERSION], ['Analysis engine', engine.mode === 'local' ? 'main thread (Web Worker unavailable)' : 'Web Worker'], ['WebGL2 (3D scene)', v3 && v3.ok ? 'available' : 'unavailable'],
+      ['DecompressionStream (zipped / compressed GeoTIFF)', typeof DecompressionStream !== 'undefined' ? 'available' : 'missing'], ['Local storage', storage], ['Layout storage key', `${LAYOUT_KEY}${S.layoutMigrated ? ' (1.2 layout found and ignored on first launch)' : ''}`],
+      ['Network (navigator.onLine)', navigator.onLine ? 'online' : 'offline'], ['Basemap imagery', `${S.imagery.status} — ${S.imagery.message || ''}`], ['External libraries', 'none (single file; milsymbol not bundled)'],
+      ['Loaded DEM', S.grid ? `${S.grid.name} · ${S.grid.w}×${S.grid.h} @ ${S.grid.cs} m` : 'none'], ['Engine runs this session', `${S.runs.length} (${S.runs.filter((r) => !r.ok).length} failed)`], ['Viewport', `${innerWidth} × ${innerHeight} · device pixel ratio ${devicePixelRatio || 1}`]];
+    el.innerHTML = `<table class="grid-table">${checks.map(([k, v]) => `<tr class="diag-row"><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>
+      <h5 class="subh">Log (${S.diag.length})</h5><table class="grid-table">${S.diag.slice().reverse().map((d) => `<tr><td class="m">${esc(new Date(d.t).toLocaleTimeString())}</td><td><span class="diag-lvl ${d.lvl}">${d.lvl}</span></td><td class="wrap">${esc(d.msg)}</td></tr>`).join('') || '<tr><td class="wrap">No warnings or errors logged.</td></tr>'}</table>`;
+  };
+  S.projectName = 'Untitled project';
+  const updateProjectTitle = () => { $('projTitle').textContent = S.projectName; document.title = `${S.projectName} — MtnEye`; };
+  const renameProject = () => { const n = prompt('Project name', S.projectName); if (n && n.trim()) { S.projectName = n.trim().slice(0, 80); updateProjectTitle(); renderCatalog(); } };
+  const renderCatalog = () => {
+    const el = $('catalogBody');
+    if (!el) return;
+    const g = S.grid;
+    const item = (icon, title, sub, acts) => `<div class="rt-item" style="grid-template-columns:18px 1fr auto;cursor:default">${UI.icon(icon, 15)}<span><b style="font-weight:600">${esc(title)}</b><br><small>${esc(sub)}</small></span><span>${acts || ''}</span></div>`;
+    const btn = (cmd, t) => `<button class="btn sm" data-cat-cmd="${cmd}">${t}</button>`;
+    el.innerHTML = `<div class="rt-cat">Project</div>${item('doc', S.projectName, `MtnEye ${M.VERSION} plan · ${S.runs.length} processing records`, btn('renameProject', 'Rename') + ' ' + btn('savePlan', 'Save'))}
+      ${item('open', 'Open plan / project…', 'MtnEye plan (.json)', btn('loadPlan', 'Open'))}
+      <div class="rt-cat">Elevation data</div>${g ? item('terrain', g.name, `${g.w} × ${g.h} @ ${g.cs} m · ${F.analysisCRSName()}${g.synthetic ? ' · synthetic' : ''}`, btn('explainDem', 'Explain')) : item('terrain', 'No elevation model', 'Add data to start', btn('addData', 'Add'))}
+      ${(S.sources || []).map((s) => item('data', s.name, `${s.w} × ${s.h} source pixels`, '')).join('')}
+      ${item('download', 'Download DEM…', 'AWS Terrain Tiles / OpenTopography (internet)', btn('downloadDEM', 'Open'))}
+      <div class="rt-cat">Basemap</div>${item('imagery', S.imagery.status === 'ready' ? UI.IMAGERY_SOURCES[S.imagery.sourceId].name : 'Simulated terrain colouring', S.imagery.message || '', btn('reloadImagery', 'Reload'))}
+      <div class="rt-cat">Analysis runs (${S.runs.length})</div>${S.runs.slice(-12).reverse().map((r) => item(r.ok ? 'ok' : 'err', `${r.id || ''} ${r.label}`, `${new Date(r.t).toLocaleTimeString()} · ${r.summary ? r.summary.split('\n')[0].slice(0, 70) : ''}`, '')).join('') || '<p class="hint pad">No runs yet.</p>'}
+      <div class="rt-cat">Documentation</div>${item('book', 'Reference library', 'GSP / IPB citations, standards, literature', btn('docs', 'Open'))}`;
+    el.querySelectorAll('[data-cat-cmd]').forEach((b) => (b.onclick = () => (b.dataset.catCmd === 'explainDem' ? openExplain('elevation') : runCmd(b.dataset.catCmd))));
+  };
+
   // =================================================================== panes & layout
   const showRightTab = (tab) => {
     document.querySelectorAll('[data-rtab]').forEach((b) => b.classList.toggle('on', b.dataset.rtab === tab));
     document.querySelectorAll('[data-rpanel]').forEach((p) => (p.hidden = p.dataset.rpanel !== tab));
     if ($('app').classList.contains('no-right')) { $('app').classList.remove('no-right'); saveLayout(); map.resize(); }
     if (tab === 'gp' && !GP.current() && !$('gpPane').innerHTML) GP.home();
+    if (tab === 'routes') renderRoutesPanel();
+    if (tab === 'catalog') renderCatalog();
+    updateWsButtons();
   };
-  const LAYOUT_KEY = 'mtnai.layout.v2';
+  // Layout storage is versioned: 1.3 ignores the 1.2 key ('mtnai.layout.v2') so old pane sizes cannot
+  // override the new map-first defaults on first launch. Only dimensions the user drags are stored.
+  const LAYOUT_KEY = 'mtneye.layout.v13';
+  const LEGACY_LAYOUT_KEYS = ['mtnai.layout.v2'];
   const saveLayout = () => {
     try {
       const st = document.documentElement.style;
       localStorage.setItem(LAYOUT_KEY, JSON.stringify({
-        left: st.getPropertyValue('--left-w'), right: st.getPropertyValue('--right-w'), dock: st.getPropertyValue('--dock-h'),
+        v: '1.3', left: st.getPropertyValue('--left-w'), right: st.getPropertyValue('--right-w'), dock: st.getPropertyValue('--dock-h'),
         noLeft: $('app').classList.contains('no-left'), noRight: $('app').classList.contains('no-right'), dockClosed: $('dock').classList.contains('collapsed'),
-        rbMin: document.body.classList.contains('rb-min'), rbTab: S.rbTab,
+        rbMin: document.body.classList.contains('rb-min'), rbCompact: document.body.classList.contains('rb-compact'), rbTab: S.rbTab,
       }));
     } catch (e) { /* storage unavailable */ }
   };
-  const loadLayout = () => {
-    let l = {};
-    try { l = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}') || {}; } catch (e) { l = {}; }
+  /** Map-first defaults: Contents open, contextual pane closed (opens when needed), dock collapsed. */
+  const applyDefaultLayout = () => {
     const st = document.documentElement.style;
-    if (l.left) st.setProperty('--left-w', l.left);
-    if (l.right) st.setProperty('--right-w', l.right);
-    if (l.dock) st.setProperty('--dock-h', l.dock);
-    $('app').classList.toggle('no-left', !!l.noLeft);
-    $('app').classList.toggle('no-right', !!l.noRight);
-    $('dock').classList.toggle('collapsed', l.dockClosed !== false);
-    $('dockToggle').textContent = $('dock').classList.contains('collapsed') ? '▴' : '▾';
-    document.body.classList.toggle('rb-min', !!l.rbMin);
-    S.rbTab = l.rbTab || 'map';
+    for (const v of ['--left-w', '--right-w', '--dock-h']) st.removeProperty(v);
+    const narrow = window.innerWidth <= 900;
+    $('app').classList.toggle('no-left', narrow);
+    $('app').classList.add('no-right');
+    $('dock').classList.add('collapsed');
+    $('dockToggle').textContent = '▴';
+    document.body.classList.remove('rb-min', 'rb-peek', 'rb-compact', 'ws-expanded');
+    S.ws = 'default';
+  };
+  const loadLayout = () => {
+    let l = null;
+    try { l = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch (e) { l = null; }
+    S.layoutMigrated = !l && LEGACY_LAYOUT_KEYS.some((k) => { try { return localStorage.getItem(k) !== null; } catch (e) { return false; } });
+    applyDefaultLayout();
+    if (l) {
+      const st = document.documentElement.style;
+      if (l.left) st.setProperty('--left-w', l.left);
+      if (l.right) st.setProperty('--right-w', l.right);
+      if (l.dock) st.setProperty('--dock-h', l.dock);
+      $('app').classList.toggle('no-left', !!l.noLeft || window.innerWidth <= 900);
+      $('app').classList.toggle('no-right', l.noRight !== false);
+      $('dock').classList.toggle('collapsed', l.dockClosed !== false);
+      $('dockToggle').textContent = $('dock').classList.contains('collapsed') ? '▴' : '▾';
+      document.body.classList.toggle('rb-min', !!l.rbMin);
+      document.body.classList.toggle('rb-compact', !!l.rbCompact);
+    }
+    S.rbTab = (l && l.rbTab) || 'map';
+  };
+  const relayout = () => { updateRibbonState(); updateWsButtons(); setTimeout(() => { map.resize(); if (S.view === '3d') v3.resize(); if (S.drawerData && !$('dock').classList.contains('collapsed')) UI.drawProfile($('chart'), S.drawerData); }, 0); };
+  /** Workspace modes: 'gis' (everything), 'map' (expanded map, floating controls), 'full' (full screen). */
+  const setWorkspace = (mode) => {
+    if (mode === 'full') { document.body.classList.remove('ws-expanded'); toggleFocus(true); S.ws = 'full'; relayout(); return; }
+    if (document.body.classList.contains('focus-map')) toggleFocus(false);
+    if (mode === 'map') {
+      document.body.classList.add('ws-expanded', 'rb-min'); document.body.classList.remove('rb-peek');
+      S.ws = 'map';
+    } else {
+      document.body.classList.remove('ws-expanded', 'rb-min');
+      $('app').classList.remove('no-left', 'no-right');
+      $('dock').classList.remove('collapsed'); $('dockToggle').textContent = '▾';
+      S.ws = 'gis';
+      saveLayout();
+    }
+    relayout();
+  };
+  const restoreLayout = () => {
+    try { localStorage.removeItem(LAYOUT_KEY); } catch (e) { /* ignore */ }
+    if (document.body.classList.contains('focus-map')) toggleFocus(false);
+    applyDefaultLayout();
+    relayout();
+    toast('Default map-first layout restored.');
+  };
+  const updateWsButtons = () => {
+    const full = document.body.classList.contains('focus-map'), exp = document.body.classList.contains('ws-expanded');
+    const gis = !full && !exp && !$('app').classList.contains('no-left') && !$('app').classList.contains('no-right') && !$('dock').classList.contains('collapsed');
+    $('wsGis').classList.toggle('on', gis); $('wsMap').classList.toggle('on', exp); $('wsFull').classList.toggle('on', full);
   };
   const initSplitters = () => {
     document.querySelectorAll('.splitter').forEach((sp) => sp.addEventListener('mousedown', (e) => {
@@ -1589,15 +2510,14 @@
       const kind = sp.dataset.split;
       const st = document.documentElement.style;
       const move = (ev) => {
-        if (kind === 'left') st.setProperty('--left-w', `${Math.max(200, Math.min(560, ev.clientX - $('app').getBoundingClientRect().left))}px`);
-        else if (kind === 'right') st.setProperty('--right-w', `${Math.max(260, Math.min(640, window.innerWidth - ev.clientX))}px`);
+        if (kind === 'left') st.setProperty('--left-w', `${Math.max(180, Math.min(520, ev.clientX - $('app').getBoundingClientRect().left))}px`);
+        else if (kind === 'right') st.setProperty('--right-w', `${Math.max(260, Math.min(620, window.innerWidth - ev.clientX))}px`);
         else { $('dock').classList.remove('collapsed'); st.setProperty('--dock-h', `${Math.max(90, Math.min(window.innerHeight * 0.7, $('center').getBoundingClientRect().bottom - ev.clientY))}px`); }
       };
       const up = () => {
         sp.classList.remove('drag');
         window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
-        saveLayout();
-        if (S.drawerData) UI.drawProfile($('chart'), S.drawerData);
+        saveLayout(); relayout();
       };
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
     }));
@@ -1607,7 +2527,24 @@
     document.body.dataset.density = cfg('ui.density');
     document.documentElement.style.setProperty('--fs', `${cfg('ui.fontSize')}px`);
   };
-  const togglePane = (cls) => { $('app').classList.toggle(cls); saveLayout(); updateRibbonState(); setTimeout(() => { map.resize(); if (S.view === '3d') v3.resize(); }, 0); };
+  /** Focus Map: hide panes, dock and ribbon body so the elevation model fills the window; full screen where allowed. */
+  let preFocusRbMin = false;
+  const toggleFocus = (force) => {
+    const on = force !== undefined ? force : !document.body.classList.contains('focus-map');
+    if (on === document.body.classList.contains('focus-map')) return;
+    if (on) { preFocusRbMin = document.body.classList.contains('rb-min'); document.body.classList.add('focus-map', 'rb-min'); }
+    else { document.body.classList.remove('focus-map', 'rb-peek'); document.body.classList.toggle('rb-min', preFocusRbMin); }
+    $('focusBtn').querySelector('span').textContent = on ? 'Exit Focus' : 'Focus Map';
+    try {
+      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    } catch (e) { /* full screen not allowed */ }
+    updateRibbonState(); if (typeof updateWsButtons === 'function') updateWsButtons();
+    setTimeout(() => { map.resize(); if (S.view === '3d') v3.resize(); else map.fit(); }, 60);
+    setTimeout(() => { map.resize(); if (S.view === '3d') v3.resize(); else map.fit(); }, 400);
+  };
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('focus-map')) toggleFocus(false); });
+  const togglePane = (cls) => { if (document.body.classList.contains('ws-expanded')) document.body.classList.remove('ws-expanded', 'rb-min'); $('app').classList.toggle(cls); saveLayout(); relayout(); };
 
   /** Inputs bound directly to a setting (data-setting="key"), e.g. on the ribbon. */
   const bindSettingInputs = () => {
@@ -1656,7 +2593,11 @@
       if (tags.has('3d') && v3.ok) v3.setExaggeration(+cfg('v3.vex'));
       if (keys.includes('profiles')) { await syncSettings(); if (S.overlays.mobility.data) await computeMobility(Object.assign(GP.values('mobility'), { profile: S.overlays.mobility.profile }), true); }
     } catch (e) { toast(e.message, true); }
-    refresh({ base: ['base', 'hs', 'contours', 'ovl', 'sym', 'reanalyse'].some((t) => tags.has(t)) || keys.includes('map.base') });
+    if (tags.has('imagery') || keys.includes('map.mode')) {
+      const needs = basemapMode() !== 'topo' && !(S.imagery.status === 'ready' && S.imagery.sourceId === cfg('map.imagerySource') && !keys.includes('map.imageryUrl'));
+      if (needs || basemapMode() === 'topo') requestImagery();
+    }
+    refresh({ base: ['base', 'hs', 'contours', 'ovl', 'sym', 'reanalyse', 'imagery'].some((t) => tags.has(t)) || keys.includes('map.base') });
     renderAll();
     if (S.view === '3d') updateTexture(true);
   };
@@ -1665,6 +2606,7 @@
   const setView = (v) => {
     if (v === '3d' && !v3.ok) { toast('WebGL2 is not available — Scene view disabled.', true); return; }
     if (!S.grid && v === '3d') return;
+    const prev = S.view;
     S.view = v;
     $('vtMap').classList.toggle('on', v === '2d'); $('vtScene').classList.toggle('on', v === '3d'); $('vtModel').classList.toggle('on', v === 'model');
     $('map2d').hidden = v !== '2d'; $('gl3d').hidden = v !== '3d'; $('ovl3d').hidden = v !== '3d';
@@ -1673,6 +2615,17 @@
     if (UI.MB) UI.MB.show(v === 'model');
     v3.visible = v === '3d';
     if (v === 'model') { updateRibbonState(); return; }
+    $('mc2d3d').textContent = v === '3d' ? '2D' : '3D';
+    // keep the project context: the 3D camera looks at the 2D map centre and vice versa
+    if (S.grid && prev !== v && prev !== 'model' && v3.mesh) {
+      if (v === '3d') {
+        const span = (map.W / Math.max(1e-6, map.view.scale)) * S.grid.cs;
+        v3.lookAtCell(Math.max(0, Math.min(S.grid.w - 1, map.view.cx)), Math.max(0, Math.min(S.grid.h - 1, map.view.cy)), Math.max(800, span * 1.15));
+      } else if (v3.cam && v3.cam.target) {
+        map.view.cx = v3.cam.target[0] / S.grid.cs + (S.grid.w - 1) / 2;
+        map.view.cy = v3.cam.target[2] / S.grid.cs + (S.grid.h - 1) / 2;
+      }
+    }
     if (v === '3d') { v3.resize(); if (S.texDirty) updateTexture(true); v3.render(); } else { v3.stopFly(); map.resize(); }
     updateScale(); updateRibbonState();
   };
@@ -1682,10 +2635,12 @@
     if (!S.grid) return null;
     const strip = (o, keys) => { if (!o) return null; const c = Object.assign({}, o); for (const k of keys) delete c[k]; return c; };
     return {
-      format: 'mtnai-plan', version: M.VERSION, created: new Date().toISOString(), grid: M.gridMeta(S.grid),
-      markers: S.markers, obstacles: S.obstacles, tracks: S.tracks, threatType: S.threatType, ownEchelon: S.ownEchelon, snowLine: S.snowLine,
+      format: 'mtneye-plan', version: M.VERSION, created: new Date().toISOString(), grid: M.gridMeta(S.grid),
+      markers: S.markers, obstacles: S.obstacles, tracks: S.tracks, threatType: S.threatType, ownEchelon: S.ownEchelon, snowLine: S.snowLine, relief: S.relief,
       key: S.key, posts: strip(S.posts, ['cover', 'dead']), weapons: S.weapons.map((w) => strip(w, ['cover'])),
       mfd: S.mfd, avenues: S.avenues, helipads: S.helipads, sector: S.sector, border: S.border, sec: S.sec, routes: S.routes && Object.assign({}, S.routes, { routes: S.routes.routes.map((r) => strip(r, ['path', 'profile'])) }), picquets: S.picquets,
+      symOpts: S.symOpts, overlayOrder: S.overlayOrder, processingRecord: S.runs.filter((r) => r.ok).slice(-100),
+      projectName: S.projectName, markerOrigin: S.markerOrigin, hiddenRoutes: S.hiddenRoutes, symbolConvention: cfg('sym.unitConvention'),
     };
   };
   const linePath = (line) => {
@@ -1704,13 +2659,25 @@
   };
   const applyPlan = async (plan, opts = {}) => {
     if (!plan || !S.grid) return;
-    if (plan.format !== 'mtnai-plan') { toast('Not an MtnEye plan file.', true); return; }
+    if (plan.format !== 'mtneye-plan' && plan.format !== 'mtnai-plan') { toast('Not an MtnEye plan file.', true); return; }
     const p = UI.remapPlan(plan, plan.grid, S.grid);
     const inGrid = (m) => m && m.c >= 0 && m.r >= 0 && m.c < S.grid.w && m.r < S.grid.h;
     S.markers = {};
     for (const k in p.markers || {}) if (inGrid(p.markers[k])) S.markers[k] = { c: Math.round(p.markers[k].c), r: Math.round(p.markers[k].r) };
-    Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0,
+    S.markerOrigin = {};
+    for (const k in S.markers) S.markerOrigin[k] = plan.markerOrigin && plan.markerOrigin[k] ? (opts.silent ? plan.markerOrigin[k] : `${plan.markerOrigin[k]} (restored from plan file)`) : 'plan file';
+    if (plan.projectName && !opts.silent) { S.projectName = plan.projectName; updateProjectTitle(); }
+    if (plan.hiddenRoutes) S.hiddenRoutes = Object.assign({}, plan.hiddenRoutes);
+    if (!opts.silent) { undoStack.length = 0; redoStack.length = 0; updateUndoButtons(); } // edit history does not span plan loads
+    Object.assign(S, { obstacles: p.obstacles || [], tracks: p.tracks || [], threatType: p.threatType || 'foot', ownEchelon: p.ownEchelon || 'battalion', snowLine: p.snowLine || 0, relief: !!p.relief,
       sector: p.sector || null, border: p.border || null });
+    if (plan.symOpts) S.symOpts = { own: Object.assign({ planned: false, designation: 'OWN', isHQ: false, affil: 'F', func: '', hqDesignation: '', size: 1 }, plan.symOpts.own), threat: Object.assign({ echelon: 'battalion', planned: false, designation: 'ENY', isHQ: false, affil: 'H', func: '', hqDesignation: '', size: 1 }, plan.symOpts.threat) };
+    if (Array.isArray(plan.overlayOrder)) S.overlayOrder = plan.overlayOrder.slice();
+    if (Array.isArray(plan.processingRecord) && (!opts.silent || plan.grid.name === S.grid.name)) {
+      // processing records travel with the plan so Explain This can still show the parameters used
+      for (const r of plan.processingRecord) { if (!S.runs.some((x) => x.t === r.t && x.cmd === r.cmd)) S.runs.push(Object.assign({}, r, { fromPlan: true })); }
+      for (const r of S.runs) if (r.ok && (!S.lastRun[r.cmd] || S.lastRun[r.cmd].t <= r.t)) S.lastRun[r.cmd] = r;
+    }
     S.sec = !opts.silent || plan.grid.name === S.grid.name ? p.sec || {} : {};
     if (!opts.silent || plan.grid.name === S.grid.name) {
       Object.assign(S, { key: p.key || null, posts: p.posts || null, mfd: p.mfd || null, avenues: p.avenues || null, picquets: p.picquets || null, helipads: p.helipads || null });
@@ -1728,7 +2695,7 @@
   };
 
   // =================================================================== export
-  const fileName = (suffix) => `${cfg('rep.prefix') || ''}${(S.grid.name || 'mtnai').replace(/[^\w.-]+/g, '_').slice(0, 40)}_${suffix}`;
+  const fileName = (suffix) => `${cfg('rep.prefix') || ''}${(S.grid.name || 'mtneye').replace(/[^\w.-]+/g, '_').slice(0, 40)}_${suffix}`;
   const snapshot2D = () => {
     const old = Object.assign({}, map.view);
     map.fit(); map.draw();
@@ -1767,7 +2734,7 @@
     else if (kind === 'png') {
       const url = S.view === '3d' ? snapshot3D() : $('map2d').toDataURL('image/png');
       UI.download(fileName(`${S.view}.png`), await (await fetch(url)).blob(), 'image/png');
-    } else if (kind === 'plan') UI.download(fileName('plan.mtnai.json'), JSON.stringify(savePlanObject()), 'application/json');
+    } else if (kind === 'plan') UI.download(fileName('plan.mtneye.json'), JSON.stringify(savePlanObject()), 'application/json');
     else if (kind === 'report') {
       const imgs = [];
       if (cfg('rep.map2d')) imgs.push(snapshot2D());
@@ -1797,9 +2764,12 @@
     renderTOC();
     if (!S.grid) return;
     renderSelection(); renderAttrTable(); updateMarkerButtons(); updateStatusStatic(); updateScale(); updateRibbonState();
+    // keep an open explanation in step with re-run results (parameters, counts)
+    const ex = $('explainBody');
+    if (S.explainTopic && ex && !ex.hidden) { const st = ex.scrollTop; ex.innerHTML = UI.explainHTML(S.explainTopic.topic, S.explainTopic.extra); ex.scrollTop = st; ex.querySelectorAll('[data-ref]').forEach((b) => (b.onclick = () => openDocs(UI.resolveRef(b.dataset.ref, b.dataset.sec)))); }
   };
   const updateMarkerButtons = () => {
-    const syms = { own: UI.SYM.own(S.ownEchelon), threat: UI.SYM.threat(S.threatType), target: UI.SYM.target(), a: UI.SYM.sp(), b: UI.SYM.rp() };
+    const syms = { own: UI.ownSpec(), threat: UI.threatSpec(), target: UI.SYM.target(), a: UI.SYM.sp(), b: UI.SYM.rp() };
     document.querySelectorAll('[data-sym]').forEach((n) => {
       const k = n.dataset.sym;
       n.innerHTML = UI.symbolHTML(syms[k], n.classList.contains('lg') ? 17 : 12);
@@ -1818,7 +2788,11 @@
     fit: { t: 'Full extent', rb: 'Full Extent', icon: 'fit', k: 'F', need, run: () => (S.view === '3d' ? v3.home() : map.fit()) },
     zoomIn: { t: 'Zoom in', rb: 'Zoom In', icon: 'plus', k: '+', need, run: () => (S.view === '3d' ? ((v3.cam.dist *= 0.7), v3.render()) : map.zoomAt(map.W / 2, map.H / 2, 1.5)) },
     zoomOut: { t: 'Zoom out', rb: 'Zoom Out', icon: 'minus', k: '−', need, run: () => (S.view === '3d' ? ((v3.cam.dist /= 0.7), v3.render()) : map.zoomAt(map.W / 2, map.H / 2, 1 / 1.5)) },
-    basemap: { t: 'Basemap / elevation symbology', rb: 'Basemap', icon: 'layers', need, menu: () => Object.entries(BASE_NAMES).map(([k, n]) => ({ t: n, checked: S.base === k, run: () => setBase(k) })) },
+    basemap: { t: 'Basemap — hybrid / imagery / topographic, terrain symbology', rb: 'Basemap', icon: 'layers', need, menu: basemapMenu },
+    reloadImagery: { t: 'Reload satellite imagery', rb: 'Reload Imagery', icon: 'imagery', need, run: () => requestImagery() },
+    explainCur: { t: 'Explain this — method, data, parameters of the selected result / layer', rb: 'Explain This', icon: 'help', k: 'E', need, run: explainCurrent },
+    docs: { t: 'Reference library — GSP / IPB citations, standards, literature', rb: 'Reference Library', icon: 'book', k: 'Shift+F1', run: () => openDocs() },
+    toggleView: { t: 'Switch between 2D map and 3D scene', rb: '2D / 3D', icon: 'terrain', need, run: () => setView(S.view === '3d' ? '2d' : '3d') },
     clearSel: { t: 'Clear selection', rb: 'Clear', icon: 'err', need, run: () => { S.sel = null; S.gotoMark = null; S.draft = null; renderAll(); refresh(); } },
     attrTable: { t: 'Attribute table', rb: 'Attribute Table', icon: 'log', k: 'Ctrl+T', need, run: () => openAttrTable(S.tocSel && findLayer(S.tocSel) && findLayer(S.tocSel).table ? S.tocSel : '') },
     fullExtent: { t: 'Full extent of DEM (undo crop)', rb: 'Full DEM', icon: 'fit', need, run: safe(resetAOI) },
@@ -1828,7 +2802,7 @@
     shapefile: { t: 'Export features — Shapefile (zipped)', rb: 'Shapefile', icon: 'download', need, run: () => doExport('shp') },
     'tool:sector': { t: 'Draw the sector boundary (area of interest)', rb: 'Sector Boundary', icon: 'crop', need, run: () => setTool('sector'), on: () => S.tool === 'sector' },
     'tool:border': { t: 'Draw the border line (LoC)', rb: 'Border Line', icon: 'track', need, run: () => setTool('border'), on: () => S.tool === 'border' },
-    clearSector: { t: 'Clear sector boundary, border line and sector results', rb: 'Clear Sector', icon: 'err', need, run: () => { S.sector = null; S.border = null; safe(onSectorChanged)(); } },
+    clearSector: { t: 'Clear sector boundary, border line and sector results', rb: 'Clear Sector', icon: 'err', need, run: () => { pushUndo('Clear sector'); S.sector = null; S.border = null; safe(onSectorChanged)(); } },
     secReport: { t: 'Sector assessment report', rb: 'Report', icon: 'doc', need, run: () => doExport('report') },
     geojson: { t: 'Export features — GeoJSON', rb: 'GeoJSON', icon: 'download', need, run: () => doExport('geojson') },
     csv: { t: 'Export attribute table — CSV', rb: 'Table (CSV)', icon: 'download', need, run: () => doExport('csv') },
@@ -1839,13 +2813,51 @@
     gpCRS: { t: 'Coordinate systems…', rb: 'Coordinate Systems', icon: 'target', run: () => Settings.open('crs') },
     gpRefs: { t: 'Grid reference formats…', rb: 'Grid Refs', icon: 'target', run: () => Settings.open('refs') },
     view2d: { t: 'Map view (2D)', rb: 'Map', icon: 'data', k: '2', run: () => setView('2d'), on: () => S.view === '2d' },
+    viewModel: { t: 'ModelBuilder — each analysis as a chain of GIS tools (Slope, Reclassify, Raster Calculator, Path Distance, Cost Path…) you can edit and run', rb: 'ModelBuilder', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
     view3d: { t: 'Scene view (3D)', rb: 'Scene', icon: 'terrain', k: '3', need, run: () => setView('3d'), on: () => S.view === '3d' },
     viewModel: { t: 'ModelBuilder — each analysis as a chain of GIS tools (Slope, Reclassify, Raster Calculator, Path Distance, Cost Path…) you can edit and run', rb: 'ModelBuilder', icon: 'flow', k: '4', run: () => setView('model'), on: () => S.view === 'model' },
+    focusMap: { t: 'Focus map — enlarge the map to fill the window', rb: 'Focus Map', icon: 'fit', k: 'Z', need, run: () => toggleFocus(), on: () => document.body.classList.contains('focus-map') },
     toggleLeft: { t: 'Contents pane', rb: 'Contents', icon: 'layers', k: 'Ctrl+B', run: () => togglePane('no-left'), on: () => !$('app').classList.contains('no-left') },
-    toggleRight: { t: 'Geoprocessing / Attributes pane', rb: 'Side Pane', icon: 'panel', run: () => togglePane('no-right'), on: () => !$('app').classList.contains('no-right') },
+    toggleRight: { t: 'Geoprocessing / Attributes / Explain pane', rb: 'Side Pane', icon: 'panel', k: 'Ctrl+E', run: () => togglePane('no-right'), on: () => !$('app').classList.contains('no-right') },
     toggleDock: { t: 'Attribute table / profile dock', rb: 'Table Dock', icon: 'log', k: 'Ctrl+J', run: () => setDock($('dock').classList.contains('collapsed')), on: () => !$('dock').classList.contains('collapsed') },
     gpTools: { t: 'Geoprocessing — toolboxes', rb: 'Tools', icon: 'tools', run: () => { GP.home(); showRightTab('gp'); } },
-    history: { t: 'Geoprocessing history', rb: 'History', icon: 'log', run: () => showRightTab('hist') },
+    history: { t: 'Processing history (dock)', rb: 'History', icon: 'log', run: () => { setDock(true); showDockTab('hist'); } },
+    results: { t: 'Analysis results (dock)', rb: 'Results', icon: 'log', run: () => { setDock(true); showDockTab('results'); } },
+    diagnostics: { t: 'Diagnostics log (dock)', rb: 'Diagnostics', icon: 'gear', run: () => { setDock(true); showDockTab('diag'); } },
+    undo: { t: 'Undo last edit', rb: 'Undo', icon: 'undo', k: 'Ctrl+Z', need, run: () => safe(undo)() },
+    redo: { t: 'Redo edit', rb: 'Redo', icon: 'redo', k: 'Ctrl+Y', need, run: () => safe(redo)() },
+    renameProject: { t: 'Rename project', rb: 'Rename', icon: 'doc', run: () => renameProject() },
+    catalog: { t: 'Catalog pane — project items and data', rb: 'Catalog', icon: 'data', run: () => showRightTab('catalog') },
+    'ws:gis': { t: 'Workspace — full GIS (Contents, map, side pane, dock)', rb: 'GIS Workspace', icon: 'panel', run: () => setWorkspace('gis'), on: () => S.ws === 'gis' && !document.body.classList.contains('ws-expanded') && !document.body.classList.contains('focus-map') },
+    'ws:map': { t: 'Workspace — expanded map (panes and dock hidden)', rb: 'Expanded Map', icon: 'fit', k: 'X', run: () => setWorkspace('map'), on: () => document.body.classList.contains('ws-expanded') },
+    'ws:full': { t: 'Workspace — full-screen map', rb: 'Full Screen', icon: 'expand', k: 'Z', need, run: () => setWorkspace('full'), on: () => document.body.classList.contains('focus-map') },
+    restoreLayout: { t: 'Restore default layout (map-first)', rb: 'Restore Layout', icon: 'reset', run: () => restoreLayout() },
+    compactRibbon: { t: 'Compact ribbon (icons only)', rb: 'Compact Ribbon', check: true, run: () => { document.body.classList.toggle('rb-compact'); saveLayout(); relayout(); }, on: () => document.body.classList.contains('rb-compact') },
+    routesPane: { t: 'Route Analysis & Provenance pane', rb: 'Route Analysis', icon: 'route', run: () => showRightTab('routes') },
+    routeTable: { t: 'Route information table (dock)', rb: 'Route Table', icon: 'log', run: () => { setDock(true); showDockTab('routes'); } },
+    routeReport: { t: 'Export route-analysis report (HTML)', rb: 'Route Report', icon: 'doc', need, run: () => exportRouteReport() },
+    symMatrix: { t: 'Unit frame matrix — formations vs headquarters', rb: 'Frame Matrix', icon: 'hq', run: () => openSymbolMatrix() },
+    'conv:mtneye': { t: 'Unit frames: goose eggs for platoon / company / battalion, squares for every HQ', rb: 'Goose / HQ Square', icon: 'egg', run: () => Settings.set('sym.unitConvention', 'mtneye'), on: () => cfg('sym.unitConvention') !== 'app6' },
+    'conv:app6': { t: 'Unit frames: standard APP-6(D) frames with HQ staff', rb: 'APP-6 Frames', icon: 'hq', run: () => Settings.set('sym.unitConvention', 'app6'), on: () => cfg('sym.unitConvention') === 'app6' },
+    symBigger: { t: 'Larger symbols', rb: 'Larger', icon: 'plus', run: () => Settings.set('sym.size', Math.min(64, +cfg('sym.size') + 4)) },
+    symSmaller: { t: 'Smaller symbols', rb: 'Smaller', icon: 'minus', run: () => Settings.set('sym.size', Math.max(16, +cfg('sym.size') - 4)) },
+    declutter: { t: 'Hide overlapping labels', rb: 'Declutter', check: true, run: () => Settings.set('sym.declutter', !cfg('sym.declutter')), on: () => cfg('sym.declutter') !== false },
+    symFilled: { t: 'Filled frames', rb: 'Filled', check: true, run: () => Settings.set('sym.filled', !cfg('sym.filled')), on: () => !!cfg('sym.filled') },
+    symSettings: { t: 'Symbology settings…', rb: 'Symbology', icon: 'gear', run: () => Settings.open('sym') },
+    'mode:hybrid': { t: 'Basemap: hybrid satellite + topographic', rb: 'Hybrid', icon: 'layers', run: () => Settings.set('map.mode', 'hybrid'), on: () => cfg('map.mode') === 'hybrid' },
+    'mode:imagery': { t: 'Basemap: imagery only', rb: 'Imagery', icon: 'imagery', run: () => Settings.set('map.mode', 'imagery'), on: () => cfg('map.mode') === 'imagery' },
+    'mode:topo': { t: 'Basemap: topographic (offline)', rb: 'Topographic', icon: 'terrain', run: () => Settings.set('map.mode', 'topo'), on: () => cfg('map.mode') === 'topo' },
+    'src:esri': { t: 'Imagery source: Esri World Imagery', rb: 'Esri', check: true, run: () => Settings.set('map.imagerySource', 'esri'), on: () => cfg('map.imagerySource') === 'esri' },
+    'src:eox': { t: 'Imagery source: Sentinel-2 cloudless (EOX)', rb: 'Sentinel-2', check: true, run: () => Settings.set('map.imagerySource', 'eox'), on: () => cfg('map.imagerySource') === 'eox' },
+    'src:custom': { t: 'Imagery source: custom tile server', rb: 'Custom', check: true, run: () => Settings.set('map.imagerySource', 'custom'), on: () => cfg('map.imagerySource') === 'custom' },
+    'src:none': { t: 'Imagery source: none (offline)', rb: 'None', check: true, run: () => Settings.set('map.imagerySource', 'none'), on: () => cfg('map.imagerySource') === 'none' },
+    imgSettings: { t: 'Imagery settings…', rb: 'Settings', icon: 'gear', run: () => Settings.open('map') },
+    explainImagery: { t: 'Explain the basemap data source', rb: 'Explain', icon: 'help', need, run: () => openExplain(basemapMode() === 'topo' ? (S.base === 'relief' ? 'hillshade' : S.base) : 'imagery') },
+    hsSettings: { t: 'Hillshade and contour settings…', rb: 'Hillshade', icon: 'terrain', run: () => Settings.open('map') },
+    snowTint: { t: 'High-altitude / snow tint (display only)', rb: 'Snow Tint', check: true, need, on: () => +cfg('map.snowLineM') > 0,
+      run: () => Settings.set('map.snowLineM', +cfg('map.snowLineM') > 0 ? 0 : Math.round((S.stats.elevMin + 0.82 * S.stats.relief) / 50) * 50) },
+    drainage: { t: 'Drainage, nullahs and ridgelines (flow accumulation)', rb: 'Drainage', icon: 'axis', need, run: () => openGP('sectorTerrain') },
+    explainTerrain: { t: 'Explain the terrain symbology', rb: 'Explain Terrain', icon: 'help', need, run: () => openExplain(S.base === 'relief' ? 'hillshade' : S.base) },
     gridMgrs: { t: 'MGRS / UTM grid', rb: 'MGRS Grid', check: true, run: () => Settings.set('grid.mgrs', !cfg('grid.mgrs')), on: () => cfg('grid.mgrs') },
     gridGrat: { t: 'Lat / lon graticule', rb: 'Graticule', check: true, run: () => Settings.set('grid.graticule', !cfg('grid.graticule')), on: () => cfg('grid.graticule') },
     gridSec: { t: 'Secondary CRS grid', rb: 'Secondary Grid', check: true, run: () => Settings.set('grid.secondary', !cfg('grid.secondary')), on: () => cfg('grid.secondary') },
@@ -1853,14 +2865,15 @@
     labels: { t: 'Labels', rb: 'Labels', check: true, run: () => Settings.set('sym.labels', !cfg('sym.labels')), on: () => cfg('sym.labels') },
     routeCard: { t: 'Route card (GSP Annex E)', rb: 'Route Card', icon: 'doc', need, run: () => { setDock(true); showDockTab('card'); } },
     doctrine: { t: 'Doctrine — GSP Mountain Warfare', rb: 'Doctrine', icon: 'doc', run: () => openHelp('doctrine') },
-    swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; renderAll(); refresh(); } },
-    clearObstacles: { t: 'Delete digitised obstacles and tracks', rb: 'Delete All', icon: 'err', need, run: () => { S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } },
+    swapAB: { t: 'Swap route start and end', rb: 'Swap A/B', icon: 'route', need, run: () => { pushUndo('Swap A/B'); [S.markers.a, S.markers.b] = [S.markers.b, S.markers.a]; [S.markerOrigin.a, S.markerOrigin.b] = [S.markerOrigin.b, S.markerOrigin.a]; renderAll(); refresh(); } },
+    clearObstacles: { t: 'Delete digitised obstacles and tracks', rb: 'Delete All', icon: 'err', need, run: () => { pushUndo('Delete obstacles'); S.obstacles = []; S.tracks = []; safe(onObstaclesChanged)(); } },
     goto: { t: 'Go to XY (any reference)', k: 'Ctrl+G', need, run: () => { showRibbonTab('map'); $('gotoBox').focus(); } },
     palette: { t: 'Command search', k: 'Ctrl+K', run: () => openPalette() },
     help: { t: 'User guide', rb: 'User Guide', icon: 'help', k: 'F1', run: () => openHelp('guide') },
     shortcuts: { t: 'Keyboard shortcuts', rb: 'Shortcuts', icon: 'command', run: () => openHelp('keys') },
     about: { t: 'About MtnEye', rb: 'About', icon: 'help', run: () => openHelp('about') },
   };
+  for (const [k, n] of Object.entries(BASE_NAMES)) CMD['terr:' + k] = { t: `Terrain symbology: ${n}`, rb: n.replace(/ \(.*\)$/, ''), check: true, need, run: () => setBase(k), on: () => S.base === k };
   const MARKER_TOOLS = [['own', 'Own position', 'Own Posn'], ['threat', 'Enemy position', 'Enemy'], ['target', 'Target area', 'Target'], ['a', 'Route start A', 'Start A'], ['b', 'Route end B', 'End B']];
   for (const [t, label, rb] of MARKER_TOOLS) CMD['tool:' + t] = { t: `Place ${label.toLowerCase()}`, rb, sym: t, need, run: () => setTool(t), on: () => S.tool === t };
   for (const [t, label, rb, icon, k] of [['measure', 'Measure distance & bearing', 'Measure', 'ruler', 'M'], ['los', 'Line of sight (interactive)', 'Line of Sight', 'los', 'L'], ['vs', 'Viewshed (interactive)', 'Viewshed', 'eye', 'V'],
@@ -1894,76 +2907,81 @@
 
   // =================================================================== ribbon
   // Items: 'cmd' (small), '*cmd' (large), '|' column break for small buttons, {html} custom control.
-  // Clean ribbon: one row of large buttons per tab; secondary commands live in ▾ menus.
-  const menuOf = (title, icon, names) => ({ t: title, rb: title, icon, menu: () => names.map((n) => (n === '-' ? '-' : { t: CMD[n].t, icon: CMD[n].icon, checked: CMD[n].on ? !!CMD[n].on() : false, disabled: !!(CMD[n].need && !CMD[n].need()), run: () => runCmd(n) })) });
-  Object.assign(CMD, {
-    mnuData: menuOf('More', 'data', ['demo', '-', 'tool:aoi', 'fullExtent', 'reproject', '-', 'raster']),
-    mnuPoints: menuOf('More Points', 'target', ['tool:target', 'tool:a', 'tool:b', '-', 'swapAB']),
-    mnuInquiry: menuOf('More', 'ruler', ['tool:los', 'tool:vs', 'gp:convert', '-', 'clearSel', 'attrTable']),
-    mnuVis: menuOf('More', 'eye', ['gp:los', 'tool:los', 'tool:vs', 'tool:rvsline']),
-    mnuMove: menuOf('More', 'route', ['gp:fly', 'swapAB', 'routeCard', 'tool:rvsline']),
-    mnuSector: menuOf('More', 'crop', ['clearSector']),
-    mnuOwn: menuOf('More', 'post', ['gp:fireCoverage', 'gp:borderWatch']),
-    mnuEnemy: menuOf('More', 'axis', ['gp:infiltration', 'gp:enemyOptions']),
-    mnuExport: menuOf('Export', 'download', ['shapefile', 'geojson', 'csv', 'raster', 'png']),
-    mnuGrids: menuOf('Grids & Labels', 'layers', ['gridMgrs', 'gridGrat', 'gridSec', '-', 'contours', 'labels']),
-    mnuWindows: menuOf('Panes', 'panel', ['toggleLeft', 'toggleRight', 'toggleDock']),
-    mnuCreate: menuOf('More', 'nogo', ['clearObstacles']),
-    mnuExtent: menuOf('More', 'fit', ['fullExtent', 'reproject']),
-  });
+  // MtnEye 1.3 ribbon — ArcGIS Pro organisation: Project · Map · Insert · Analysis · Edit · View · Imagery · Terrain · Symbology · Share · Help
   const RIBBON = [
-    { id: 'map', name: 'Map', groups: [
-      ['Navigate', ['*explore', '*fit', { html: '<div class="rb-goto"><label>Go To XY</label><input id="gotoBox" placeholder="MGRS · UTM · lat/lon · GARS" spellcheck="false" disabled></div>' }]],
-      ['Data', ['*addData', '*downloadDEM', '*mnuData']],
-      ['Display', ['*basemap', '*mnuGrids']],
-      ['Inquiry', ['*tool:measure', '*mnuInquiry']],
-      ['Situation', ['*tool:own', '*tool:threat', '*mnuPoints']],
+    { id: 'project', name: 'Project', groups: [
+      ['Project', ['*loadPlan', '*savePlan', 'renameProject', 'catalog']],
+      ['Data', ['*addData', '*downloadDEM', 'demo']],
+      ['Layout', ['*restoreLayout', 'ws:gis', 'ws:map', '|', 'ws:full']],
+      ['Options', ['*settings', 'gpCRS', 'gpRefs']],
     ] },
-    { id: 'sector', name: 'Sector', groups: [
-      ['Area', ['*tool:sector', '*tool:border', '*mnuSector']],
-      ['Assess', ['*gp:sectorAll']],
-      ['Terrain', ['*gp:sectorTerrain', '*gp:itgs']],
-      ['Own Forces', ['*gp:deploy', '*mnuOwn']],
-      ['Enemy', ['*gp:enemyApproaches', '*mnuEnemy']],
-      ['Model', ['*viewModel']],
-      ['Output', ['*secReport', '*mnuExport']],
+    { id: 'map', name: 'Map', groups: [
+      ['Navigate', ['*explore', 'fit', 'zoomIn', '|', 'zoomOut', 'toggleView', { html: '<div class="rb-goto"><label>Go To XY</label><input id="gotoBox" placeholder="MGRS · UTM · lat/lon · GARS" spellcheck="false" disabled></div>' }]],
+      ['Layer', ['*basemap', 'attrTable', 'clearSel']],
+      ['Inquiry', ['*tool:measure', 'tool:los', 'tool:vs', '|', 'gp:convert', '*explainCur']],
+    ] },
+    { id: 'insert', name: 'Insert', groups: [
+      ['Situation', ['*tool:own', '*tool:threat', 'tool:target', 'tool:a', '|', 'tool:b']],
+      ['Features', ['*tool:poly', '*tool:line', 'clearObstacles']],
+      ['Sector geometry', ['*tool:sector', '*tool:border', 'clearSector']],
+      ['Extent', ['*tool:aoi', 'fullExtent']],
     ] },
     { id: 'analysis', name: 'Analysis', groups: [
+      ['Geoprocessing', ['*gpTools', 'results', 'history']],
       ['Terrain', ['*gp:keyTerrain', '*gp:mobility']],
-      ['Visibility', ['*gp:viewshed', '*gp:routeViewshed', '*gp:hostile', '*mnuVis']],
-      ['Siting', ['*gp:avenues', '*gp:posts', '*gp:weapons', '*gp:mfd']],
-      ['Movement', ['*gp:route', '*gp:picquets', '*gp:helipads', '*mnuMove']],
+      ['Visibility', ['gp:viewshed', 'gp:routeViewshed', '|', 'gp:los', 'gp:hostile', 'tool:rvsline']],
+      ['Movement', ['*gp:route', 'gp:picquets', 'gp:helipads', '|', 'gp:fly', 'routeCard']],
       ['Model', ['*viewModel']],
-      ['Tools', ['*gpTools', '*history']],
+      ['Siting', ['gp:avenues', 'gp:posts', '|', 'gp:weapons', 'gp:mfd']],
+      ['Sector', ['*gp:sectorAll', 'gp:itgs', 'gp:deploy', '|', 'gp:enemyApproaches', 'gp:infiltration', '|', 'gp:enemyOptions', 'gp:fireCoverage', '|', 'gp:borderWatch']],
+      ['Provenance', ['*routesPane', 'routeTable', 'routeReport']],
     ] },
     { id: 'edit', name: 'Edit', groups: [
-      ['Create', ['*tool:poly', '*tool:line', '*mnuCreate']],
-      ['Units', ['*tool:own', '*tool:threat', '*mnuPoints', { html: `<div class="rb-fields"><div class="rb-field"><label>Own echelon</label><select id="rbEchelon">${['team', 'section', 'platoon', 'company', 'battalion', 'brigade'].map((e) => `<option value="${e}">${e[0].toUpperCase() + e.slice(1)}</option>`).join('')}</select></div>
-        <div class="rb-field"><label>Enemy type</label><select id="rbThreat"><option value="foot">Infantry</option><option value="jeep">Wheeled / mech</option><option value="tracked">Armour</option><option value="mule">Animal transport</option><option value="truck">Trucks</option></select></div></div>` }]],
-      ['Extent', ['*tool:aoi', '*mnuExtent']],
+      ['History', ['*undo', '*redo']],
+      ['Create', ['*tool:poly', '*tool:line', 'swapAB']],
+      ['Units', [{ html: `<div class="rb-field"><label>Own echelon</label><select id="rbEchelon">${['team', 'section', 'platoon', 'company', 'battalion', 'brigade'].map((e) => `<option value="${e}">${e[0].toUpperCase() + e.slice(1)}</option>`).join('')}</select></div>
+        <div class="rb-field"><label>Enemy type</label><select id="rbThreat"><option value="foot">Infantry</option><option value="jeep">Wheeled / mech</option><option value="tracked">Armour</option><option value="mule">Animal transport</option><option value="truck">Trucks</option></select></div>` }]],
+      ['Extent', ['*tool:aoi', 'fullExtent', 'reproject']],
+      ['Delete', ['clearSel', 'clearObstacles']],
     ] },
     { id: 'view', name: 'View', groups: [
+      ['Workspace', ['*ws:gis', '*ws:map', '*ws:full', 'restoreLayout']],
+      ['Panes', ['toggleLeft', 'toggleRight', '|', 'toggleDock', 'compactRibbon']],
       ['Views', ['*view2d', '*view3d', '*viewModel']],
-      ['Layout', ['*mnuWindows', '*mnuGrids']],
-      ['Scene', [{ html: '<div class="rb-fields"><div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div></div>' }]],
+      ['Grids & labels', ['gridMgrs', 'gridGrat', '|', 'gridSec', 'labels']],
+      ['Scene', [{ html: '<div class="rb-field"><label>Vertical exaggeration</label><input type="number" step="0.1" data-setting="v3.vex"></div><div class="rb-field"><label>Mesh</label><select data-setting="v3.mesh"></select></div>' }]],
+      ['Appearance', ['*theme']],
+    ] },
+    { id: 'imagery', name: 'Imagery', groups: [
+      ['Basemap', ['*mode:hybrid', '*mode:imagery', '*mode:topo']],
+      ['Source', ['src:esri', 'src:eox', '|', 'src:custom', 'src:none']],
+      ['Imagery', ['*reloadImagery', 'imgSettings', 'explainImagery']],
+    ] },
+    { id: 'terrain', name: 'Terrain', groups: [
+      ['Symbology', ['terr:relief', 'terr:elevation', '|', 'terr:slope', 'terr:aspect', '|', 'terr:landform', 'terr:tri']],
+      ['Relief', ['*hsSettings', 'contours', 'snowTint']],
+      ['Analysis', ['*gp:keyTerrain', '*gp:mobility', '*drainage']],
+      ['Explain', ['*explainTerrain']],
+    ] },
+    { id: 'symbology', name: 'Symbology', groups: [
+      ['Unit frames', ['*conv:mtneye', '*conv:app6', '*symMatrix']],
+      ['Display', ['symBigger', 'symSmaller', '|', 'labels', 'declutter', '|', 'symFilled']],
+      ['Settings', ['*symSettings']],
     ] },
     { id: 'share', name: 'Share', groups: [
       ['Project', ['*loadPlan', '*savePlan']],
-      ['Export', ['*shapefile', '*geojson', '*csv', '*raster', '*png']],
-      ['Output', ['*report']],
-    ] },
-    { id: 'settings', name: 'Settings', groups: [
-      ['Spatial Reference', ['*gpCRS', '*gpRefs']],
-      ['Options', ['*settings']],
+      ['Export', ['geojson', 'shapefile', '|', 'csv', 'raster', '|', 'png']],
+      ['Reports', ['*report', '*secReport', '*routeReport']],
     ] },
     { id: 'help', name: 'Help', groups: [
-      ['Help', ['*help', '*doctrine', '*shortcuts', '*about']],
+      ['Help', ['*help', '*explainCur', '*docs', '*doctrine']],
+      ['Support', ['shortcuts', 'about', '|', 'diagnostics']],
     ] },
   ];
-  const rbIcon = (c, large) => (c.sym ? `<span class="rb-sym${large ? ' lg' : ''}" data-sym="${c.sym}"></span>` : c.check ? '<span class="rb-chk"></span>' : UI.icon(c.icon || 'command', large ? 24 : 15));
+  const rbIcon = (c, large) => (c.sym ? `<span class="rb-sym${large ? ' lg' : ''}" data-sym="${c.sym}"></span>` : c.check ? '<span class="rb-chk"></span>' : UI.icon(c.icon || 'command', large ? 21 : 15));
   const renderRibbon = () => {
     $('rbTabs').innerHTML = RIBBON.map((t) => `<button data-rbtab="${t.id}" class="${t.id === S.rbTab ? 'on' : ''}">${esc(t.name)}</button>`).join('') +
-      '<button class="rb-pin ghost-ic" id="rbPin" title="Collapse / pin the ribbon (double-click a tab)">⌃</button>';
+      '<span class="rb-tools"><button class="ghost-ic" data-cmd="compactRibbon" title="Compact ribbon (icons only)">▭</button><button class="rb-pin ghost-ic" id="rbPin" title="Collapse / pin the ribbon (double-click a tab)">⌃</button></span>';
     const tab = RIBBON.find((t) => t.id === S.rbTab) || RIBBON[0];
     $('rbBody').innerHTML = tab.groups.map(([gname, items]) => {
       let html = '', col = [];
@@ -1973,7 +2991,7 @@
         if (typeof it === 'object') { flush(); html += it.html; continue; }
         const large = it[0] === '*', name = large ? it.slice(1) : it, c = CMD[name];
         const btn = `<button class="${large ? 'rb-l' : 'rb-s'}${c.check ? ' chk' : ''}${c.menu ? ' dd' : ''}" data-cmd="${name}" title="${esc(c.t)}${c.k ? ` (${c.k})` : ''}">${rbIcon(c, large)}<span>${esc(c.rb || c.t)}</span></button>`;
-        if (large) { flush(); html += btn; } else { col.push(btn); if (col.length === 3) flush(); }
+        if (large) { flush(); html += btn; } else { col.push(btn); if (col.length === 2) flush(); }
       }
       flush();
       return `<div class="rb-group"><div class="rb-items">${html}</div><div class="rb-label">${esc(gname)}</div></div>`;
@@ -2032,13 +3050,16 @@
     map = new UI.Map2D($('map2d'), app);
     map.onRender = updateScale;
     v3 = new UI.View3D($('gl3d'), $('ovl3d'), app);
-    UI.app = { map, v3, S, engine, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources, refresh, renderAll };
+    UI.app = { map, v3, S, engine, refresh, loadDemo, importFiles, setView, setTool, doExport, runCmd, weaponOf, profileOf, setWeaponField, setProfileField, pickPoint, showRightTab, openAttrTable, openLayerProps, findLayer, select, showMeasure, routeSources, renderAll, openExplain, openDocs, explainCurrent, requestImagery, selectRoute, selectVertex, setWorkspace, restoreLayout, hasCmd: (c) => !!CMD[c] || (c.startsWith('gp:') && !!GP.TOOLS[c.slice(3)]) };
     UI.applyIcons();
     map.resize();
     renderRibbon();
     initSplitters();
     GP.home();
     renderTOC(); updateStatusStatic(); renderSelection();
+    updateProjectTitle(); updateUndoButtons(); updateWsButtons(); renderRouteTable(); renderResults();
+    if (S.layoutMigrated) diag('info', 'A 1.2 layout was found; 1.3 starts with the new map-first layout (versioned key mtneye.layout.v13).');
+    $('explainBody').innerHTML = '<p class="hint pad">Select a result, a layer (ⓘ in Contents) or a tool and press <b>Explain This</b> (E) to see what is displayed, the input data, method and formula, units, thresholds, assumptions, limitations and references.</p>';
     Settings.on((keys) => safe(onSettings)(keys));
 
     // command buttons anywhere
@@ -2077,9 +3098,29 @@
     };
 
     // dialogs
-    for (const id of ['settings', 'help', 'props']) $(id).querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => $(id).close()));
+    for (const id of ['settings', 'help', 'props', 'docs']) $(id).querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => $(id).close()));
+    $('libSearch').addEventListener('input', () => { libSel = null; renderLibrary(); });
+    $('srcChip').onclick = () => openExplain(basemapMode() === 'topo' ? (S.base === 'relief' ? 'hillshade' : S.base) : 'imagery');
+    window.addEventListener('online', () => { if (S.grid && S.imagery.status === 'unavailable') requestImagery(); });
+    // map context menu: explain / inspect what is under the cursor
+    $('map2d').addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (!S.grid) return;
+      const r0 = $('map2d').getBoundingClientRect(), x = e.clientX - r0.left, y = e.clientY - r0.top;
+      const [c, r] = map.toCell(x, y);
+      const ref = nearestSymbol(x, y) || (c >= -0.5 && r >= -0.5 && c <= S.grid.w - 0.5 && r <= S.grid.h - 0.5 ? { kind: 'point', c, r } : null);
+      if (!ref) return;
+      popupMenu(e.clientX, e.clientY, [
+        { t: ref.kind === 'point' ? 'Explain this location…' : 'Explain this result…', icon: 'help', k: 'E', run: () => { select(ref, false, true); openExplain(UI.explainTopicForRef(ref), { ref }); } },
+        { t: 'Inspect (Attributes)', icon: 'doc', run: () => select(ref, false, true) },
+        { t: 'Copy grid reference', icon: 'copy', run: () => { const q = posOf(ref); if (q) copyText(F.listRef(q.r, q.c)); } },
+        '-',
+        { t: 'Centre map here', icon: 'fit', run: () => map.centerOn(c, r) },
+        { t: 'Viewshed from here', icon: 'eye', run: () => { GP.set('viewshed', 'observer', { c: Math.round(c), r: Math.round(r) }); GP.open('viewshed'); GP.run('viewshed'); } },
+      ]);
+    });
     $('setSearch').addEventListener('input', () => Settings.render());
-    $('setExport').onclick = () => UI.download('mtnai-settings.json', Settings.exportJSON(), 'application/json');
+    $('setExport').onclick = () => UI.download('mtneye-settings.json', Settings.exportJSON(), 'application/json');
     $('setImport').onchange = async (e) => {
       const f = e.target.files[0];
       e.target.value = '';
@@ -2102,16 +3143,18 @@
     window.addEventListener('keydown', (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
-      const combos = { o: 'addData', s: 'savePlan', p: 'report', ',': 'settings', k: 'palette', g: 'goto', b: 'toggleLeft', j: 'toggleDock', t: 'attrTable' };
+      const combos = { o: 'addData', s: 'savePlan', p: 'report', ',': 'settings', k: 'palette', g: 'goto', b: 'toggleLeft', j: 'toggleDock', t: 'attrTable', e: 'toggleRight', z: 'undo', y: 'redo' };
+      if (ctrl && k === 'z' && e.shiftKey) { e.preventDefault(); runCmd('redo'); return; }
+      if (ctrl && (k === 'z' || k === 'y') && e.target.matches('input, textarea')) return;
       if (ctrl && combos[k]) { e.preventDefault(); runCmd(combos[k]); return; }
-      if (e.key === 'F1') { e.preventDefault(); runCmd('help'); return; }
+      if (e.key === 'F1') { e.preventDefault(); runCmd(e.shiftKey ? 'docs' : 'help'); return; }
       if (e.target.matches('input, select, textarea') || document.querySelector('dialog[open]')) return;
-      if (e.key === 'Escape') { closeMenus(); if (v3._flying) v3.stopFly(); if (S.tool) setTool(null); else if (S.draft) { S.draft = null; map.render(); v3.render(); } return; }
+      if (e.key === 'Escape') { closeMenus(); if (v3._flying) v3.stopFly(); if (S.tool) setTool(null); else if (document.body.classList.contains('ws-expanded')) { document.body.classList.remove('ws-expanded', 'rb-min'); S.ws = 'default'; relayout(); } else if (document.body.classList.contains('focus-map') && !S.draft) toggleFocus(false); else if (S.draft) { S.draft = null; map.render(); v3.render(); } return; }
       if (S.draft && (S.draft.kind === 'poly' || S.draft.kind === 'line')) {
         if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
         if (e.key === 'Backspace') { e.preventDefault(); S.draft.pts.pop(); redrawDraft(); return; }
       }
-      const keys = { 2: 'view2d', 3: 'view3d', 4: 'viewModel', f: 'fit', m: 'tool:measure', l: 'tool:los', v: 'tool:vs', '+': 'zoomIn', '=': 'zoomIn', '-': 'zoomOut', '/': 'palette' };
+      const keys = { z: 'focusMap', x: 'ws:map', 2: 'view2d', 3: 'view3d', 4: 'viewModel', f: 'fit', m: 'tool:measure', l: 'tool:los', v: 'tool:vs', e: 'explainCur', '+': 'zoomIn', '=': 'zoomIn', '-': 'zoomOut', '/': 'palette' };
       if (!ctrl && keys[k] && (S.grid || k === '/')) { e.preventDefault(); runCmd(keys[k]); }
     });
 

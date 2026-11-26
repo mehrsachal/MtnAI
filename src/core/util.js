@@ -10,7 +10,7 @@
 (globalThis.MTN_CORE = globalThis.MTN_CORE || []).push(function util(M) {
   'use strict';
 
-  M.VERSION = '1.1.0';
+  M.VERSION = '1.3.0';
 
   /**
    * Analysis configuration (user settings). The worker receives updates through

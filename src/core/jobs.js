@@ -24,21 +24,27 @@
         const prof = M.profile(id, (S.settings.profiles || {})[id]);
         const mk = S.masks || (S.masks = masks());
         const cls = M.classifyMobility(S.g, { slope: S.L.slope, z: S.g.z, obstacleMask: mk.obstacleMask, trackMask: mk.trackMask }, prof,
-          { snowLine: S.settings.snowLine || 0, generalize: !!S.settings.generalize });
-        S.mobCache.set(id, { cls, prof, trackMask: mk.trackMask });
+          { snowLine: S.settings.snowLine || 0, generalize: !!S.settings.generalize, relief: !!S.settings.relief });
+        S.mobCache.set(id, { cls, prof, trackMask: mk.trackMask, obstacleMask: mk.obstacleMask });
       }
       return S.mobCache.get(id);
     };
+    // movement search (avenues, routes): slope NO-GO slows foot movement, does not stop it (IPB)
+    const moveMob = (id) => {
+      const key = 'move:' + id;
+      if (!S.mobCache.has(key)) S.mobCache.set(key, M.slowPassMob(S.g, S.L.slope, mob(id)));
+      return S.mobCache.get(key);
+    };
 
     const tctx = () => ({
-      g: S.g, L: S.L, mob, own: S.settings.own || null, threat: S.settings.threat || null, target: S.settings.target || null,
+      g: S.g, L: S.L, mob, moveMob, own: S.settings.own || null, threat: S.settings.threat || null, target: S.settings.target || null,
       threatProfile: S.settings.threatProfile || 'foot',
       avenues: (id, o) => {
         const ao = Object.assign({}, S.settings.avenueOpts || {}, o || {});
         const key = id + JSON.stringify([S.settings.own, S.settings.threat, ao]);
         if (!S.avCache.has(key)) {
           if (!S.settings.own || !S.settings.threat) return null;
-          S.avCache.set(key, M.avenuesOfApproach(S.g, mob(id), S.settings.threat, S.settings.own, Object.assign({ slope: S.L.slope }, ao)));
+          S.avCache.set(key, M.avenuesOfApproach(S.g, moveMob(id), S.settings.threat, S.settings.own, Object.assign({ slope: S.L.slope }, ao)));
         }
         return S.avCache.get(key);
       },
@@ -74,7 +80,7 @@
       /** Load a grid and compute base derivatives. */
       init({ grid }, progress) {
         const g = M.makeGrid(grid);
-        M.fillNoData(g.z, g.w, g.h);
+        const filled = M.fillNoData(g.z, g.w, g.h);
         S.g = g; S.masks = null; resetCaches();
         progress(0.1, 'Gradient');
         const grad = M.gradient(g);
@@ -90,7 +96,7 @@
         S.L = { slope, aspect, landform, tpiS, tpiL, tri, sdS: M.meanStd(tpiS).std || 1, sdL: M.meanStd(tpiL).std || 1 };
         progress(0.85, 'Statistics');
         const stats = M.terrainStats(g, slope, aspect, landform);
-        return { z: g.z.slice(), slope: slope.slice(), aspect: aspect.slice(), landform: landform.slice(), tri: tri.slice(), tpiL: tpiL.slice(), hs, stats };
+        return { z: g.z.slice(), slope: slope.slice(), aspect: aspect.slice(), landform: landform.slice(), tri: tri.slice(), tpiL: tpiL.slice(), hs, stats, filled };
       },
 
       /** Update analysis configuration; drops caches that depend on it. */
@@ -112,8 +118,8 @@
 
       /** Update planning settings (markers, obstacles, profiles...). Invalidates caches. */
       settings(st) {
-        const geomChanged = JSON.stringify([st.obstacles, st.tracks, st.profiles, st.snowLine, st.generalize]) !==
-          JSON.stringify([S.settings.obstacles, S.settings.tracks, S.settings.profiles, S.settings.snowLine, S.settings.generalize]);
+        const geomChanged = JSON.stringify([st.obstacles, st.tracks, st.profiles, st.snowLine, st.generalize, st.relief]) !==
+          JSON.stringify([S.settings.obstacles, S.settings.tracks, S.settings.profiles, S.settings.snowLine, S.settings.generalize, S.settings.relief]);
         const markersChanged = JSON.stringify([st.own, st.threat, st.threatProfile]) !==
           JSON.stringify([S.settings.own, S.settings.threat, S.settings.threatProfile]);
         const sectorChanged = JSON.stringify([st.sector, st.border, st.own]) !== JSON.stringify([S.settings.sector, S.settings.border, S.settings.own]);
@@ -201,7 +207,7 @@
 
       route({ a, b, profile, mode, alternatives, cpEveryM, exposureW, skylineW, separationM, nullahW, legEveryM, night }, progress) {
         need();
-        const m = mob(profile);
+        const m = moveMob(profile);
         const md = mode === 'custom' ? { exposureW: exposureW || 0, skylineW: skylineW || 0 } : M.routeMode(mode);
         const t = tctx();
         // Exposure is always assessed when the enemy is known (route statistics), and only penalised when weighted.
@@ -211,7 +217,7 @@
         // GSP: foot / animal columns keep to ridges rather than nullah beds (valley-floor landform).
         let nullah = null;
         if (nullahW) { nullah = new Uint8Array(S.g.w * S.g.h); for (let i = 0; i < nullah.length; i++) nullah[i] = S.L.landform[i] === 0 && !(m.trackMask && m.trackMask[i]) ? 1 : 0; }
-        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW, nullah, nullahW: nullahW || 0 };
+        const ctx = { cls: m.cls, slope: S.L.slope, prof: m.prof, trackMask: m.trackMask, penalty: m.penalty || null, exposure, exposureW: md.exposureW, crest, skylineW: md.skylineW, nullah, nullahW: nullahW || 0 };
         const sa = cellIdx(a), sb = cellIdx(b);
         if (m.cls[sa] === 2) throw new Error('Start point is in No-Go terrain for this movement class.');
         if (m.cls[sb] === 2) throw new Error('End point is in No-Go terrain for this movement class.');
@@ -283,7 +289,22 @@
       enemyOptions(opts) {
         need();
         if (!S.sec.appr) throw new Error('Run Enemy Approaches first.');
-        return M.enemyOptions(sectorCtx(), secITG().itgs, S.sec.appr, opts || {});
+        return M.enemyOptions(sectorCtx(), secITG().itgs, S.sec.appr, opts || {}, S.sec.infil || null, S.sec.plan || null);
+      },
+
+      // ---------------------------------------------------------- ModelBuilder
+      modelRun({ model, upTo, force }, progress) {
+        need();
+        const E = S.modelEnv || (S.modelEnv = { cache: new Map() });
+        Object.assign(E, { g: S.g, L: S.L, mob });
+        if (E.gridKey !== S.g) { E.cache.clear(); E.gridKey = S.g; }
+        return M.runModel(E, model, { upTo, force }, progress);
+      },
+      /** A model variable's raster (after a run) for display on the map. */
+      modelRaster({ id }) {
+        const d = S.modelEnv && S.modelEnv.lastData && S.modelEnv.lastData[id];
+        if (!d || d.dt !== 'raster') throw new Error('Run the model first — this raster has no value yet.');
+        return { a: d.a.slice(), kind: d.kind, unit: d.unit, classes: d.classes || null };
       },
 
       // ---------------------------------------------------------- ModelBuilder

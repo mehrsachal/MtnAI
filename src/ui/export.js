@@ -17,11 +17,12 @@
 
   // ---------------------------------------------------------------- SIDC (2525D / APP-6D, 20 digits)
   const ECH = { team: '11', squad: '12', section: '13', platoon: '14', company: '15', battalion: '16', regiment: '17', brigade: '18' };
-  const sidc = (id, set, entity, opt = {}) => `100${id}${set}${opt.planned ? 1 : 0}0${opt.amp || '00'}${entity}${opt.m1 || '00'}${opt.m2 || '00'}`;
+  // digit 8 (HQ / task force / dummy): 2 = headquarters per the 2525D / APP-6D SIDC layout — verify against the standard tables before exchange
+  const sidc = (id, set, entity, opt = {}) => `100${id}${set}${opt.planned ? 1 : 0}${opt.hq ? 2 : 0}${opt.amp || '00'}${entity}${opt.m1 || '00'}${opt.m2 || '00'}`;
   const WPN_ENTITY = { mg: '1102', atrl: '1117', rcl: '1108', atgm: '1112', mortar: '1114', how: '1109', sam: '1111', adgun: '1105' };
   UI.sidcFor = {
-    own: (ech) => sidc(3, '10', '121100', { amp: ECH[ech] || '16', m2: '27' }),
-    threat: (t) => sidc(6, '10', t === 'tracked' ? '120500' : t === 'jeep' ? '121102' : '121100', { amp: '16' }),
+    own: (ech, planned) => sidc(3, '10', '121100', { amp: ECH[ech] || '16', m2: '27', planned }),
+    threat: (t, ech, planned) => sidc(6, '10', t === 'tracked' ? '120500' : t === 'jeep' ? '121102' : '121100', { amp: ECH[ech] || '16', planned }),
     post: (ech) => sidc(3, '10', '121100', { amp: ECH[ech] || '14', m2: '27', planned: true }),
     op: () => sidc(3, '25', '160100', { planned: true }),
     weapon: (w) => sidc(3, '15', WPN_ENTITY[w.icon] + '0' + (w.rng || 0), { planned: true }),
@@ -30,6 +31,24 @@
     sp: () => sidc(3, '25', '131600'), rp: () => sidc(3, '25', '131500'), cp: () => sidc(3, '25', '130300'),
     trp: () => sidc(6, '25', '160300'),
   };
+  /** Land-unit entity codes MtnEye already used in 1.0–1.2 (others are not mapped rather than guessed). */
+  const UNIT_ENTITY = { inf: '121100', armr: '120500', mech: '121102' };
+  const IDENT = { F: 3, H: 6, N: 4, U: 1 };
+  /** SIDC for any symbol spec; null when MtnEye has no code for it (never invented). */
+  UI.sidcForSpec = (spec) => {
+    if (!spec) return null;
+    if (spec.set === 'unit') {
+      const ent = UNIT_ENTITY[spec.icon];
+      if (!ent) return null;
+      return sidc(IDENT[spec.affil || 'F'] || 3, '10', ent, { amp: ECH[spec.echelon] || '00', planned: !!spec.planned, hq: spec.isHQ === true, m2: (spec.mods || []).includes('mountain') ? '27' : '00' });
+    }
+    if (spec.set === 'equip') { const w = Object.values(M.WEAPONS).find((x) => x.icon === spec.icon && x.rng === spec.rng) || Object.values(M.WEAPONS).find((x) => x.icon === spec.icon); return w ? UI.sidcFor.weapon(w) : null; }
+    if (spec.set === 'cm') { const f = { op: UI.sidcFor.op, sp: UI.sidcFor.sp, rp: UI.sidcFor.rp, cp: UI.sidcFor.cp, trp: UI.sidcFor.trp, atmine: () => UI.sidcFor.mine('AT'), apmine: () => UI.sidcFor.mine('AP') }[spec.icon]; return f ? f() : null; }
+    return null;
+  };
+  /** Symbol attributes written to GeoJSON features (same rule as the map). */
+  UI.symbolProps = (spec) => (spec ? { sidc: UI.sidcForSpec(spec), symbol_frame: UI.frameKindOf(spec), frame_convention: UI.cfg('sym.unitConvention') === 'app6' ? 'APP-6(D) frames' : 'MtnEye custom overlay convention (goose egg = formation, square = HQ; not APP-6 frames)',
+    is_hq: spec.isHQ === true, hq_designation: spec.isHQ ? spec.hqText || '' : null, echelon: spec.echelon || null, status: spec.planned ? 'planned' : 'present' } : {});
 
   // ---------------------------------------------------------------- GeoJSON
   UI.toGeoJSON = (S) => {
@@ -43,8 +62,8 @@
     const line = (pts, props) => feats.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: pts.map(([c, r]) => ll(c, r)) }, properties: props });
     const poly = (pts, props) => feats.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [pts.concat([pts[0]]).map(([c, r]) => ll(c, r))] }, properties: props });
     const mk = S.markers;
-    if (mk.own) pt(mk.own.c, mk.own.r, { kind: 'own_position', echelon: S.ownEchelon, sidc: UI.sidcFor.own(S.ownEchelon) });
-    if (mk.threat) pt(mk.threat.c, mk.threat.r, { kind: 'enemy', threat: S.threatType, sidc: UI.sidcFor.threat(S.threatType) });
+    if (mk.own) pt(mk.own.c, mk.own.r, Object.assign({ kind: 'own_position', designation: S.symOpts.own.designation || '' }, UI.symbolProps(UI.ownSpec())));
+    if (mk.threat) pt(mk.threat.c, mk.threat.r, Object.assign({ kind: 'enemy', threat: S.threatType, designation: S.symOpts.threat.designation || '' }, UI.symbolProps(UI.threatSpec())));
     if (mk.target) pt(mk.target.c, mk.target.r, { kind: 'target_area', sidc: UI.sidcFor.trp() });
     if (mk.a) pt(mk.a.c, mk.a.r, { kind: 'route_start', sidc: UI.sidcFor.sp() });
     if (mk.b) pt(mk.b.c, mk.b.r, { kind: 'route_end', sidc: UI.sidcFor.rp() });
@@ -56,7 +75,7 @@
       kind: S.posts.mode === 'op' ? 'observation_post' : 'defended_post', id: p.id, echelon: S.posts.echelon,
       visible_km2: +p.visibleKm2.toFixed(2), approach_coverage_pct: +(p.valueShare * 100).toFixed(1), landform: p.landform,
       access_h: p.accessH === null ? null : +p.accessH.toFixed(2),
-      sidc: S.posts.mode === 'op' ? UI.sidcFor.op() : UI.sidcFor.post(S.posts.echelon),
+      sidc: S.posts.mode === 'op' ? UI.sidcFor.op() : UI.sidcFor.post(S.posts.echelon), symbol_frame: UI.frameKindOf(S.posts.mode === 'op' ? UI.SYM.op() : UI.SYM.post(S.posts.echelon)),
     }));
     S.weapons.forEach((res) => res.sites.forEach((s) => pt(s.c, s.r, Object.assign({
       kind: 'weapon_site', id: s.id, weapon: res.weapon.name, category: s.cat, max_range_m: s.maxR, landform: s.landform,
@@ -92,7 +111,7 @@
     if (UI._secItems) UI._secItems().forEach((x) => {
       if (['eappr', 'infil', 'ridges'].includes(x.layer)) return; // drawn as lines below
       if (x.layer === 'itgs') { const q = X.itg.itgs[x.idx]; poly(q.outline, Object.assign({ kind: 'itg', area_ha: +q.areaHa.toFixed(2), perimeter_m: Math.round(q.perimeterM), force: q.force.echelon, score: +q.score.toFixed(3) }, sid(x))); }
-      pt(x.c, x.r, Object.assign({ kind: x.layer === 'itgs' ? 'itg_summit' : x.layer }, sid(x)));
+      pt(x.c, x.r, Object.assign({ kind: x.layer === 'itgs' ? 'itg_summit' : x.layer }, sid(x), x.sym ? UI.symbolProps(x.sym) : {}));
     });
     if (X.terr) {
       X.terr.ridges.forEach((q) => line(q.line, { kind: 'ridgeline', id: q.id, length_m: Math.round(q.lengthM), value: Math.round(q.meanDominance), side: q.side, rating: q.rating }));
@@ -202,8 +221,8 @@
     if (S.obstacles.length || S.tracks.length) html += `<p class="note">${S.obstacles.length} digitised No-Go areas and ${S.tracks.length} tracks applied.</p>`;
     html += `<h2>3. Situation and key terrain</h2>`;
     html += tbl(['', 'Item', 'Grid ref', 'Elevation'], [
-      mk.own && [sym(UI.SYM.own(S.ownEchelon)), 'Own position', mg(mk.own), F.elev(M.sample(g, S.L.z, mk.own.r, mk.own.c))],
-      mk.threat && [sym(UI.SYM.threat(S.threatType)), `Enemy (${esc(S.threatType)})`, mg(mk.threat), F.elev(M.sample(g, S.L.z, mk.threat.r, mk.threat.c))],
+      mk.own && [sym(UI.ownSpec()), 'Own position', mg(mk.own), F.elev(M.sample(g, S.L.z, mk.own.r, mk.own.c))],
+      mk.threat && [sym(UI.threatSpec()), `Enemy (${esc(S.threatType)})`, mg(mk.threat), F.elev(M.sample(g, S.L.z, mk.threat.r, mk.threat.c))],
       mk.target && [sym(UI.SYM.target()), 'Target area', mg(mk.target), F.elev(M.sample(g, S.L.z, mk.target.r, mk.target.c))],
     ].filter(Boolean));
     if (S.key) {

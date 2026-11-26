@@ -6,6 +6,7 @@
   'use strict';
 
   const P = {
+    flow: '<rect x="2.5" y="9" width="6" height="6" rx="3"/><rect x="10" y="9" width="5" height="6"/><rect class="a" x="16.5" y="9" width="5" height="6" rx="2.5"/><path d="M8.5 12H10m5 0h1.5"/>',
     command: '<path d="M8 4a2 2 0 1 0 2 2v12a2 2 0 1 1-2-2h8a2 2 0 1 1-2 2V6a2 2 0 1 0 2-2Z"/>',
     download: '<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5"/><path class="a" d="M5 19h14"/>',
     flow: '<rect x="2.5" y="9" width="6" height="6" rx="3"/><rect x="10" y="9" width="5" height="6"/><rect class="a" x="16.5" y="9" width="5" height="6" rx="2.5"/><path d="M8.5 12H10m5 0h1.5"/>',
@@ -41,6 +42,19 @@
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.5"/>',
     zoom: '<circle cx="10.5" cy="10.5" r="6"/><path class="a" d="m15 15 5 5"/>',
     ok: '<path class="a" d="m5 12.5 4.5 4.5L19 7.5"/>',
+    undo: '<path d="M9 7 4.5 11.5 9 16"/><path class="a" d="M5 11.5h9a5 5 0 0 1 0 10h-3"/>',
+    redo: '<path d="m15 7 4.5 4.5L15 16"/><path class="a" d="M19 11.5h-9a5 5 0 0 0 0 10h3"/>',
+    max: '<rect x="4.5" y="5.5" width="15" height="13" rx="1"/><path class="a" d="M4.5 8.5h15"/>',
+    paneL: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path class="a" d="M9 4.5v15"/>',
+    paneR: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path class="a" d="M15 4.5v15"/>',
+    paneB: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path class="a" d="M3.5 14.5h17"/>',
+    reset: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path class="a" d="M4.5 4.5v4h4"/>',
+    hq: '<rect x="5" y="5" width="14" height="14" rx="0.5"/><path class="a" d="M8.5 9v6M8.5 12h3M11.5 9v6M15.5 9a2 2 0 0 0 0 6"/>',
+    egg: '<ellipse cx="12" cy="13" rx="8.5" ry="5.5"/><path class="a" d="M9 5.5v2.5M12 5.5v2.5M15 5.5v2.5"/>',
+    book: '<path d="M4 5.5c2.8-1.2 5.6-1.2 8 .5v13c-2.4-1.7-5.2-1.7-8-.5Z"/><path d="M20 5.5c-2.8-1.2-5.6-1.2-8 .5v13c2.4-1.7 5.2-1.7 8-.5Z"/>',
+    expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="a" d="m4 4 5.5 5.5M20 4l-5.5 5.5M4 20l5.5-5.5M20 20l-5.5-5.5"/>',
+    imagery: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path class="a" d="m3.5 16 5-5 4 4 2.5-2.5 5.5 5.5"/><circle cx="15.5" cy="8.5" r="1.6"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path class="a" d="M12 11v5.5M12 7.8v.2"/>',
     err: '<path d="m6 6 12 12M18 6 6 18"/>',
   };
 

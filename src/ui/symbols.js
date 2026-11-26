@@ -30,6 +30,28 @@
     },
   };
   FRAMES.equip = Object.assign({}, FRAMES.unit, { F: { circle: [100, 100, 60], box: [40, 40, 160, 160] } });
+  /** HQ square (MtnEye convention for every headquarters; not an APP-6 frame). */
+  const HQ_SQUARE = { d: 'M40,40 L160,40 L160,160 L40,160 Z', box: [40, 40, 160, 160] };
+  /** Formation echelons drawn as goose eggs under the MtnEye convention. */
+  UI.GOOSE_ECHELONS = ['platoon', 'company', 'battalion'];
+  /**
+   * The single frame rule used by every view (2D, 3D, legends, tables, editor, exports):
+   * 'hq' | 'goose' | 'app6hq' | 'standard' | 'equipment' | 'control'.
+   */
+  UI.frameKindOf = (spec) => {
+    if (!spec) return null;
+    if (spec.set === 'cm') return 'control';
+    if (spec.set === 'equip') return 'equipment';
+    const conv = opt('sym.unitConvention', 'mtneye');
+    if (conv === 'app6') return spec.isHQ === true ? 'app6hq' : 'standard';
+    if (spec.isHQ === true) return 'hq';
+    if (UI.GOOSE_ECHELONS.includes(spec.echelon)) return 'goose';
+    return 'standard';
+  };
+  UI.FRAME_NAMES = { hq: 'HQ square (MtnEye convention)', goose: 'Goose egg (MtnEye convention)', app6hq: 'APP-6(D) frame + HQ staff', standard: 'APP-6(D) standard frame', equipment: 'APP-6(D) equipment frame', control: 'Control-measure point' };
+  /** Goose egg: oval area outline (cartographic convention, not an APP-6 frame). */
+  const GOOSE = { d: 'M100,42 C153,42 190,68 190,100 C190,132 153,158 100,158 C47,158 10,132 10,100 C10,68 47,42 100,42 Z', box: [10, 42, 190, 158] };
+  UI.SYMBOL_FRAMES = FRAMES;
 
   const p = (d, extra) => Object.assign({ d }, extra || {});
   const circle = (cx, cy, r, fill) => ({ circle: [cx, cy, r], fill: !!fill });
@@ -83,6 +105,7 @@
     brigade: (y) => [p(`M87.5,${y - 5} l25,-35 m0,35 l-25,-35`)],
   };
   UI.ECHELONS = Object.keys(ECHELON);
+  UI.HQ_TEXT = { team: 'TM HQ', squad: 'SQD HQ', section: 'SEC HQ', platoon: 'PL HQ', company: 'COY HQ', battalion: 'BN HQ', regiment: 'REGT HQ', brigade: 'BDE HQ' };
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -99,7 +122,7 @@
   UI.symbolSVG = (spec) => {
     const affil = spec.affil || 'F';
     const sw = 4, halo = 'rgba(255,255,255,0.92)', hw = sw + 7;
-    let parts = [], frame = null, box, anchor = [100, 100], labels = [];
+    let parts = [], frame = null, box, anchor = [100, 100], labels = [], frameKind = spec.set === 'cm' ? 'control' : spec.set === 'equip' ? 'equipment' : 'standard', innerScale = 1, hqLabel = null;
     const icon = ICONS[spec.icon];
     if (spec.set === 'cm') {
       const cm = CM[spec.icon];
@@ -109,11 +132,27 @@
       if (spec.text) labels.push({ x: 100, y: cm.label ? 18 : 100, text: spec.text, size: 34 });
     } else {
       const set = FRAMES[spec.set] || FRAMES.unit;
-      frame = set[affil] || set.F;
+      // Frame decision (MtnEye 1.3). HQ status is explicit (spec.isHQ) and always wins:
+      //   isHQ                                   -> square HQ frame (custom convention)
+      //   unit at platoon / company / battalion  -> goose egg (custom convention)
+      //   anything else                          -> standard APP-6(D) frame
+      // With the 'app6' convention every unit keeps its standard frame and an HQ gets the HQ staff.
+      frameKind = UI.frameKindOf(spec);
+      const goose = frameKind === 'goose', hqSq = frameKind === 'hq';
+      frame = goose ? GOOSE : hqSq ? HQ_SQUARE : set[affil] || set.F;
+      if (goose) spec = Object.assign({}, spec, { unfilled: true, _goose: true });
+      innerScale = goose ? 0.5 : hqSq ? 0.78 : 1;
       box = frame.box.slice();
       if (icon) parts = (Array.isArray(icon) ? icon : icon[affil] || icon.F).slice();
       if (spec.rng && RANGE_BARS[spec.rng]) parts.push(p(RANGE_BARS[spec.rng]));
       if ((spec.mods || []).includes('mountain')) parts.push(p(MOUNTAIN, { fill: true, noStroke: true }));
+      if (goose || hqSq) parts = parts.map((x) => Object.assign({}, x, { goose: true }));
+      if (frameKind === 'app6hq') { // standard HQ staff: from the left of the frame, downwards
+        const sx = box[0], sy = affil === 'H' ? 100 : box[3];
+        parts.push(p(`M${sx},${sy} L${sx},${sy + 55}`, { echelon: true }));
+        box[3] = Math.max(box[3], sy + 55);
+      }
+      if (spec.isHQ && spec.hqText) { hqLabel = { x: 100, y: box[3] + 32, text: spec.hqText, size: 30 }; box[3] += 50; }
       if (spec.echelon && ECHELON[spec.echelon]) {
         const top = frame.box[1];
         parts.push(...ECHELON[spec.echelon](top).map((x) => Object.assign(x, { echelon: true })));
@@ -140,10 +179,13 @@
         ? `<circle cx="100" cy="100" r="60" fill="${fill}" stroke="${fs}" stroke-width="${sw}" ${dash}/>`
         : `<path d="${frame.d}" fill="${fill}" stroke="${fs}" stroke-width="${sw}" stroke-linejoin="round" ${dash}/>`;
     }
+    let inner = '';
     for (const pt of parts) {
-      if (pt.noStroke) body += `<path d="${pt.d}" fill="${color}" stroke="none"/>`;
-      else body += partSVG(pt, color, sw, color, spec.set === 'cm' && spec.planned ? dash : '');
+      const svg = pt.noStroke ? `<path d="${pt.d}" fill="${color}" stroke="none"/>` : partSVG(pt, color, pt.goose ? sw * 2 : sw, color, spec.set === 'cm' && spec.planned ? dash : '');
+      if (pt.goose) inner += svg; else body += svg;
     }
+    if (inner) body += `<g transform="translate(100 100) scale(${innerScale}) translate(-100 -100)">${inner}</g>`;
+    if (hqLabel) labels.push(hqLabel);
     for (const l of labels) {
       body += `<text x="${l.x}" y="${l.y}" font-family="Arial,Helvetica,sans-serif" font-weight="bold" font-size="${l.size}" text-anchor="middle" dominant-baseline="middle" stroke="${halo}" stroke-width="8" paint-order="stroke" fill="${color}">${esc(l.text)}</text>`;
     }
@@ -151,7 +193,7 @@
     box = [box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad];
     const W = box[2] - box[0], H = box[3] - box[1];
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${box[0]} ${box[1]} ${W} ${H}">${body}</svg>`;
-    return { svg, box, anchor };
+    return { svg, box, anchor, frameKind };
   };
 
   /** Inline SVG markup scaled so the frame is `px` pixels tall (for lists / legends). */
@@ -174,7 +216,7 @@
    * or null while the image is still decoding (a redraw is requested once ready).
    */
   UI.symbolImage = (spec, px = 32) => {
-    const key = JSON.stringify(spec) + '|' + px + '|' + opt('sym.colorMode', 'light') + opt('sym.filled', true) + opt('sym.planned', true);
+    const key = JSON.stringify(spec) + '|' + px + '|' + opt('sym.colorMode', 'light') + opt('sym.filled', true) + opt('sym.planned', true) + opt('sym.unitConvention', 'mtneye');
     let e = cache.get(key);
     if (!e) {
       const s = UI.symbolSVG(spec);
@@ -198,8 +240,10 @@
 
   // ---- symbol specs used across the app
   UI.SYM = {
-    own: (echelon = 'battalion') => ({ set: 'unit', affil: 'F', icon: 'inf', mods: ['mountain'], echelon }),
-    threat: (type = 'foot') => ({ set: 'unit', affil: 'H', icon: type === 'tracked' ? 'armr' : type === 'jeep' || type === 'truck' ? 'mech' : 'inf', echelon: 'battalion' }),
+    own: (echelon = 'battalion', planned = false) => ({ set: 'unit', affil: 'F', icon: 'inf', mods: ['mountain'], echelon, planned: !!planned }),
+    /** Headquarters (explicit isHQ — never inferred from the echelon). */
+    hq: (echelon = 'battalion', affil = 'F', planned = false) => ({ set: 'unit', affil, icon: 'inf', mods: ['mountain'], echelon, planned: !!planned, isHQ: true, hqText: UI.HQ_TEXT[echelon] || 'HQ' }),
+    threat: (type = 'foot', echelon = 'battalion', planned = false) => ({ set: 'unit', affil: 'H', icon: type === 'tracked' ? 'armr' : type === 'jeep' || type === 'truck' ? 'mech' : 'inf', echelon, planned: !!planned }),
     post: (echelon = 'platoon') => ({ set: 'unit', affil: 'F', icon: 'inf', mods: ['mountain'], echelon, planned: true }),
     op: () => ({ set: 'cm', affil: 'F', icon: 'op', planned: true }),
     picquet: () => ({ set: 'unit', affil: 'F', icon: 'inf', mods: ['mountain'], echelon: 'section', planned: true }),

@@ -92,7 +92,7 @@
       { key: 'grid.mgrsLabels', label: 'Grid line labels', type: 'select', def: 'principal', apply: 'grid',
         options: [['none', 'None'], ['principal', 'Principal digits (e.g. 47)'], ['full', 'Full easting / northing']] },
       { key: 'grid.squareIds', label: 'Label 100 km square identifiers', type: 'bool', def: true, apply: 'grid' },
-      { key: 'grid.mgrsColor', label: 'Grid colour', type: 'color', def: '#5d8ff0', apply: 'grid' },
+      { key: 'grid.mgrsColor', label: 'Grid colour', type: 'color', def: '#6aa8ff', apply: 'grid' },
       { key: 'grid.graticule', label: 'Lat / lon graticule', type: 'bool', def: false, apply: 'grid' },
       { key: 'grid.graticuleInterval', label: 'Graticule interval', type: 'select', def: 'auto', apply: 'grid',
         options: [['auto', 'Automatic'], [1, "1'"], [2, "2'"], [5, "5'"], [10, "10'"], [15, "15'"], [30, "30'"], [60, '1°']] },
@@ -105,7 +105,19 @@
       { key: 'grid.in3d', label: 'Drape grids on 3D terrain', type: 'bool', def: true, apply: 'grid' },
     ] },
     { id: 'map', title: 'Map display', items: [
-      { key: 'map.base', label: 'Default base layer', type: 'select', def: 'relief', apply: 'base',
+      { key: 'map.mode', label: 'Basemap', type: 'select', def: 'hybrid', apply: 'base',
+        options: [['hybrid', 'Hybrid — satellite + topographic (default)'], ['imagery', 'Satellite imagery only'], ['topo', 'Topographic / analysis (offline)']],
+        desc: 'Hybrid draws satellite imagery with hillshade, contours and the terrain symbology on top. Where imagery is unavailable (offline, synthetic terrain) a clearly labelled simulated terrain colouring is used instead.' },
+      { key: 'map.imagerySource', label: 'Imagery source', type: 'select', def: 'esri', apply: 'imagery',
+        options: [['esri', 'Esri World Imagery (internet)'], ['eox', 'Sentinel-2 cloudless 2020 — EOX (internet)'], ['custom', 'Custom XYZ tile server'], ['none', 'None — never request imagery']],
+        desc: 'Imagery is the only basemap content fetched from the network. Requests are made only for the extent of the loaded DEM.' },
+      { key: 'map.imageryUrl', label: 'Custom tile URL template', type: 'text', def: '', apply: 'imagery', desc: 'e.g. http://tileserver.local/sat/{z}/{x}/{y}.jpg — Web Mercator XYZ tiles; the server must allow CORS.' },
+      { key: 'map.imageryOpacity', label: 'Imagery opacity', type: 'number', def: 1, min: 0, max: 1, step: 0.05, apply: 'base' },
+      { key: 'map.hybridHillshade', label: 'Hillshade strength in hybrid', type: 'number', def: 0.45, min: 0, max: 1, step: 0.05, apply: 'base' },
+      { key: 'map.terrainOverlay', label: 'Terrain symbology opacity in hybrid', type: 'number', def: 0.5, min: 0, max: 1, step: 0.05, apply: 'base', desc: 'Opacity of slope / aspect / landform / ruggedness / elevation colours over imagery.' },
+      { key: 'map.contourHybridColor', label: 'Contour colour over imagery', type: 'color', def: '#8feaff', apply: 'base' },
+      { key: 'map.snowLineM', label: 'High-altitude / snow tint above (0 = off)', type: 'number', def: 0, min: 0, max: 9000, step: 50, unit: 'm', apply: 'base', desc: 'Display only: an ice-white tint over cells above this elevation. It is not a snow-cover analysis.' },
+      { key: 'map.base', label: 'Terrain symbology', type: 'select', def: 'relief', apply: 'base',
         options: [['relief', 'Shaded relief'], ['elevation', 'Elevation (hypsometric)'], ['slope', 'Slope'], ['aspect', 'Aspect'], ['landform', 'Landforms'], ['tri', 'Ruggedness']] },
       { key: 'map.hsAzimuth', label: 'Hillshade sun azimuth', type: 'number', def: 315, min: 0, max: 359, step: 1, unit: '°', apply: 'hs' },
       { key: 'map.hsAltitude', label: 'Hillshade sun altitude', type: 'number', def: 45, min: 5, max: 85, step: 1, unit: '°', apply: 'hs' },
@@ -116,19 +128,24 @@
       { key: 'map.contourInterval', label: 'Contour interval', type: 'select', def: 0, apply: 'contours',
         options: [[0, 'Automatic'], [10, '10 m'], [20, '20 m'], [25, '25 m'], [40, '40 m'], [50, '50 m'], [100, '100 m'], [200, '200 m']] },
       { key: 'map.contourIndex', label: 'Index contour every', type: 'number', def: 5, min: 2, max: 10, step: 1, unit: 'lines', apply: 'contours' },
-      { key: 'map.contourColor', label: 'Contour colour', type: 'color', def: '#7a4a22', apply: 'base' },
+      { key: 'map.contourColor', label: 'Contour colour', type: 'color', def: '#28b7c5', apply: 'base' },
       { key: 'map.spotHeights', label: 'Spot heights & cols', type: 'bool', def: true, apply: 'grid' },
       { key: 'map.scaleBar', label: 'Scale bar', type: 'bool', def: true, apply: 'grid' },
-      { key: 'map.background', label: 'Map background', type: 'color', def: '#e9edf2', apply: 'grid' },
+      { key: 'map.background', label: 'Map background', type: 'color', def: '#071521', apply: 'grid' },
     ] },
     { id: 'sym', title: 'Symbology', items: [
-      { key: 'sym.size', label: 'Symbol size', type: 'number', def: 26, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
+      { key: 'sym.size', label: 'Symbol size', type: 'number', def: 30, min: 16, max: 64, step: 1, unit: 'px', apply: 'sym' },
+      { key: 'sym.unitConvention', label: 'Unit frame convention', type: 'select', def: 'mtneye', apply: 'sym',
+        options: [['mtneye', 'MtnEye overlay convention — goose eggs for platoon / company / battalion, squares for every HQ'], ['app6', 'APP-6(D) / 2525D frames (HQ shown with the standard HQ staff)']],
+        desc: 'The goose-egg and HQ-square frames are a custom cartographic display convention, not official APP-6(D) frames. HQ status always overrides the formation frame, so a headquarters is never drawn as a goose egg.' },
       { key: 'sym.colorMode', label: 'Affiliation colour mode (APP-6D)', type: 'select', def: 'light', apply: 'sym',
         options: [['light', 'Light (default)'], ['medium', 'Medium'], ['dark', 'Dark']] },
       { key: 'sym.filled', label: 'Filled frames', type: 'bool', def: true, apply: 'sym' },
       { key: 'sym.planned', label: 'Show suggestions as planned (dashed frame)', type: 'bool', def: true, apply: 'sym' },
       { key: 'sym.labels', label: 'Labels', type: 'bool', def: true, apply: 'sym' },
       { key: 'sym.labelSize', label: 'Label size', type: 'number', def: 12, min: 9, max: 18, step: 1, unit: 'px', apply: 'sym' },
+      { key: 'sym.autoSize', label: 'Smaller symbols when zoomed out (reduces clutter)', type: 'bool', def: true, apply: 'sym' },
+      { key: 'sym.declutter', label: 'Hide overlapping labels (zoom in to see them all)', type: 'bool', def: true, apply: 'sym' },
       { key: 'sym.routeColor', label: 'Own route colour', type: 'color', def: '#27c4ff', apply: 'sym' },
       { key: 'sym.avenueColor', label: 'Enemy avenue colour', type: 'color', def: '#ff3b30', apply: 'sym' },
       { key: 'sym.sectorColor', label: 'Arc-of-fire colour', type: 'color', def: '#1f6fff', apply: 'sym' },
@@ -153,7 +170,7 @@
       { key: 'v3.fov', label: 'Field of view', type: 'number', def: 45, min: 20, max: 80, step: 1, unit: '°', apply: '3d' },
       { key: 'v3.light', label: 'Sun lighting strength', type: 'number', def: 0.42, min: 0, max: 1, step: 0.05, apply: '3d' },
       { key: 'v3.haze', label: 'Atmospheric haze', type: 'number', def: 0.55, min: 0, max: 1, step: 0.05, apply: '3d' },
-      { key: 'v3.sky', label: 'Background', type: 'color', def: '#dfe6ee', apply: '3d' },
+      { key: 'v3.sky', label: 'Background', type: 'color', def: '#0a1c2a', apply: '3d' },
       { key: 'v3.skirts', label: 'Terrain block sides', type: 'bool', def: true, apply: '3d' },
       { key: 'v3.lift', label: 'Symbol leader height', type: 'number', def: 26, min: 0, max: 80, step: 1, unit: 'px', apply: '3d' },
       { key: 'v3.flySpeed', label: 'Fly-through speed', type: 'number', def: 260, min: 50, max: 2000, step: 10, unit: 'm/s', apply: 'none' },
@@ -240,10 +257,10 @@
       listeners.forEach((fn) => fn(ks));
     },
     on(fn) { listeners.push(fn); },
-    exportJSON() { return JSON.stringify({ format: 'mtnai-settings', version: M.VERSION, values }, null, 2); },
+    exportJSON() { return JSON.stringify({ format: 'mtneye-settings', version: M.VERSION, values }, null, 2); },
     importJSON(text) {
       const o = JSON.parse(text);
-      if (o.format !== 'mtnai-settings') throw new Error('Not an MtnEye settings file.');
+      if (o.format !== 'mtneye-settings' && o.format !== 'mtnai-settings') throw new Error('Not an MtnEye settings file.');
       const ks = Object.keys(values).concat(Object.keys(o.values || {}));
       values = Object.assign({}, o.values);
       persist();
@@ -290,10 +307,10 @@
     const rows = Object.values(M.MOVEMENT_PROFILES).map((p) => {
       const o = ov[p.id] || {};
       const cell = (k, step) => `<input type="number" step="${step}" data-prof="${p.id}" data-pk="${k}" value="${o[k] ?? p[k]}" class="${o[k] !== undefined && o[k] !== p[k] ? 'mod' : ''}">`;
-      return `<tr><td>${esc(p.name)}</td><td>${cell('go', 1)}</td><td>${cell('slow', 1)}</td><td>${cell('speed', 0.5)}</td><td>${cell('road', 0.5)}</td></tr>`;
+      return `<tr><td>${esc(p.name)}<br><small class="hint">${esc(p.src || '')}</small></td><td>${cell('go', 0.1)}</td><td>${cell('slow', 0.1)}</td><td>${cell('speed', 0.5)}</td><td>${cell('road', 0.5)}</td></tr>`;
     }).join('');
-    return `<p class="hint">Slope limits (degrees) for GO and SLOW-GO, and speeds (km/h) cross-country and on digitised tracks. Used by mobility, routing, access and avenues of approach.</p>
-      <table class="ed"><thead><tr><th>Movement class</th><th>GO ≤ °</th><th>SLOW-GO ≤ °</th><th>X-country km/h</th><th>Track km/h</th></tr></thead><tbody>${rows}</tbody></table>
+    return `<p class="hint">Slope limits (degrees): GO below the first value, SLOW-GO up to the second, NO-GO from the second. Defaults follow the IPB Basic Book — GO below 30 % (16.7°), SLOW-GO 30–45 %, NO-GO 45 % (24.2°) or more — for infantry, mules and tracked vehicles; wheeled-vehicle limits are planning values. Speeds (km/h) cross-country and on digitised tracks. Used by mobility, routing, access and avenues of approach.</p>
+      <table class="ed"><thead><tr><th>Movement class</th><th>GO &lt; °</th><th>NO-GO ≥ °</th><th>X-country km/h</th><th>Track km/h</th></tr></thead><tbody>${rows}</tbody></table>
       <button class="btn" data-reset-editor="profiles">Restore defaults</button>`;
   };
 

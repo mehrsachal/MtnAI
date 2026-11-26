@@ -100,7 +100,7 @@
   };
 
   /** GeoJSON FeatureCollection -> {filename: Uint8Array} for each non-empty geometry layer. */
-  M.geojsonToShapefiles = (fc, base = 'mtnai') => {
+  M.geojsonToShapefiles = (fc, base = 'mtneye') => {
     const groups = { points: { kind: 1, recs: [], props: [] }, lines: { kind: 3, recs: [], props: [] }, polygons: { kind: 5, recs: [], props: [] } };
     const flat = (p) => Object.fromEntries(Object.entries(p || {}).map(([k, v]) => [k, Array.isArray(v) ? v.join(',') : v]));
     const ringCW = (ring) => { // shapefile outer rings are clockwise

@@ -71,6 +71,8 @@ test('route: GSP times and a route card whose legs add up to the route', () => {
   assert.ok(rt.card.length >= Math.floor(rt.lengthM / 1000));
 });
 
-test('mule movement class: loaded mule climbs what a man can without hands (SLOW-GO ≤ 30°)', () => {
-  assert.equal(M.MOVEMENT_PROFILES.mule.slow, 30);
+test('mule movement class: loaded mule climbs what a man can without hands (same IPB limits as infantry)', () => {
+  assert.equal(M.MOVEMENT_PROFILES.mule.slow, M.MOVEMENT_PROFILES.foot.slow);
+  assert.equal(M.MOVEMENT_PROFILES.mule.go, M.MOVEMENT_PROFILES.foot.go);
+  assert.equal(M.MOVEMENT_PROFILES.foot.slow, M.IPB.slowDeg); // 45 % = 24.2°
 });

@@ -119,7 +119,8 @@
       const grade = dz / d;
       maxGrade = Math.max(maxGrade, Math.atan(Math.abs(grade)) * 57.2958);
       const onTrack = ctx.trackMask ? ctx.trackMask[b] === 1 : false;
-      time += d / (M.moveSpeed(prof, grade, slope[b], cls[b], z[b], onTrack) / 3.6);
+      // the slow-passage penalty (IPB: steep NO-GO crossed x4 slower) is real travel time; it is counted here too
+      time += (d / (M.moveSpeed(prof, grade, slope[b], cls[b], z[b], onTrack) / 3.6)) * (ctx.penalty ? ctx.penalty[b] : 1);
       if (cls[b] === 1) slowLen += d;
       if (ctx.exposure && ctx.exposure[b]) expLen += d;
       if (z[b] > zMax) zMax = z[b];
@@ -156,7 +157,9 @@
     const penalty = new Float32Array(g.w * g.h).fill(1);
     const rad = Math.max(2, Math.round((opts.separationM || M.CFG.altSepM) / g.cs));
     for (let i = 0; i < k + 2 && out.length < k; i++) {
-      const res = M.astar(g, Object.assign({}, ctx, { penalty: i ? penalty : null }), start, end,
+      let pen = ctx.penalty || null;
+      if (i) { if (ctx.penalty) { pen = new Float32Array(penalty.length); for (let q = 0; q < pen.length; q++) pen[q] = penalty[q] * ctx.penalty[q]; } else pen = penalty; }
+      const res = M.astar(g, Object.assign({}, ctx, { penalty: pen }), start, end,
         progress ? (p) => progress((out.length + p) / k) : null);
       if (!res) break;
       // overlap with existing routes
@@ -210,7 +213,7 @@
         const dist = mv.len * cs;
         const onTrack = ctx.trackMask ? ctx.trackMask[nb] === 1 : false;
         const v = M.moveSpeed(prof, (z[nb] - z[cur]) / dist, slope[nb], cls[nb], z[nb], onTrack) / 3.6;
-        const nt = tc + dist / v;
+        const nt = tc + (dist / v) * (ctx.penalty ? ctx.penalty[nb] : 1);
         if (nt < t[nb]) { t[nb] = nt; heap.push(nt, nb); }
       }
     }

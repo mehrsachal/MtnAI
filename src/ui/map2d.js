@@ -76,14 +76,26 @@
       ctx.strokeRect(x0, y0, g.w * this.view.scale, g.h * this.view.scale);
       const [c0, r0] = this.toCell(0, 0), [c1, r1] = this.toCell(this.W, this.H);
       UI.drawGrids(ctx, g, P, [c0, r0, c1, r1], { labels: true, viewW: this.W, viewH: this.H });
-      UI.labelsBegin(this.view.scale < 1.3 ? 1 : 0);
-      UI.drawFeatures(ctx, S, P);
+      // Declutter: feature labels are collected while the features draw, then placed after the
+      // symbols so they never cover a unit symbol or its name; overlapping ones are left out.
+      const declutter = UI.cfg('sym.declutter') !== false;
+      const deferred = [], boxes = [];
+      const realHalo = UI.haloText;
+      if (declutter) UI.haloText = (c2, t, x, y, o) => (t === ')(' ? realHalo(c2, t, x, y, o) : deferred.push([t, x, y, o]));
+      try { UI.drawFeatures(ctx, S, P); } finally { UI.haloText = realHalo; }
       UI.drawDraft(ctx, S, P);
       if (S.show.symbols) {
+        // symbols shrink when zoomed out (about 60 % of the set size at 50 m per pixel), full size when zoomed in
+        let size = +UI.cfg('sym.size');
+        if (UI.cfg('sym.autoSize') !== false) {
+          const mpp = g.cs / this.view.scale;
+          size *= Math.max(0.6, Math.min(1, 0.6 + 0.4 * Math.log2(50 / mpp) / 2));
+        }
         UI.drawSymbols(ctx, UI.symbolItems(S), (c, r) => { const [x, y] = this.toScreen(c, r); return { x, y }; },
-          { size: +UI.cfg('sym.size'), labels: S.show.labels && UI.cfg('sym.labels'), view: { w: this.W, h: this.H } });
+          { size, labels: S.show.labels && UI.cfg('sym.labels'), boxes });
       }
-      UI.labelsEnd(ctx);
+      for (const [t, x, y, o] of deferred) UI.placeText(ctx, t, x, y, o || {}, boxes, false);
+      if (UI.drawRouteMarks) UI.drawRouteMarks(ctx, S, P);
       if (UI.drawModelLayers) UI.drawModelLayers(ctx, P);
       this._hud(ctx, g);
       if (this.onRender) this.onRender();

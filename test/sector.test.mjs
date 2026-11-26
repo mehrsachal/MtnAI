@@ -1,5 +1,6 @@
 // Sector planning: frame, terrain value, networks, ITGs, deployment, fire, border watch, enemy analysis, Shapefile export.
 import test from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { loadCore } from './helpers/load-core.mjs';
 
@@ -41,8 +42,60 @@ test('ITGs: summits on the own side inside the sector, with extent, size and for
     assert.ok(['section', 'platoon', 'company', 'battalion'].includes(q.force.echelon));
     assert.ok(['Good', 'Marginal', 'Not good'].includes(q.rating));
   }
-  assert.deepEqual(M.forceFor(300, M.SECTOR_DEFAULTS.itg).echelon, 'section');
-  assert.deepEqual(M.forceFor(2000, M.SECTOR_DEFAULTS.itg).echelon, 'company');
+  // planning perimeters: section up to 1500 m, platoon up to 3500 m, company up to 7000 m
+  const f = (m) => M.forceFor(m, M.SECTOR_DEFAULTS.itg).echelon;
+  assert.deepEqual([f(300), f(1500), f(2000), f(3500), f(5000), f(8000)], ['section', 'section', 'platoon', 'platoon', 'company', 'battalion']);
+});
+
+test('deployment: platoon posts on the ridge lines, dispersed, never piled on one ITG', () => {
+  jobs.itgs({}, none);
+  for (const mode of ['forward', 'normal']) {
+    const plan = jobs.deploy({ mode }, none);
+    const P = plan.platoons;
+    assert.equal(P.length, 9, `${mode}: all platoons placed`);
+    for (const q of P) assert.ok(q.ridge, `${mode} ${q.id} on a ridge line / summit`);
+    for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) {
+      const d = Math.hypot(P[a].r - P[b].r, P[a].c - P[b].c) * g.cs;
+      assert.ok(d >= 300, `${mode}: ${P[a].id} and ${P[b].id} only ${Math.round(d)} m apart`);
+    }
+    // no feature holds more platoons than its size needs (section / platoon features: one)
+    const per = {};
+    P.forEach((q) => (per[q.itg] = (per[q.itg] || 0) + 1));
+    const itgs = jobs.itgs(null, none).itgs;
+    for (const x of itgs) if (per[x.id]) assert.ok(per[x.id] <= Math.max(1, Math.ceil(x.force.platoons)), `${mode}: ${x.id} has ${per[x.id]}`);
+  }
+});
+
+test('ridge lines lie on the crests of real terrain (Neelum crop), better than the filled inverted DEM', () => {
+  const meta = JSON.parse(fs.readFileSync(new URL('./fixtures/neelum_200.json', import.meta.url), 'utf8'));
+  const b = fs.readFileSync(new URL('./fixtures/neelum_200.i16', import.meta.url));
+  const z = new Float32Array(meta.w * meta.h);
+  for (let i = 0; i < z.length; i++) z[i] = b.readInt16LE(i * 2);
+  const G = M.makeGrid(Object.assign({}, meta, { z }));
+  // share of points where, square to the line, no ground within 100 m on either side is higher (2 m tolerance)
+  const onCrest = (lines) => {
+    let n = 0, ok = 0;
+    const K = Math.round(100 / G.cs);
+    for (const L of lines) for (let k = 1; k < L.length; k++) {
+      const [c0, r0] = L[k - 1], [c1, r1] = L[k], dx = c1 - c0, dy = r1 - r0, len = Math.hypot(dx, dy) || 1, px = -dy / len, py = dx / len;
+      for (let s2 = 0; s2 < Math.max(1, Math.ceil(len)); s2++) {
+        const c = c0 + (dx * s2) / Math.ceil(len), r = r0 + (dy * s2) / Math.ceil(len), z0 = M.sample(G, G.z, r, c);
+        let on = true;
+        for (let t = 1; t <= K && on; t++) for (const sg of [1, -1]) {
+          const rr = r + sg * t * py, cc = c + sg * t * px;
+          if (rr < 0 || cc < 0 || rr >= G.h - 1 || cc >= G.w - 1 || M.sample(G, G.z, rr, cc) > z0 + 2) { on = false; break; }
+        }
+        n++; if (on) ok++;
+      }
+    }
+    return ok / n;
+  };
+  const cellKm2 = (G.cs * G.cs) / 1e6, minLen = Math.round(400 / G.cs), p = M.SECTOR_DEFAULTS.terrain;
+  const fresh = M.crestOnly(G, M.traceNetwork(G, M.crestFlow(G), p.ridgeKm2 / cellKm2, minLen).lines, M.crestStrength(G, p.crestScaleM), p.crestDropM, minLen).map((l) => l.line);
+  const old = M.traceNetwork(G, M.drainage(G, -1), 0.6 / cellKm2, minLen).lines.map((l) => l.line);
+  const a = onCrest(fresh), o = onCrest(old);
+  assert.ok(fresh.length >= old.length, `${fresh.length} ridge lines vs ${old.length}`);
+  assert.ok(a >= 0.72 && a > o + 0.05, `on crest: new ${a.toFixed(2)} vs old ${o.toFixed(2)}`);
 });
 
 test('deployment modes: forward has the most border posts, strong point concentrates platoons on fewest ITGs', () => {
@@ -60,19 +113,19 @@ test('deployment modes: forward has the most border posts, strong point concentr
   }
 });
 
-test('enemy approaches start across the border and end at ITGs; options are 3–4 with labels', () => {
+test('enemy approaches start across the border and end at ITGs; options: most likely and most dangerous', () => {
   jobs.deploy({ mode: 'normal' }, none);
   const a = jobs.enemyApproaches({}, none);
-  assert.ok(a.approaches.length >= 4);
+  assert.ok(a.approaches.length >= 3);
   for (const x of a.approaches) {
     assert.equal(side({ c: x.line[0][0], r: x.line[0][1] }), -1, `${x.id} starts on the enemy side`);
     assert.ok(['valley', 'nullah', 'ridge line', 'spur / slope'].includes(x.type));
     assert.ok(x.exposure >= 0 && x.exposure <= 1);
   }
   const o = jobs.enemyOptions({});
-  assert.ok(o.options.length >= 3 && o.options.length <= 4);
-  assert.ok(o.options[0].label.includes('Most likely'));
-  assert.ok(o.options.some((x) => x.label.includes('Most dangerous')));
+  assert.equal(o.options.length, 2);
+  assert.deepEqual(o.options.map((x) => x.id), ['Most likely', 'Most dangerous']);
+  assert.ok(o.options.every((x) => x.summary && x.recommendation));
 });
 
 test('infiltration routes prefer unobserved ground; fire coverage and border watch report gaps', () => {

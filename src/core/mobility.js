@@ -15,34 +15,44 @@
   M.CLASS_NAMES = ['GO', 'SLOW-GO', 'NO-GO'];
 
   /**
-   * Movement classes relevant to mountain operations. Slope limits are indicative
-   * planning values; units should refine them from local trials.
-   *   go / slow: max slope (deg) for GO and SLOW-GO
+   * IPB Basic Book, terrain classification (para on obstacles / GO, SLOW-GO, NO-GO):
+   *   GO       slopes less than 30 percent
+   *   SLOW-GO  slopes of 30 to 45 percent uphill (directional)
+   *   NO-GO    slopes of 45 percent or greater uphill (directional)
+   *   elevation variation per km: GO 0-100 m, SLOW-GO 100-200 m, NO-GO 200-400 m
+   * 30 % = 16.7 deg, 45 % = 24.2 deg. The IPB slope rule is applied to infantry, animal
+   * transport (GSP Mountain Warfare Annex H: a loaded mule climbs any slope a man can
+   * negotiate without using his hands) and tracked vehicles. The IPB gives no separate
+   * figures for wheeled vehicles, so their limits remain planning values (editable).
+   *   go / slow: max slope (deg) for GO and SLOW-GO; src: where the limit comes from
    *   speed: cross-country speed on level GO ground (km/h); road: speed on tracks
    */
+  M.pctToDeg = (p) => Math.round(Math.atan(p / 100) * 57.29577951308232 * 10) / 10;
+  M.IPB = { goPct: 30, slowPct: 45, goDeg: M.pctToDeg(30), slowDeg: M.pctToDeg(45), reliefSlowM: 100, reliefNogoM: 200 };
   M.MOVEMENT_PROFILES = {
-    foot: { id: 'foot', name: 'Infantry (dismounted, laden)', kind: 'foot', go: 20, slow: 40, speed: 4.5, road: 5, color: '#4fc3f7' },
-    // GSP Annex H: a loaded mule can climb any slope a man can negotiate without using his hands.
-    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: 15, slow: 30, speed: 3.5, road: 4.5, color: '#ffb74d' },
-    jeep: { id: 'jeep', name: 'Light vehicle (jeep / 4x4)', kind: 'vehicle', go: 10, slow: 20, speed: 20, road: 35, color: '#aed581' },
-    truck: { id: 'truck', name: 'Truck / towed gun', kind: 'vehicle', go: 6, slow: 12, speed: 12, road: 30, color: '#ce93d8' },
-    tracked: { id: 'tracked', name: 'Tracked (tank / APC)', kind: 'vehicle', go: 15, slow: 30, speed: 18, road: 30, color: '#ef9a9a' },
+    foot: { id: 'foot', name: 'Infantry (dismounted, laden)', kind: 'foot', go: M.IPB.goDeg, slow: M.IPB.slowDeg, speed: 4.5, road: 5, color: '#4fc3f7', src: 'IPB' },
+    mule: { id: 'mule', name: 'Mule / Animal Transport', kind: 'foot', go: M.IPB.goDeg, slow: M.IPB.slowDeg, speed: 3.5, road: 4.5, color: '#ffb74d', src: 'IPB + GSP Annex H' },
+    jeep: { id: 'jeep', name: 'Light vehicle (jeep / 4x4)', kind: 'vehicle', go: 10, slow: 20, speed: 20, road: 35, color: '#aed581', src: 'Planning value' },
+    truck: { id: 'truck', name: 'Truck / towed gun', kind: 'vehicle', go: 6, slow: 12, speed: 12, road: 30, color: '#ce93d8', src: 'Planning value' },
+    tracked: { id: 'tracked', name: 'Tracked (tank / APC)', kind: 'vehicle', go: M.IPB.goDeg, slow: M.IPB.slowDeg, speed: 18, road: 30, color: '#ef9a9a', src: 'IPB' },
   };
 
   M.profile = (id, overrides) => Object.assign({}, M.MOVEMENT_PROFILES[id] || M.MOVEMENT_PROFILES.foot, overrides || {});
 
   /**
    * Classify every cell. ctx: {slope, z, obstacleMask?, trackMask?}
-   * opts: {snowLine (m, 0 = off), generalize (bool)}
+   * opts: {snowLine (m, 0 = off), generalize (bool), relief (bool: IPB elevation variation per km)}
    */
   M.classifyMobility = (g, ctx, prof, opts = {}) => {
     const n = g.w * g.h;
     const cls = new Uint8Array(n);
     const { slope, z } = ctx;
     const snow = opts.snowLine > 0 ? opts.snowLine : Infinity;
+    const rel = opts.relief ? M.localRelief(g, 1000) : null;
     for (let i = 0; i < n; i++) {
       const s = slope[i];
-      let k = s <= prof.go ? 0 : s <= prof.slow ? 1 : 2;
+      let k = s < prof.go ? 0 : s < prof.slow ? 1 : 2;   // IPB: GO below 30 %, SLOW-GO 30-45 %, NO-GO 45 % or more
+      if (rel) k = Math.max(k, rel[i] >= M.IPB.reliefNogoM ? 2 : rel[i] >= M.IPB.reliefSlowM ? 1 : 0);
       if (z[i] >= snow) k = prof.kind === 'vehicle' ? 2 : Math.min(2, k + 1);
       cls[i] = k;
     }
@@ -50,6 +60,38 @@
     if (ctx.obstacleMask) for (let i = 0; i < n; i++) if (ctx.obstacleMask[i]) out[i] = 2;
     if (ctx.trackMask) for (let i = 0; i < n; i++) if (ctx.trackMask[i] && !(ctx.obstacleMask && ctx.obstacleMask[i])) out[i] = 0;
     return out;
+  };
+
+  /** Elevation variation (m) inside a square window of `sizeM` metres around each cell (max - min). IPB: per kilometre. */
+  M.localRelief = (g, sizeM = 1000) => {
+    const { w, h, z } = g;
+    const r = Math.max(1, Math.round(sizeM / g.cs / 2));
+    const run = (src, out, len, count, stride, step, isMax) => {
+      const buf = new Float32Array(len);
+      for (let k = 0; k < count; k++) {
+        const base = k * stride;
+        for (let i = 0; i < len; i++) buf[i] = src[base + i * step];
+        // van Herk / Gil-Werman style is overkill here; a deque keeps it O(len)
+        const dq = new Int32Array(len); let hd = 0, tl = 0;
+        for (let i = 0; i < len + r; i++) {
+          if (i < len) {
+            const v = buf[i];
+            while (tl > hd && (isMax ? buf[dq[tl - 1]] <= v : buf[dq[tl - 1]] >= v)) tl--;
+            dq[tl++] = i;
+          }
+          const c = i - r;
+          if (c >= 0) {
+            while (dq[hd] < c - r) hd++;
+            out[base + c * step] = buf[dq[hd]];
+          }
+        }
+      }
+    };
+    const n = w * h, mx = new Float32Array(n), mn = new Float32Array(n), t = new Float32Array(n);
+    run(z, t, w, h, w, 1, true); run(t, mx, h, w, 1, w, true);
+    run(z, t, w, h, w, 1, false); run(t, mn, h, w, 1, w, false);
+    for (let i = 0; i < n; i++) mx[i] -= mn[i];
+    return mx;
   };
 
   /** 3x3 majority filter that never removes No-Go cliffs (keeps max if tie). */

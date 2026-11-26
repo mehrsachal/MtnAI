@@ -55,8 +55,8 @@ const { chromium } = require('playwright');
     }, spec);
   }
   await p.waitForTimeout(500);
-  await p.click('#rbTabs [data-rbtab=sector]');
-  await p.click('#rbBody [data-cmd="gp:sectorAll"]');
+  await p.evaluate(() => MTN_UI.app.runCmd('gp:sectorAll'));
+  await p.waitForTimeout(300);
   const n1 = await p.evaluate(() => MTN_UI.jobSeq);
   await p.click('#gpPane [data-run]');
   await p.waitForFunction(() => { const m = document.querySelector('#gpPane .gp-msg'); return m && !m.classList.contains('run'); }, null, { timeout: 900000 });
@@ -67,7 +67,7 @@ const { chromium } = require('playwright');
   // a cleaner map: hide rasters and enemy options, show plan
   await p.evaluate(() => { const S = MTN_UI.S; S.overlays.dominance.visible = false; S.overlays.firecov.visible = false; S.show.eopts = false; S.show.infil = false; MTN_UI.app.runCmd('fit'); });
   await p.evaluate(() => MTN_UI.app.select && MTN_UI.app.showRightTab('attr'));
-  await p.click('#rbTabs [data-rbtab=map]'); await p.evaluate(() => MTN_UI.app.runCmd('attrTable'));
+  await p.evaluate(() => MTN_UI.app.runCmd('attrTable'));
   await p.selectOption('#attrLayer', 'plan').catch(() => {});
   await p.evaluate(() => { const S = MTN_UI.S; S.overlays.dominance.visible = false; MTN_UI.app.map.render(); });
   await p.waitForTimeout(400);

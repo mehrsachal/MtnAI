@@ -52,10 +52,11 @@
   const GEOM = [{ k: 'sector', type: 'geom' }, { k: 'border', type: 'geom' }];
   const DEPLOY_PARAMS = [
     { k: 'mode', label: 'Deployment mode', type: 'select', def: 'normal', options: () => Object.entries(M.DEPLOY_MODES).map(([k, m]) => [k, m.name]),
-      help: 'Forward: strength on the border posts. Normal: tiered in depth (valley, mid slope, ridge). Strong point: company strong points on the most dominating ITGs (GSP Sec 12–13).' },
+      help: 'All platoon posts go on the ridge lines (crests), dispersed. Forward: most platoons on the ridge lines nearest the border (70 % forward band, 30 % intermediate). Normal: tiered in depth along the ridge lines (55 % forward, 25 % intermediate, 20 % in depth — GSP Sec 12 para 8). Strong point: each company holds one of the most dominating ITGs, its platoons on the ridge lines of that feature (GSP Sec 12 para 9). Good / Marginal ITGs are held first; no ITG gets more platoons than its size needs.' },
     { k: 'companies', label: 'Companies', type: 'number', def: SD.plan.companies, min: 1, max: 9, step: 1 },
     { k: 'platoonsPerCompany', label: 'Platoons per company', type: 'number', def: SD.plan.platoonsPerCompany, min: 1, max: 4, step: 1 },
-    sec('Border posts'),
+    { k: 'platoonSepM', label: 'Minimum distance between platoon posts', type: 'number', def: SD.plan.platoonSepM, min: 200, max: 5000, step: 50, unit: 'm', help: 'Dispersion: no two platoon posts closer than this (relaxed step by step only if the ridge lines leave no room). Strong point mode uses 400 m inside a company strong point.' },
+        sec('Border posts'),
     { k: 'borderPostSpacingM', label: 'Spacing along the border (0 = by mode)', type: 'number', def: 0, min: 0, max: 10000, step: 100, unit: 'm', help: 'Mode defaults: forward 1000 m, normal 1500 m, strong point 2500 m.' },
     { k: 'borderPostDepthM', label: 'Maximum depth behind the border (0 = by mode)', type: 'number', def: 0, min: 0, max: 5000, step: 50, unit: 'm' },
     { k: 'maxPostSlope', label: 'Maximum post slope', type: 'number', def: SD.plan.maxPostSlope, min: 5, max: 60, step: 1, unit: '°' },
@@ -96,7 +97,7 @@
     },
     itgs: {
       name: 'ITGs (Important Terrain Grounds)', icon: 'peak',
-      desc: 'Picks the key ground to hold: dominating summits inside the sector on the own side, with their extent, size, observation over approaches and nullahs, distance from the border, and the force needed to hold each.',
+      desc: 'Picks the key ground to hold: dominating summits inside the sector on our side, covering the approaches (GSP Sec 12 para 4c), with their extent, size, observation over the approaches and nullahs, distance from the border, and the force needed to hold each.',
       gsp: 'GSP Sec 4 para 7: at brigade level and below, objectives are the seizure or retention of specific dominating heights. Sec 12 para 9: strong points on the most dominating features.',
       params: [...GEOM,
         { k: 'count', label: 'Number of ITGs', type: 'number', def: SD.itg.count, min: 1, max: 40, step: 1 },
@@ -167,9 +168,9 @@
     },
     enemyOptions: {
       name: 'Enemy Courses of Action', icon: 'axis',
-      desc: 'Combines objectives (ITGs) and enemy approaches into 3–4 enemy options, each with a main and supporting thrust, scored for cover, speed, multi-direction and the value of the objective. Marks the most likely and most dangerous.',
-      gsp: 'GSP Sec 7 para 13: attacks in mountains develop multiple threats — isolation, infiltration and multi-directional assault using nullahs and folds.',
-      params: [{ k: 'options', label: 'Options to present', type: 'number', def: SD.enemy.options, min: 1, max: 6, step: 1 }],
+      desc: 'Two enemy courses of action, as the GSP describes the attacker\u2019s objectives. MOST LIKELY: seize the dominating height (ITG) easiest to reach — least observed, quickest approach (GSP march time), with a second direction if the ground offers one. MOST DANGEROUS: seize the height that dominates our defences — it overlooks the most of our posts and HQs, stands above them and lies on their flank or rear — combined with infiltration to the rear.',
+      gsp: 'GSP Sec 4 para 7: tasks are the seizure of specific dominating heights. Sec 7 para 3 and Sec 9 para 7: objectives are hill features on the flanks and in the rear that dominate the defences; their capture isolates them, cuts the routes of withdrawal, supplies and reinforcements, and may force the defender to abandon a locality without a fight. Sec 7 para 13a: multi-directional threat. Sec 10 para 4: infiltration to the rear — HQs, gun areas, lines of communication.',
+      params: [],
     },
     downloadDEM: {
       name: 'Download DEM', icon: 'download',
@@ -218,15 +219,16 @@
     },
     mobility: {
       name: 'Go / No-Go (Mobility)', icon: 'mobility',
-      gsp: 'GSP Sec 4 para 8–13: mobility is the key-note; vehicles keep to valley roads, cross-compartment travel is often impossible. A loaded mule can climb any slope a man can negotiate without using his hands (Annex H).',
-      desc: 'Classifies cross-country movement into GO / SLOW-GO / NO-GO for a movement class from slope, snow line and digitised obstacles / tracks.',
+      gsp: 'IPB Basic Book (terrain classification): GO — slopes less than 30 %; SLOW-GO — 30 to 45 % uphill; NO-GO — 45 % or more uphill; elevation variation per km GO 0–100 m, SLOW-GO 100–200 m, NO-GO 200–400 m. Rivers, obstacles and minefields are NO-GO (draw them as No-Go areas). GSP Mountain Warfare Sec 4 para 13a: surface, gradient of slopes and vegetation govern route selection; Annex H para 5: a loaded mule climbs any slope a man can negotiate without using his hands.',
+      desc: 'Classifies cross-country movement into GO / SLOW-GO / NO-GO for a movement class using the IPB slope limits (30 % and 45 %), the snow line, the IPB elevation-variation rule (optional) and digitised obstacles / tracks.',
       params: [
         { k: 'profile', label: 'Movement class', type: 'select', def: 'foot', options: profOpts },
-        { k: 'go', label: 'GO — maximum slope', type: 'number', def: null, min: 1, max: 70, step: 1, unit: '°', dynamic: (v) => UI.app.profileOf(v.profile).go },
-        { k: 'slow', label: 'SLOW-GO — maximum slope', type: 'number', def: null, min: 2, max: 80, step: 1, unit: '°', dynamic: (v) => UI.app.profileOf(v.profile).slow },
+        { k: 'go', label: 'GO — below this slope (IPB 30 % = 16.7°)', type: 'number', def: null, min: 1, max: 70, step: 0.1, unit: '°', dynamic: (v) => UI.app.profileOf(v.profile).go },
+        { k: 'slow', label: 'NO-GO — from this slope (IPB 45 % = 24.2°)', type: 'number', def: null, min: 2, max: 80, step: 0.1, unit: '°', dynamic: (v) => UI.app.profileOf(v.profile).slow },
         { k: 'speed', label: 'Cross-country speed (level GO)', type: 'number', def: null, min: 0.5, max: 80, step: 0.5, unit: 'km/h', dynamic: (v) => UI.app.profileOf(v.profile).speed },
         { k: 'road', label: 'Speed on tracks', type: 'number', def: null, min: 0.5, max: 120, step: 0.5, unit: 'km/h', dynamic: (v) => UI.app.profileOf(v.profile).road },
         { k: 'snowLine', label: 'Snow line (0 = off)', type: 'number', def: 0, min: 0, max: 9000, step: 100, unit: 'm', help: 'Above it vehicles are NO-GO and foot movement drops one class.' },
+        { k: 'relief', label: 'IPB elevation-variation rule (per km)', type: 'bool', def: false, help: 'IPB: 100–200 m height change within a kilometre is SLOW-GO, 200 m or more is NO-GO. Written for general terrain; in high mountains it marks most ground NO-GO, so it is off by default.' },
         { k: 'generalize', label: 'Generalise (3×3 majority filter)', type: 'bool', def: false },
       ],
     },
@@ -389,7 +391,7 @@
         sec('Obstacle geometry', false),
         { k: 'maxGapM', label: 'Maximum gap width (0 = 600 AT / 300 AP)', type: 'number', def: 0, min: 0, max: 5000, step: 25, unit: 'm' },
         { k: 'depthM', label: 'Depth (0 = 100 AT / 40 AP)', type: 'number', def: 0, min: 0, max: 2000, step: 5, unit: 'm' },
-        { k: 'densityPerM', label: 'Density (0 = 1 AT / 3 AP)', type: 'number', def: 0, min: 0, max: 20, step: 0.25, unit: 'mines/m' },
+        { k: 'densityPerM', label: 'Density (0 = mountain default, 1 per m)', type: 'number', def: 0, min: 0, max: 20, step: 0.25, unit: 'mines/m' },
         { k: 'tieM', label: 'Tie-in into NO-GO ground', type: 'number', def: () => cfg('an.mfdTieM'), min: 0, max: 500, step: 5, unit: 'm' },
         sec('Siting constraints'),
         { k: 'minDistOwnM', label: 'Nearest to own troops (0 = 300 AT / 80 AP)', type: 'number', def: D.mfd.minDistOwnM, min: 0, max: 20000, step: 50, unit: 'm' },
@@ -585,7 +587,7 @@
     const el = document.getElementById('gpPane');
     const scroll = (el.querySelector('.gp-form') || {}).scrollTop || 0;
     let html = `<div class="gp-head"><button class="ghost-ic" data-back title="Back to toolboxes">‹</button><span>${esc(t.name)}</span><button class="ghost-ic" data-help title="Tool help">?</button></div>
-      <div class="gp-desc" hidden>${esc(t.desc)}</div>${t.gsp ? `<div class="gp-gsp" title="Click to expand / collapse"><b>Doctrine</b> ${esc(t.gsp)}</div>` : ''}<div class="gp-tabs"><span class="on">Parameters</span><button class="link" data-env>Environments…</button></div><div class="gp-form">`;
+      <div class="gp-desc" hidden>${esc(t.desc)}</div>${t.gsp ? `<div class="gp-gsp" title="Click to expand / collapse"><b>Doctrine</b> ${esc(t.gsp)}</div>` : ''}<div class="gp-tabs"><span class="on">Parameters</span>${UI.EXPLAIN_TOPICS && UI.EXPLAIN_TOPICS[id] ? '<button class="link" data-gpex title="Method, inputs, assumptions and references">Explain method</button>' : ''}<button class="link" data-env style="margin-left:${UI.EXPLAIN_TOPICS && UI.EXPLAIN_TOPICS[id] ? '10px' : 'auto'}">Environments…</button></div><div class="gp-form">`;
     let inSec = false, secId = '';
     for (const p of t.params) {
       if (p.show && !p.show(v)) continue;
@@ -612,7 +614,7 @@
     }
     if (inSec) html += '</div>';
     const msg = lastMsg[id];
-    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}${!msg.running && UI.M.MODEL_FOR_TOOL[id] ? `<button class="btn gp-explain" data-explain="${id}">Open as a model (ModelBuilder) — see each GIS step</button>` : ''}</div>` : ''}
+    html += `</div>${msg ? `<div class="gp-msg ${msg.err ? 'err' : msg.running ? 'run' : 'ok'}">${msg.running ? '<span class="pbar"><i id="gpBar"></i></span>' : ''}<b>${esc(msg.title)}</b>${msg.text ? `<div>${esc(msg.text).replace(/\n/g, '<br>')}</div>` : ''}${!msg.running && !msg.err && UI.EXPLAIN_TOPICS && UI.EXPLAIN_TOPICS[id] ? '<button class="btn sm ex-go" data-gpex>Explain this result</button>' : ''}${!msg.running && UI.M.MODEL_FOR_TOOL[id] ? `<button class="btn gp-explain" data-explain="${id}">Open as a model (ModelBuilder) — see each GIS step</button>` : ''}</div>` : ''}
       <div class="gp-foot"><button class="btn" data-reset>Reset parameters</button><span class="grow"></span><button class="btn primary" data-run ${msg && msg.running ? 'disabled' : ''}>Run</button></div>`;
     el.innerHTML = html;
     el.querySelector('.gp-form').scrollTop = scroll;
@@ -628,6 +630,9 @@
     const gs = el.querySelector('.gp-gsp');
     if (gs) gs.onclick = () => gs.classList.toggle('open');
     el.querySelector('[data-env]').onclick = () => UI.Settings.open('an');
+    el.querySelectorAll('[data-gpex]').forEach((b) => (b.onclick = () => UI.openExplain(id)));
+    const ex = el.querySelector('[data-explain]');
+    if (ex) ex.onclick = () => UI.MB.open(UI.M.MODEL_FOR_TOOL[id]);
     el.querySelectorAll('[data-k]').forEach((inp) => inp.addEventListener('change', () => {
       const p = t.params.find((x) => x.k === inp.dataset.k);
       let val = inp.type === 'checkbox' ? inp.checked : inp.value;
@@ -671,8 +676,6 @@
       lastMsg[id] = null; GP.render();
     };
     el.querySelector('[data-run]').onclick = () => GP.run(id);
-    const ex = el.querySelector('[data-explain]');
-    if (ex) ex.onclick = () => UI.MB.open(UI.M.MODEL_FOR_TOOL[id]);
   };
 
   /** Set one stored parameter value (e.g. a point picked with a ribbon tool). */
@@ -693,5 +696,6 @@
       if (GP.onResult) GP.onResult(id, e.message);
     }
     if (current === id) GP.render();
+    if (UI.onToolResult) UI.onToolResult(id, lastMsg[id]);
   };
 })(globalThis.MTN_UI = globalThis.MTN_UI || {});

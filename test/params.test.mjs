@@ -69,7 +69,10 @@ test('key terrain: maximum heights and passes are respected', () => {
 });
 
 test('minefields (AT): an obstacle plan — every field is delay-tested and the delays add up', () => {
-  const r = jobs.minefields({ type: 'AT', count: 3, candidates: 12 }, none);
+  // IPB limits: tanks cannot reach own position on the synthetic terrain at all — the tool says so
+  assert.throws(() => jobs.minefields({ type: 'AT', count: 3, candidates: 12 }, none), /cannot move by this means|cannot reach own position/);
+  // the delay test itself, against an enemy that can come (foot)
+  const r = jobs.minefields({ type: 'AT', profile: 'foot', count: 3, candidates: 12 }, none);
   assert.equal(r.purpose, 'barrier');
   assert.ok(r.fields.length >= 1);
   for (const f of r.fields) {

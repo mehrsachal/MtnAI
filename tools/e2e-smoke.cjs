@@ -50,7 +50,8 @@ const { chromium } = require('playwright');
   });
   await shot('posts');
   for (const w of ['mg3', 'baktar', 'mor81']) await gp('analysis', 'weapons', () => p.selectOption('#gpPane [data-k=weaponId]', w));
-  await gp('analysis', 'mfd');
+  // IPB slope limits: tanks cannot reach own position on the demo terrain (the tool says so) — plan AP fields against the infantry
+  await gp('analysis', 'mfd', () => p.selectOption('#gpPane [data-k=type]', 'AP'));
   await rbTab('map'); await p.evaluate(() => MTN_UI.app.runCmd('attrTable'));
   await p.click('#attrTable tbody tr:nth-child(3)');
   await shot('tactical');
