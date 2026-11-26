@@ -1,0 +1,75 @@
+const path = require('node:path'); const fs = require('node:fs');
+const { chromium } = require('playwright');
+const OUT = process.argv[2];
+(async () => {
+  const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY } : undefined;
+  const browser = await chromium.launch({ proxy, args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
+  const ctx = await browser.newContext({ viewport: { width: 1500, height: 940 }, deviceScaleFactor: 1.4, ignoreHTTPSErrors: true });
+  await ctx.addInitScript(() => { localStorage.setItem('mtnai.settings.v1', JSON.stringify({ 'ui.toastSec': 0.1 })); });
+  const p = await ctx.newPage();
+  const errors = []; p.on('pageerror', (e) => errors.push(e.message));
+  const stage = (n) => p.locator('#stage').screenshot({ path: `${OUT}/${n}.png` });
+  const full = (n) => p.screenshot({ path: `${OUT}/${n}.png` });
+  const run = async (tool, set) => { const msg = await p.evaluate(async ([t, s]) => { MTN_UI.app.runCmd('gp:' + t); for (const [k, v] of Object.entries(s || {})) MTN_UI.GP.set(t, k, v); await MTN_UI.GP.run(t); const m = document.querySelector('#gpPane .gp-msg'); return m ? m.textContent : ''; }, [tool, set]); if (/Failed/.test(msg)) console.log('FAILED', tool, msg.slice(0, 200)); await p.waitForTimeout(500); };
+  const only = async (show, ovl, fit = true) => { await p.evaluate(([sh, ov, f]) => { const S = MTN_UI.S; const keep = new Set(['symbols', 'labels', 'markers', 'secArea'].concat(sh));
+    Object.keys(S.show).forEach((k) => (S.show[k] = keep.has(k))); Object.entries(S.overlays).forEach(([k, o]) => (o.visible = ov.includes(k) && !!o.data)); MTN_UI.app.setView('2d'); if (f) MTN_UI.app.map.fit(); MTN_UI.app.refresh({ base: true }); }, [show, ovl, fit]); await p.waitForTimeout(900); };
+  // ---------------------------------------------------------------- demo terrain: tactical tools
+  await p.goto('file://' + path.resolve('index.html') + '#demo');
+  await p.waitForFunction(() => window.MTN_UI && MTN_UI.S.grid && MTN_UI.jobSeq >= 1, null, { timeout: 120000 });
+  await p.waitForTimeout(1500);
+  await full('01_workspace');
+  await run('mobility'); await only([], ['mobility']); await stage('03_mobility');
+  await run('keyTerrain'); await only(['key'], []); await stage('04_key');
+  const own = await p.evaluate(() => MTN_UI.S.markers.own), thr = await p.evaluate(() => MTN_UI.S.markers.threat);
+  await run('viewshed', { observer: { r: own.r, c: own.c } }); await only([], ['viewshed']); await stage('05_viewshed');
+  await run('los', { from: { r: own.r, c: own.c }, to: { r: thr.r, c: thr.c } }); await only(['los'], []); await p.evaluate(() => MTN_UI.app.runCmd('toggleDock')); await p.waitForTimeout(800); await full('06_los'); await p.evaluate(() => MTN_UI.app.runCmd('toggleDock'));
+  await run('hostile'); await only(['hostileOps'], ['hostile']); await stage('07_hostile');
+  await run('avenues'); await only(['avenues'], ['avenues']); await stage('08_avenues');
+  await run('posts'); await only(['posts'], ['cover', 'dead']); await stage('09_posts');
+  await run('weapons', { weaponId: 'mg3' }); await run('weapons', { weaponId: 'mor81' }); await only(['weapons'], ['wcover']); await stage('10_weapons');
+  await run('mfd', { type: 'AP' }); await only(['mfd', 'posts'], []); await stage('11_mfd');
+  await run('route'); await only(['routes'], []); await stage('12_route');
+  await p.evaluate(() => { MTN_UI.app.runCmd('routeCard'); }); await p.waitForTimeout(800); await full('13_routecard');
+  await run('picquets'); await only(['routes', 'picquets'], []); await stage('14_picquets');
+  await run('routeViewshed', { source: 'route' }); await only(['rvs'], ['routevs']); await stage('15_routevs');
+  await run('helipads'); await only(['helipads'], []); await stage('16_helipads');
+  await only(['routes', 'posts', 'picquets'], [], false); await p.evaluate(() => MTN_UI.app.setView('3d')); await p.waitForTimeout(3500); await stage('17_scene');
+  await p.evaluate(() => MTN_UI.app.setView('2d'));
+  // ModelBuilder and Explain
+  await p.evaluate(() => MTN_UI.MB.open('route')); await p.waitForTimeout(500);
+  await p.evaluate(() => MTN_UI.MB.run()); await p.waitForFunction(() => !MTN_UI.MB.running && MTN_UI.MB.rep, null, { timeout: 120000 }); await p.waitForTimeout(600);
+  await stage('18_modelbuilder');
+  await p.evaluate(() => MTN_UI.MB.brief('t5')); await p.waitForTimeout(1500); await stage('19_brief'); await p.evaluate(() => MTN_UI.MB.endBrief());
+  await p.evaluate(() => { MTN_UI.app.setView('2d'); MTN_UI.app.openExplain && MTN_UI.app.openExplain('route'); }); await p.waitForTimeout(1200); await full('20_explain');
+  // ---------------------------------------------------------------- real LoC sector (Neelum): sector tools
+  const spec = JSON.parse(fs.readFileSync('test/sectors/neelum.json', 'utf8'));
+  await p.goto('file://' + path.resolve('index.html'));
+  await p.waitForFunction(() => window.MTN_UI && MTN_UI.GP, null, { timeout: 60000 });
+  await p.evaluate(() => MTN_UI.app.runCmd('gp:downloadDEM')); await p.waitForTimeout(300);
+  await p.selectOption('#gpPane [data-k=zoom]', '12');
+  for (const [k, v] of [['center', spec.center], ['widthKm', spec.widthKm], ['heightKm', spec.heightKm]]) { await p.fill(`#gpPane [data-k=${k}]`, String(v)); await p.press(`#gpPane [data-k=${k}]`, 'Tab'); }
+  await full('02_download');
+  const n0 = await p.evaluate(() => MTN_UI.jobSeq);
+  await p.click('#gpPane [data-run]');
+  await p.waitForFunction((k) => MTN_UI.jobSeq > k + 1 && MTN_UI.S.grid, n0, { timeout: 300000 });
+  await p.evaluate((sp) => { const S = MTN_UI.S, M = MTN_UI.M; S.border = sp.border.map(([la, lo]) => { const q = M.latLonToCell(S.grid, la, lo); return [q.c, q.r]; }); const q = M.latLonToCell(S.grid, sp.own[0], sp.own[1]); S.markers.own = { c: Math.round(q.c), r: Math.round(q.r) }; }, spec);
+  await p.waitForTimeout(1500);
+  await run('sectorAll', { mode: 'normal' });
+  await only(['ridges', 'nullahs'], ['dominance']); await stage('21_terrain');
+  await only(['itgs'], []); await stage('22_itgs');
+  await only(['plan', 'itgs'], []); await stage('23_deploy');
+  await only(['plan', 'firegaps'], ['firecov']); await stage('24_firecov');
+  await only(['plan', 'bwatch'], []); await stage('25_border');
+  await only(['eappr', 'itgs'], []); await stage('26_eappr');
+  await only(['infil', 'plan'], []); await stage('27_infil');
+  await only(['eopts', 'itgs'], []); await stage('28_eopts');
+  await only(['plan', 'ridges'], [], false);
+  await p.evaluate(() => { MTN_UI.app.setView('3d'); }); await p.waitForTimeout(2000);
+  await p.evaluate(() => { const v3 = MTN_UI.app.v3, S = MTN_UI.S; const pl = S.sec.plan.platoons; const c = pl.reduce((a, q) => a + q.c, 0) / pl.length, r = pl.reduce((a, q) => a + q.r, 0) / pl.length; v3.lookAtCell(c, r, 6500); v3.render(); });
+  await p.waitForTimeout(2500); await stage('29_scene_plan');
+  const summary = await p.evaluate(() => { const X = MTN_UI.S.sec; return { itgs: X.itg.itgs.length, ridges: X.terr.ridges.length, plan: { bp: X.plan.borderPosts.length, pl: X.plan.platoons.length, co: X.plan.companies.length, troops: X.plan.troops, mode: X.plan.modeName },
+    appr: X.appr.approaches.length, infil: X.infil.routes.length, opts: X.opts.options.map((o) => o.id + ': ' + o.objective), watch: Math.round(X.watch.observedShare * 100) }; });
+  fs.writeFileSync(`${OUT}/summary.json`, JSON.stringify(summary, null, 1));
+  console.log(JSON.stringify(summary), 'errors', errors);
+  await browser.close();
+})();
